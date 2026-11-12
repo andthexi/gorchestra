@@ -1,9 +1,21 @@
 import { EquippedError } from 'equipped/errors'
 import { OrmMigrationError, type Migration } from 'equipped/orm'
-import { v, PipeError } from 'valleyed'
+import { v, PipeError, type PipeInput, type PipeOutput } from 'valleyed'
 
 import { dependenciesPipe, type CoreDependencies, type RuntimeDependencies, type StorageAdapter } from '../dependencies'
-import { inputIssues, factoryErrorPipe, setupErrorPipe, resultPipe, type Result, type FactoryError, type SetupError } from '../errors'
+import { attributionPipe } from '../domain/commons'
+import {
+	inputIssues,
+	factoryErrorPipe,
+	setupErrorPipe,
+	resultPipe,
+	type Result,
+	type FactoryError,
+	type SetupError,
+	type InvalidInputError,
+	type StorageOperationFailedError,
+} from '../errors'
+import { issuePortfolio, type Portfolio } from '../portfolio'
 import { Owner } from '../runtime/owner'
 import { migrations } from '../storage/migrations'
 
@@ -108,6 +120,25 @@ export class PortfolioClient {
 	}
 	shutdown() {
 		return this.#owner.shutdown()
+	}
+
+	as(
+		attribution: Pick<PipeInput<typeof attributionPipe>, 'by'> & Partial<Pick<PipeInput<typeof attributionPipe>, 'cid'>>,
+	): Result<Portfolio, InvalidInputError | StorageOperationFailedError> {
+		let parsed: PipeOutput<typeof attributionPipe> | PipeError
+		try {
+			parsed = v.compile(attributionPipe)(attribution)
+		} catch {
+			return { ok: false, error: { type: 'invalid-input', issues: [{ message: 'Invalid attribution.' }] } }
+		}
+		if (parsed instanceof PipeError) return { ok: false, error: { type: 'invalid-input', issues: inputIssues(parsed) } }
+		const release = this.#owner.admit()
+		if (!release) return { ok: false, error: { type: 'storage-operation-failed' } }
+		try {
+			return { ok: true, value: issuePortfolio(this.#owner, parsed) }
+		} finally {
+			release()
+		}
 	}
 
 	static async new<A extends StorageAdapter>(

@@ -4,17 +4,19 @@ Private ESM workspace package for the parallel Core foundation. The Server Consu
 
 The dependency boundary checks the concrete adapter and its resolver together; Core's internals use a fixed storage contract rather than exposing adapter-specific capabilities. Native catalog construction needs no type assertion.
 
+**Overlapping-operation acceptance is blocked by the installed Equipped 5.3.6 InMemory rollback defect.** An overlapping missing-Project lookup can roll back its snapshot after a separate Project creation has committed and returned success, deleting that acknowledged creation. This was reproduced through the public Portfolio API and native Repo/InMemory alone. [Equipped #148](https://github.com/andthexi/equipped/issues/148) is closed through merged [PR #178](https://github.com/andthexi/equipped/pull/178), but this installed release predates the fix. Other implementation work continues in draft while release consumption and overlap verification are deferred. Sequential tests do not establish isolation; no Core serialization workaround or weakened rollback contract is supplied.
+
 ## Public surface
 
 `PortfolioClient.new(dependencies)` returns a `Result` containing one privately constructed lifecycle view:
 
 - `PortfolioSetup`: `state: 'uninitialized'`, `setup()` and `shutdown()`.
-- `PortfolioClient`: `state: 'ready'` and `shutdown()`.
+- `PortfolioClient`: `state: 'ready'`, synchronous `as({ by, cid })` and `shutdown()`.
 - `PortfolioMigration`: `state: 'migration'` and `shutdown()`. A proper nonempty prefix needs multiple released migrations; the current catalog has one entry. Upgrade execution is not implemented yet.
 
-This is an intermediate lifecycle surface. There is no `as()`, attributed Portfolio facade, domain operation tree or `migrate()` yet; no placeholder methods are exposed. Secret callbacks are required dependencies but no implemented operation invokes them. Internal schemas, Repo, migration injection and owner controls are not Consumer APIs.
+`as()` returns a `Result` containing a privately constructed `Portfolio` with bound Project operations. The Portfolio has no lifecycle controls or rebinding method. Secret/Asset/Memory operations and `migrate()` are not implemented yet; no placeholder namespaces or methods are exposed. Secret callbacks are required dependencies but no implemented operation invokes them. Internal definitions, schemas, Repo, migration injection and owner controls are not Consumer APIs.
 
-Public types include `CoreDependencies<A>`, `FactoryError`, `SetupError`, `StorageOperationFailedError`, `Result<T, E>`, `SharedOperationError`, `Id`, `AuditStamp`, and the schema-derived `Project`, `Asset`, `Secret`, `Memory` and `MemoryRevision` records. `Secret` contains only safe metadata, never `valueRef` or raw values. Source owns the exact [dependency signatures](src/dependencies.ts), [lifecycle API](src/portfolio-client/index.ts) and [error unions](src/errors.ts).
+Public types include `CoreDependencies<A>`, `FactoryError`, `SetupError`, `InvalidInputError`, `StorageOperationFailedError`, `Result<T, E>`, `SharedOperationError`, `Id`, `AuditStamp`, and the schema-derived `Project`, `Asset`, `Secret`, `Memory` and `MemoryRevision` records. `Secret` contains only safe metadata, never `valueRef` or raw values. Source owns the exact [dependency signatures](src/dependencies.ts), [lifecycle API](src/portfolio-client/index.ts) and [error unions](src/errors.ts).
 
 ## Open, explicitly initialize, and close
 
@@ -69,15 +71,40 @@ Opening reads and validates the native ledger. Valid empty history requires nati
 
 `setup()` rechecks history and emptiness inside one outer native Repo session, applies the entire catalog, then validates the raw ledger as complete before permitting commit. Only successful commit returns a fresh ready client sharing the original owner. The retained setup view stays uninitialized and refuses another setup with `storage-already-initialized`. Setup failures unwind the transaction; native I/O failures are `storage-operation-failed`, unexpected authoring failures are `internal-error`, and history errors remain type-only. A resolved migration run with an incomplete or invalid ledger is a protocol failure: it aborts the outer transaction and keeps admission closed, while shutdown remains available. An ordinary post-run ledger read failure permits explicit setup retry after successful rollback.
 
-All views share shutdown admission and cleanup. Shutdown closes admission synchronously, drains admitted setup, and joins concurrent cleanup calls. Successful repeats do not disconnect again. A failed cleanup keeps admission closed and permits a later explicit shutdown retry without reconnecting or replaying work. Factory failures await cleanup before returning no capability; observable cleanup failure takes precedence. Same-owner callback reentry is unsupported; deployments must arrange non-overlapping maintenance.
+All views share shutdown admission and cleanup. Shutdown closes admission synchronously, drains admitted setup and domain operations, and joins concurrent cleanup calls. Successful repeats do not disconnect again. A failed cleanup keeps admission closed and permits a later explicit shutdown retry without reconnecting or replaying work. Factory failures await cleanup before returning no capability; observable cleanup failure takes precedence. Same-owner callback reentry is unsupported; deployments must arrange non-overlapping maintenance.
+
+## Attributed Project operations
+
+Given a ready `client`, binding validates and copies attribution synchronously without storage I/O. `by` is required; `cid` may be omitted or null. Both preserve exact strings, including empty strings and whitespace. Later mutation of the caller's object does not change bound attribution.
+
+```ts
+const bound = client.as({ by: 'consumer-authorized-actor', cid: 'request-reference' })
+if (!bound.ok) throw new Error(bound.error.type)
+const portfolio = bound.value
+const created = await portfolio.projects.create({ title: '  Example  ', spec: { type: 'source-control' } })
+if (!created.ok) throw new Error(created.error.type)
+const found = await portfolio.projects.find({ projectId: created.value.id })
+const { list } = portfolio.projects
+const listed = await list() // Detached calls retain the Portfolio binding.
+```
+
+| Operation         | Input                                         | Success value               | Specific failure beyond shared errors                    |
+| ----------------- | --------------------------------------------- | --------------------------- | -------------------------------------------------------- |
+| `projects.create` | `{ title, spec: { type: 'source-control' } }` | Project                     | None                                                     |
+| `projects.find`   | `{ projectId }`                               | Project                     | `not-found` with resource `project` and the requested ID |
+| `projects.list`   | No arguments                                  | Every Project, ID ascending | None                                                     |
+
+Creation generates one ID and one Core UTC audit stamp, trims the title and creates no implicit children. The [definition tree](src/operations/index.ts) supplies the actual runtime binding and inferred signatures; callers pass neither handler context nor metadata. Namespace and function properties are TypeScript-readonly, not runtime-frozen.
+
+Each operation parses input before admission, runs its full handler using native Repo in one transaction, and validates the complete Result before commit. Parsed success returns only after commit. Stored reads are validated before use; malformed rows fail the whole read/list rather than being skipped or repaired. Shared errors distinguish `invalid-input`, `invalid-storage-output`, `invalid-output`, `internal-error` and `storage-operation-failed`. A valid failure rolls back with an invocation-local signal; an unrecognized unwind or skipped/swallowed session protocol closes admission. Ordinary domain operations do not reread migration history or inspect the schema.
 
 ## Implemented validation
 
-[Shared values](src/domain/commons.ts) validate primitive strings, lowercase ULIDs, safe integer versions/timestamps and attribution. Titles trim outer whitespace; bodies and protected/caller strings remain exact. Caller attribution defaults omitted `cid` to null, while stored Audit Stamps require explicit string/null `cid`. Operation-time stamp preparation remains unimplemented.
+[Shared values](src/domain/commons.ts) validate primitive strings, lowercase ULIDs, safe integer versions/timestamps and attribution. Titles trim outer whitespace; bodies and protected/caller strings remain exact. Caller attribution defaults omitted `cid` to null, while stored Audit Stamps require explicit string/null `cid`. The operation runner prepares one stamp per invocation inside the transaction and reuses it across owned writes.
 
 The model modules own the implemented shapes: [Project](src/domain/project.ts), [Asset](src/domain/asset.ts), [Secret](src/domain/secret.ts), [Memory](src/domain/memory.ts) and [MemoryRevision](src/domain/memory-revision.ts). Specs and revision summaries remain nested objects. Whole-record validation derives from the actual Equipped fields without applying create defaults; public Secret metadata explicitly selects its four safe field pipes. Parsing trims titles and strips undeclared fields without modifying the input or writing repairs to storage.
 
-[Explicit-ID transport](src/storage/schema.ts) preserves the identity generated with Equipped `Instance.createId()` through native primary-key generation, which runs even when a row already supplies its ID. Native InMemory create/read tests exercise all five models and prove that a missing ID slot fails rather than generating a replacement. This is internal write support, not a public create operation.
+[Explicit-ID transport](src/storage/schema.ts) preserves the identity generated with Equipped `Instance.createId()` through native primary-key generation, which runs even when a row already supplies its ID. Native InMemory create/read tests exercise all five models and prove that a missing ID slot fails rather than generating a replacement. Project creation uses this internal write support; other model operations remain pending.
 
 [Result and error contracts](src/errors.ts) parse envelopes through Valleyed and preserve its transformations and normal field stripping. Invalid-input issues retain safe schema-owned wording and present paths in order, without copying values or causes. Core-authored validators must use static paths and non-input-echoing messages; issue projection is not a sanitizer for arbitrary custom errors.
 

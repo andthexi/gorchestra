@@ -26,7 +26,7 @@ const invalidStorageOutputPipe = v.object({ type: v.is('invalid-storage-output',
 const internalErrorPipe = v.object({ type: v.is('internal-error', 'Invalid input.') })
 const storageOperationFailedPipe = v.object({ type: v.is('storage-operation-failed', 'Invalid input.') })
 
-const sharedOperationErrorPipe = v.discriminate(
+export const sharedOperationErrorPipe = v.discriminate(
 	(error) => error.type,
 	{
 		'invalid-input': invalidInputPipe,
@@ -37,9 +37,10 @@ const sharedOperationErrorPipe = v.discriminate(
 	},
 	'Invalid input.',
 )
+export type InvalidInputError = PipeOutput<typeof invalidInputPipe>
 export type SharedOperationError = PipeOutput<typeof sharedOperationErrorPipe>
 
-const notFoundPipe = v.object({
+export const notFoundPipe = v.object({
 	type: v.is('not-found', 'Invalid input.'),
 	resource: v.in(['secret', 'project', 'asset', 'memory', 'memory-revision'], 'Invalid input.'),
 	id: idPipe,

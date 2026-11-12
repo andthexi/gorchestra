@@ -1,6 +1,6 @@
 # Commit only a validated complete operation
 
-Accepted; **unimplemented** in this documentation-only snapshot.
+Accepted. The shared operation runner and Project operations implement input/Result validation, whole-handler transactions and invocation-local rollback. Secret callbacks and multi-record domain operations remain later work; see [package usage](../../../libs/core2/README.md#attributed-project-operations).
 
 Returning a failure value from an Equipped session does not abort it, and validation after commit cannot undo writes. Every domain operation therefore parses input before execution, runs its complete handler—including callbacks and provider awaits—in one transaction, validates and returns the parsed Result, and commits only success; failures abort using a private invocation-specific signal recognized by exact identity, including supported Equipped session wrapping. The uniform boundary replaces phased execution and early credential-read transaction release, accepting longer-held locks in exchange for one local commit boundary.
 
