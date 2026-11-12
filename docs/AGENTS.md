@@ -13,7 +13,8 @@ The `docs/` tree contains canonical domain context, ADRs, coverage notes, and du
 ## Local Contracts
 
 - Context files define current domain language for their scope.
-- ADRs record durable, surprising, or trade-off-heavy decisions.
+- ADRs normally record durable, surprising, or trade-off-heavy decisions. For the Core redesign in `docs/core2/`, the user explicitly requires every distinct rework decision, including small field/API choices, paused scope, deferrals, rejected alternatives and superseded history; do not apply the normal materiality filter there.
+- Keep decision disposition separate from implementation status. `docs/core/` owns the existing `libs/core`; `docs/core2/` owns the parallel redesign destined for `libs/core2`, unimplemented at D1.
 - ADR filenames use sortable date+time prefixes: `YYYY-MM-DD-HHMM-slug.md`.
 - Update relevant context docs or ADRs when a change alters durable domain language, decisions, responsibilities, or relationships.
 - Prefer linking to canonical source or context over duplicating detailed rules in multiple docs.
@@ -23,7 +24,7 @@ The `docs/` tree contains canonical domain context, ADRs, coverage notes, and du
 - Read the nearest context file before changing domain documentation.
 - Read relevant ADRs before changing or superseding a documented decision.
 - If source changes and docs changes are part of the same semantic change, keep them synchronized in the same branch.
-- Keep documentation concise, operational, and current; delete stale notes rather than explaining obsolete history.
+- Keep usage/context documentation concise, operational, and current. Preserve superseded ADR decisions with explicit replacement links; do not delete the redesign's required decision history as stale usage guidance.
 
 ## Verification
 
@@ -32,5 +33,6 @@ The `docs/` tree contains canonical domain context, ADRs, coverage notes, and du
 
 ## Child DOX Index
 
-- `docs/core/AGENTS.md` — Core domain context and ADR documentation contracts.
+- `docs/core/AGENTS.md` — Core domain context and ADR documentation contracts for the existing `libs/core`.
+- `docs/core2/AGENTS.md` — parallel Core redesign documentation for future `libs/core2`; exhaustive ADR coverage and explicit unimplemented/paused status. Start at [context](core2/CONTEXT.md) and the [ADR index](core2/adr/README.md).
 - `docs/consumers/AGENTS.md` — Consumer context and ADR documentation contracts.
