@@ -2,7 +2,8 @@
 
 ## Ownership and status
 
-- This private package is `@gorchestra/core2` at `libs/core2`, developed alongside the Consumer-used `@gorchestra/core`. Tested primitives, five model schemas, safe schema-derived public types and internal explicit-ID transport are implemented. Migrations, lifecycle and Portfolio operations remain unimplemented; the package entry still exports types only.
+- This private package is `@gorchestra/core2` at `libs/core2`, developed alongside the Consumer-used `@gorchestra/core`. Tested primitives, five model schemas, safe schema-derived public types, internal explicit-ID transport, the immutable native migration catalog and pure raw-history classification are implemented. A Core lifecycle runner and Portfolio operations remain unimplemented; the package entry still exports types only.
+- Preserve released migration IDs and literal changes independently of current model schemas; append new entries in ID order. Keep native builder validation authoritative. Validate all raw history entries before duplicates, unknown IDs and prefix membership; return type-only history errors without repair. Native InMemory catalog smoke tests do not establish lifecycle atomicity or resolver/isolation qualification.
 - Use unnumbered Core/domain identifiers such as `CoreDependencies`, `PortfolioClient` and `Portfolio`. The numeric suffix is only a package/path disambiguator.
 - Read [package status](README.md), [domain context](../../docs/core2/CONTEXT.md), [ADRs](../../docs/core2/adr/), and [testing guidance](../../docs/core2/testing.md) before implementing a slice.
 
