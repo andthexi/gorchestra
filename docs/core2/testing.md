@@ -4,7 +4,7 @@
 
 Task 0 contains only package/configuration wiring and repository-wide dependency alignment. There is no `src/` implementation or runtime suite yet. A no-input TypeScript diagnostic and a no-tests Vitest exit are expected **interim failures**, not successful compilation or behavioral verification. Task 1 must supply actual tested source. Do not use dummy source, artificial tests, discovery exclusions or `passWithNoTests` to manufacture success.
 
-The following policy applies only to `libs/core2`. Existing Core and Consumer suites retain their contracts. Read the [package status](../../libs/core2/README.md), [context](CONTEXT.md), [contract reference](contracts.md#internal-definition-and-verification-boundary), and [ADR index](adr/README.md).
+The following policy applies only to `libs/core2`. Existing Core and Consumer suites retain their contracts. Read the [package status](../../libs/core2/README.md), [context](CONTEXT.md) and relevant [ADRs](adr/).
 
 ## Task 0 verification record
 
