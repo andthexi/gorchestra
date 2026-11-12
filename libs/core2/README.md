@@ -4,9 +4,13 @@ Private ESM workspace package `@gorchestra/core2`, developed alongside the exist
 
 ## Current status
 
-Task 0 supplies package configuration, a normal TypeScript project reference, and package-local Vitest discovery. **No runtime source, models, lifecycle classes, or Portfolio operations exist yet.** The source export declares `./src/index.ts` for later implementation; that file is intentionally absent, so the package is not importable yet.
+Task 1 implements Valleyed-backed value validators and parsed Result/error contracts, with inline runtime tests in `src/domain/commons.ts` and `src/errors.ts`. The source entry exports **types only**: `Id`, `AuditStamp`, `Result<T, E>` and `SharedOperationError`. Internal validators are not a public schema API; models, storage schemas, lifecycle classes, codecs and all 17 Portfolio operations remain unimplemented.
 
-The scoped TypeScript check reports no input files and Vitest reports no tests at this interim configuration gate. These are not passing runtime checks. Task 1 adds the first real tested source; do not add dummy exports/tests or `passWithNoTests` to conceal the gap.
+Implemented value rules reject boxed strings and constructor-spoofed objects, preserve exact body/protected/caller strings, trim only title edges, and validate lowercase ULIDs and safe integer versions/timestamps. Caller attribution defaults omitted `cid` to null; stored/output AuditStamp requires explicit string/null `cid` without repair. Operation-time ID/stamp generation is not implemented yet.
+
+Invalid-input issues preserve actual native/schema-owned messages and present paths in order, copying no values or causes. Core-authored validators must use static paths and non-input-echoing messages; projection is not a sanitizer for arbitrary unsafe PipeErrors and does not maintain a second wording/path catalog. Parsed Result envelopes preserve the selected pipes' input/output types, transformations and ordinary stripping; specific error shapes exclude `actualVersion` from revision conflicts.
+
+The complete scoped suite has **43 passing runtime tests across two files**; forced ordinary TypeScript, scoped ESLint and formatting pass. These are primitive/error checks only, not proof of storage transactions, lifecycle, codecs or upstream isolation. No dummy tests, separate type suite or import mocks are used.
 
 ## Dependencies and checks
 

@@ -9,13 +9,13 @@ This repo is a private pnpm workspace. The root `package.json` owns product proc
 Current workspace packages:
 
 - `libs/core` (`@gorchestra/core`) — a private internal package exported directly from source (`./src/index.ts`) for workspace packages to consume.
-- `libs/core2` (`@gorchestra/core2`) — the parallel Core foundation package, currently configuration-only with no runtime API. The Server Consumer has not switched to it. See [package status](libs/core2/README.md) and [domain context](docs/core2/CONTEXT.md).
+- `libs/core2` (`@gorchestra/core2`) — the parallel Core foundation package with tested value/error primitives and type-only exports; lifecycle and domain operations are not implemented yet. The Server Consumer has not switched to it. See [package status](libs/core2/README.md) and [domain context](docs/core2/CONTEXT.md).
 - `libs/form-draft` (`@gorchestra/form-draft`) — private form draft primitives used by consumer UI forms.
 - `consumers/server` (`@gorchestra/consumer-server`) — the private v1 Server Consumer package, started by the root application entrypoint.
 
 ## Core redesign documentation
 
-The Server Consumer still uses `@gorchestra/core`. The parallel foundation at `libs/core2` (`@gorchestra/core2`) now has package, TypeScript and Vitest configuration, but **all runtime behavior remains unimplemented**. The declared source entry is intentionally absent until the first real implementation slice; this is not an importable API yet. Start with [new Core context](docs/core2/CONTEXT.md), the [foundation contract reference](docs/core2/contracts.md), the [testing guide](docs/core2/testing.md), and the [ADR index](docs/core2/adr/README.md). ADRs are reserved for choices that are hard to reverse, surprising without context and the result of real tradeoffs with genuine alternatives—not a roadmap or exhaustive inventory of API facts. Existing [Core documentation](docs/core/CONTEXT.md) remains authoritative for the Consumer-used library; accepted Expedition/runtime/downstream design does not resume its implementation.
+The Server Consumer still uses `@gorchestra/core`. The parallel foundation at `libs/core2` (`@gorchestra/core2`) now has tested value validators and parsed Result/error contracts. Its source entry exports `Id`, `AuditStamp`, `Result<T, E>` and `SharedOperationError` as types only; **models, lifecycle classes and all Portfolio operations remain unimplemented**. Start with [new Core context](docs/core2/CONTEXT.md), the [foundation contract reference](docs/core2/contracts.md), the [testing guide](docs/core2/testing.md), and the [ADR index](docs/core2/adr/README.md). ADRs are reserved for choices that are hard to reverse, surprising without context and the result of real tradeoffs with genuine alternatives—not a roadmap or exhaustive inventory of API facts. Existing [Core documentation](docs/core/CONTEXT.md) remains authoritative for the Consumer-used library; accepted Expedition/runtime/downstream design does not resume its implementation.
 
 Package manifest declarations remain `latest`; global `pnpm-workspace.yaml` overrides select Equipped `5.3.4` and Valleyed `4.5.24` repo-wide, including transitive dependencies, without local-path or package-specific exceptions. Future version changes belong in those overrides, followed by a pnpm-generated lockfile refresh and complete installed-resolution verification. Existing manifests, Core source and Consumer imports are unchanged. Task 0 verified installation and dependency alignment, not full workspace runtime qualification; see the [verification record and limits](docs/core2/testing.md#task-0-verification-record).
 
@@ -44,7 +44,7 @@ The normal scoped foundation test command is:
 pnpm_config_verify_deps_before_run=error pnpm --filter @gorchestra/core2 test
 ```
 
-At Task 0 it reports no tests, and its TypeScript project reports no inputs. These are expected interim configuration-gate failures, not passing runtime checks. Do not mask them with dummy source/tests; Task 1 supplies actual tested source.
+Task 1 has 43 passing primitive/error runtime tests across two source files, with ordinary TypeScript and scoped lint checks passing. This resolves the earlier configuration-only no-input/no-tests gap without dummy source or discovery suppressions; full legacy runtime qualification remains separate.
 
 Useful fix commands:
 

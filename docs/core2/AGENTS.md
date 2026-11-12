@@ -2,7 +2,7 @@
 
 ## Ownership and scope
 
-- This subtree owns the redesign's domain context, contract reference and architectural decisions for `libs/core2` (`@gorchestra/core2`). Package/configuration wiring exists; runtime implementation and behavior tests remain unimplemented at Task 0. Do not present accepted designs or configuration checks as executable API guarantees.
+- This subtree owns the redesign's domain context, contract reference and architectural decisions for `libs/core2` (`@gorchestra/core2`). Task 1 adds tested value/error primitives; models, lifecycle and Portfolio operations remain unimplemented. Do not present primitive checks as lifecycle/storage guarantees.
 - Existing `libs/core` and [its documentation](../core/CONTEXT.md) remain authoritative for the Server Consumer. See the parallel [package status](../../libs/core2/README.md), [package instructions](../../libs/core2/AGENTS.md), and [testing guide](testing.md).
 - Use unnumbered Core/domain names in prose and code. The suffix is only a path/package disambiguator.
 

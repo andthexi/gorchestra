@@ -15,7 +15,7 @@ The `docs/` tree contains canonical domain context, contract references, ADRs, a
 - Context files define current domain language for their scope.
 - Offer ADRs sparingly, only when **all three** are true: the decision is hard to reverse, surprising without context, and the result of a real tradeoff with genuine alternatives. If any is missing, skip the ADR. This rule applies to `docs/core2/` too; acceptance or deferral alone is insufficient. Keep plain model/API facts in reference docs and task sequencing, backlog exclusions, research and future review checkpoints out of ADRs.
 - Prefer a short title and 1–3 sentences covering context, decision and why. Add status, considered options or consequences only when they genuinely add value; do not require boilerplate sections or exhaustive source/decision bookkeeping.
-- Keep decision disposition separate from implementation status. `docs/core/` owns the existing `libs/core`; `docs/core2/` owns the parallel `libs/core2`. The parallel package currently has configuration only, not runtime implementation; keep usage documentation synchronized with each implemented slice.
+- Keep decision disposition separate from implementation status. `docs/core/` owns the existing `libs/core`; `docs/core2/` owns the parallel `libs/core2`. The parallel package has tested primitives, not models or lifecycle/Portfolio operations; keep usage documentation synchronized with each implemented slice.
 - ADR filenames use sortable date+time prefixes: `YYYY-MM-DD-HHMM-slug.md`.
 - Update relevant context docs or ADRs when a change alters durable domain language, decisions, responsibilities, or relationships.
 - Prefer linking to canonical source or context over duplicating detailed rules in multiple docs.

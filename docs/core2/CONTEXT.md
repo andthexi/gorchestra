@@ -2,11 +2,11 @@
 
 ## Scope and navigation
 
-This documents the accepted vocabulary for the new Core design in `libs/core2` (`@gorchestra/core2`). **Task 0 adds package configuration only; all runtime behavior remains unimplemented.** There is no runnable new API to use yet. The numeric suffix distinguishes paths/packages, not a different domain or numbered code identifiers.
+This documents the accepted vocabulary for the new Core design in `libs/core2` (`@gorchestra/core2`). **Task 1 adds tested value/error primitives and type-only exports; models, lifecycle capabilities and Portfolio operations remain unimplemented.** This vocabulary is not a claim that those planned operations work. The numeric suffix distinguishes paths/packages, not a different domain or numbered code identifiers.
 
 The existing Server Consumer still uses `@gorchestra/core`; [existing Core context](../core/CONTEXT.md) continues to describe that implementation. This subtree does not supersede its contracts or authorize a Consumer cutover or legacy-store conversion.
 
-The [foundation contract reference](contracts.md) records accepted shapes and operations without presenting them as a working API. The [ADR index](adr/README.md) records only hard-to-reverse, surprising choices made through genuine tradeoffs; it is not an exhaustive source or planning register. [Local documentation contracts](AGENTS.md) govern maintenance. See [package status](../../libs/core2/README.md) and [testing guidance](testing.md) for the configuration gate; usage examples will follow actual implementation, not substitute for it.
+The [foundation contract reference](contracts.md) records accepted shapes and operations without presenting them as a working API. The [ADR index](adr/README.md) records only hard-to-reverse, surprising choices made through genuine tradeoffs; it is not an exhaustive source or planning register. [Local documentation contracts](AGENTS.md) govern maintenance. See [package status](../../libs/core2/README.md) and [testing guidance](testing.md) for the implemented primitive boundary and remaining qualification limits; later usage examples must follow actual implementation.
 
 ## Foundation vocabulary
 

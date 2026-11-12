@@ -2,7 +2,7 @@
 
 ## Ownership and status
 
-- This private package is `@gorchestra/core2` at `libs/core2`, developed alongside the Consumer-used `@gorchestra/core`. Configuration exists at Task 0; runtime source and behavior tests are not implemented yet.
+- This private package is `@gorchestra/core2` at `libs/core2`, developed alongside the Consumer-used `@gorchestra/core`. Task 1 implements tested value/error primitives and type-only exports; models, lifecycle and Portfolio operations remain unimplemented.
 - Use unnumbered Core/domain identifiers such as `CoreDependencies`, `PortfolioClient` and `Portfolio`. The numeric suffix is only a package/path disambiguator.
 - Read [package status](README.md), [domain context](../../docs/core2/CONTEXT.md), [ADRs](../../docs/core2/adr/README.md), and [testing guidance](../../docs/core2/testing.md) before implementing a slice.
 
@@ -23,5 +23,5 @@
 - Follow test-first vertical behavior slices at lifecycle/Portfolio boundaries, with smaller direct runtime tests for pure helpers. Use real Equipped InMemoryAdapter and deterministic synthetic Secret callbacks. No module-import mocks, fake Repo, persistent-backend qualification matrix or production failure-injection options.
 - Use ordinary TypeScript compilation of production/runtime-test source. No dedicated type tests, negative-compile fixtures, `expectTypeOf`, or `tsd`. This is the root's explicitly selected scoped test policy, not a waiver of precise public types or runtime validation.
 - Run the package runtime suite, `tsc -b libs/core2`, scoped ESLint/Prettier and applicable workspace regression checks using the credential-free commands in the [testing guide](../../docs/core2/testing.md). Disable framework dotenv loading; do not read `.env` or credentials, call real providers, or claim partial suites are full verification.
-- Task 0 is configuration-only: missing-source/no-tests exits are recorded interim failures, not passes. Task 1 must supply real tested source; do not add stubs, dummy tests, `passWithNoTests`, or Fallow suppressions to conceal the gap.
+- Task 1's real primitive suite resolves the prior configuration-only missing-source/no-tests gap. Later slices must implement and test actual behavior; do not add stubs, dummy tests, `passWithNoTests`, or Fallow suppressions to conceal gaps.
 - Report actual dependency-backed guarantees. A reproduced Equipped isolation/mapping failure is a blocker, not permission for a Core serialization/wrapper workaround, a skipped passing claim, or a silent downgrade.

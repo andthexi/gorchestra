@@ -1,8 +1,8 @@
 # Core testing
 
-## Configuration gate and scope
+## Implemented boundary and scope
 
-Task 0 contains only package/configuration wiring and repository-wide dependency alignment. There is no `src/` implementation or runtime suite yet. A no-input TypeScript diagnostic and a no-tests Vitest exit are expected **interim failures**, not successful compilation or behavioral verification. Task 1 must supply actual tested source. Do not use dummy source, artificial tests, discovery exclusions or `passWithNoTests` to manufacture success.
+Task 1 supplies real primitive/error source and **43 passing runtime tests across two files**, with forced scoped TypeScript, ESLint and formatting passing. Tests live inline in `src/domain/commons.ts` and `src/errors.ts`; they cover exact primitive strings (including constructor-spoof/boxed-value rejection), required stored stamp fields, faithful safe issue projection, and parsed Result/error envelopes. This resolves Task 0’s no-input/no-tests gap; models, lifecycle, storage and domain operation tests remain unimplemented. Do not introduce dummy tests, discovery exclusions or `passWithNoTests`.
 
 The following policy applies only to `libs/core2`. Existing Core and Consumer suites retain their contracts. Read the [package status](../../libs/core2/README.md), [context](CONTEXT.md), [contract reference](contracts.md#internal-definition-and-verification-boundary), and [ADR index](adr/README.md).
 
@@ -15,7 +15,7 @@ Installation is not full workspace runtime qualification. Nuxt preparation, lint
 ## Selected runtime boundaries
 
 - Test the public lifecycle and attribution-bound Portfolio behavior as the main integration boundary. Test small pure helpers directly in their owning modules using `if (import.meta.vitest)`.
-- Place standalone boundary tests beside `<boundary>/index.ts` as `<boundary>/index.test.ts`. The folder supplies the name. These paths are conventions for later slices, not existing tests.
+- Place standalone boundary tests beside `<boundary>/index.ts` as `<boundary>/index.test.ts`. The folder supplies the name. These standalone boundary paths belong to later slices; the current primitive/helper tests are inline.
 - Use a fresh real Equipped `InMemoryAdapter` per fixture. No fake Repo, imported-module mocks, persistent-backend matrix, credentials, network services, or provider calls. This does not certify persistent adapters or weaken the storage contract.
 - Supply deterministic synthetic Secret encode/decode callbacks through the real dependency input. Test malformed results, nulls, throws/rejections and pending work without adding production fault hooks or a test-only public API. An explicit codec round-trip contract remains excluded.
 - Follow one behavior RED–GREEN–REFACTOR cycle at a time. Keep meaningful fixture reuse; do not add one-use wrappers or public stubs for later operations.
@@ -59,7 +59,7 @@ await startVitest("test", [], { run: true, config: "vitest.config.ts" }, { envDi
 '
 ```
 
-This runs the actual package configuration, preserving failure/no-test status, without Vite's implicit dotenv reads. Run and report each package separately, including the empty foundation package.
+This runs the actual package configuration, preserving failure/no-test status, without Vite's implicit dotenv reads. Run and report each package separately; the new foundation package now has its real primitive suite. Do not equate it with full legacy-suite qualification.
 
 The Server tsconfig requires generated `.nuxt/tsconfig.json`, absent after `--ignore-scripts`. On Linux, the supported Nuxt CLI `--dotenv=/dev/null` option redirects the dotenv filename; **do not use `--no-dotenv`**, which can fall back to `.env`. Disable telemetry and review the installed CLI/c12 behavior before using it:
 
