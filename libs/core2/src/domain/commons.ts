@@ -5,9 +5,9 @@ export const titlePipe = v
 	.custom<string>((value) => typeof value === 'string', 'Expected a title.')
 	.pipe(v.asTrimmed(), v.min(1, 'Expected a nonblank title.'))
 
-const bodyPipe = v.custom<string>((value) => typeof value === 'string', 'Expected a body.')
+export const bodyPipe = v.custom<string>((value) => typeof value === 'string', 'Expected a body.')
 
-const protectedStringPipe = v
+export const protectedStringPipe = v
 	.custom<string>((value) => typeof value === 'string', 'Expected a nonempty string.')
 	.pipe(v.min(1, 'Expected a nonempty string.'))
 
@@ -30,7 +30,7 @@ const attributionFields = {
 }
 const attributionPipe = v.object({ ...attributionFields, cid: v.defaults(attributionFields.cid, null) })
 
-const auditStampPipe = v.object({
+export const auditStampPipe = v.object({
 	src: v.custom<'local'>((value) => value === 'local', 'Expected a local audit stamp.'),
 	at: v
 		.custom<string>((value) => typeof value === 'string', 'Expected a UTC ISO timestamp.')

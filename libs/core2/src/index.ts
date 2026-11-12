@@ -1,2 +1,7 @@
 export type { AuditStamp, Id } from './domain/commons'
+export type { Asset } from './domain/asset'
+export type { Memory } from './domain/memory'
+export type { MemoryRevision } from './domain/memory-revision'
+export type { Project } from './domain/project'
+export type { Secret } from './domain/secret'
 export type { Result, SharedOperationError } from './errors'
