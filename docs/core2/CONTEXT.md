@@ -6,7 +6,7 @@ This documents the accepted vocabulary for the new Core design in `libs/core2` (
 
 The existing Server Consumer still uses `@gorchestra/core`; [existing Core context](../core/CONTEXT.md) continues to describe that implementation. This subtree does not supersede its contracts or authorize a Consumer cutover or legacy-store conversion.
 
-Read the [ADR index](adr/README.md) for accepted and historical decisions and the [coverage register](adr/decision-coverage.md) for complete source reconciliation. [Local documentation contracts](AGENTS.md) govern maintenance. See [package status](../../libs/core2/README.md) and [testing guidance](testing.md) for the configuration gate; usage examples will follow actual implementation, not substitute for it.
+The [foundation contract reference](contracts.md) records accepted shapes and operations without presenting them as a working API. The [ADR index](adr/README.md) records only hard-to-reverse, surprising choices made through genuine tradeoffs; it is not an exhaustive source or planning register. [Local documentation contracts](AGENTS.md) govern maintenance. See [package status](../../libs/core2/README.md) and [testing guidance](testing.md) for the configuration gate; usage examples will follow actual implementation, not substitute for it.
 
 ## Foundation vocabulary
 
@@ -36,11 +36,11 @@ These accepted concepts are retained for navigation and future work, **not imple
 - **AgentInteraction** independently owns integration state and immutable proposed-result versions for its domain target. Runtime transcript/execution stays outside Core. A proposed result is not accepted work; human acceptance applies domain changes.
 - **Blueprint** is Expedition-owned accepted work scope, created only at final acceptance in the selected single-creation MVP. It materializes the complete initial Delivery/Slice/dependency graph atomically without starting execution or changing Asset/Secret configuration.
 - **Delivery** is an independent accepted outcome targeting one existing Project Asset. It owns **Slices**, which derive that target and contain immutable **Instructions**. Dependencies belong to the dependent work's aggregate.
-- **Operation**, **Approval** and **Receipt** distinguish a specific external effect, permission for its exact scope, and verified external read-back. They are not every SDK invocation or another planning review gate.
+- **Operation** is an independent aggregate owning a proposed external effect and scope, its **Approval**, and effect-specific evidence/**Receipts**; it references rather than owns the requesting work. Approval grants permission for the exact scope; a Receipt records verified external read-back. They are not every SDK invocation or another planning review gate.
 - **Archive Period** retains record-owned reversible archival history as vocabulary; it does not grant Project, Asset or Secret archival capabilities.
 
 Core-owned repository-provider behavior remains distinct from Consumer-supplied storage, Secret callbacks and the generic AgentRuntime integration category. Repository read/ref-selection APIs and concrete AgentRuntime interfaces/injection timing are deferred; the executable foundation dependency design requires storage and secrets only, not placeholder services.
 
 ## Boundaries that do not follow from vocabulary
 
-Accepted design is not implementation approval for paused features. No automatic workflow progression, Trowel bridge, generic Workflow engine, separate discovery review layer, Blueprint-produced Memory publication, workspace/sandbox orchestration, Snapshot export/restore or downstream execution/merge is delivered here. Exact paused feature schemas and unanswered proposals remain open in the ADR coverage register rather than being filled in by examples.
+Accepted design is not implementation approval for paused features. This snapshot delivers no runtime behavior, Consumer cutover or integrations. Unselected Expedition/runtime schemas and exploratory proposals remain in the original design notes, not as accepted API contracts or a published backlog. Removing a planning-only ADR does not authorize the excluded feature or change a reviewed choice.

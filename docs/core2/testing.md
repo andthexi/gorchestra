@@ -4,7 +4,13 @@
 
 Task 0 contains only package/configuration wiring and repository-wide dependency alignment. There is no `src/` implementation or runtime suite yet. A no-input TypeScript diagnostic and a no-tests Vitest exit are expected **interim failures**, not successful compilation or behavioral verification. Task 1 must supply actual tested source. Do not use dummy source, artificial tests, discovery exclusions or `passWithNoTests` to manufacture success.
 
-The following policy applies only to `libs/core2`. Existing Core and Consumer suites retain their contracts. Read the [package status](../../libs/core2/README.md), [context](CONTEXT.md), and [test decisions](adr/2026-11-12-0140-foundation-testing.md).
+The following policy applies only to `libs/core2`. Existing Core and Consumer suites retain their contracts. Read the [package status](../../libs/core2/README.md), [context](CONTEXT.md), [contract reference](contracts.md#internal-definition-and-verification-boundary), and [ADR index](adr/README.md).
+
+## Task 0 verification record
+
+Task 0 installed all workspace projects with pnpm 11.7.0 and lifecycle scripts disabled. Registry, root/recursive dependency lists and installed manifests were checked, including expanded deduplicated branches: only Equipped 5.3.4 and Valleyed 4.5.24 remained. A frozen script-free install left the pnpm-generated lockfile unchanged. Existing manifest declarations/categories stayed `latest`; unrelated resolved versions were preserved, with three deprecation metadata entries refreshed by pnpm. These are prior Task 0 results, not checks rerun by this documentation merge.
+
+Installation is not full workspace runtime qualification. Nuxt preparation, lint and available scoped checks ran; root TypeScript reported existing-source optional-property mismatches and the new package's expected no-input diagnostic. Server vue-tsc exited 0 with an unresolved route-block plugin warning, not an unqualified pass. Full legacy runtime suites remained unqualified: a test-owned Server listener binds all interfaces through Equipped, and an old Core test can reach the AI SDK global provider. Unrestricted execution has not established an isolated-network boundary for those paths. No source repairs, downgrades or suppressions were added; Equipped #148/#149 are not certified by this gate.
 
 ## Selected runtime boundaries
 
