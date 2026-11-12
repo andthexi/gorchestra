@@ -5,8 +5,8 @@ settings:
     excludeLinksFromLockfile: false
 
 overrides:
-    equipped: 5.3.4
-    valleyed: 4.5.24
+    equipped: 5.3.6
+    valleyed: 4.5.25
 
 importers:
     .:
@@ -15,8 +15,8 @@ importers:
                 specifier: workspace:*
                 version: link:consumers/server
             valleyed:
-                specifier: 4.5.24
-                version: 4.5.24
+                specifier: 4.5.25
+                version: 4.5.25
         devDependencies:
             '@commitlint/cli':
                 specifier: ^21.0.2
@@ -76,8 +76,8 @@ importers:
                 specifier: ^1.18.0
                 version: 1.18.0
             equipped:
-                specifier: 5.3.4
-                version: 5.3.4(@types/json-schema@7.0.15)
+                specifier: 5.3.6
+                version: 5.3.6(@types/json-schema@7.0.15)
             h3:
                 specifier: 1.15.11
                 version: 1.15.11
@@ -91,8 +91,8 @@ importers:
                 specifier: ^4.8.3
                 version: 4.8.3
             valleyed:
-                specifier: 4.5.24
-                version: 4.5.24
+                specifier: 4.5.25
+                version: 4.5.25
             vue:
                 specifier: 3.5.38
                 version: 3.5.38(typescript@6.0.3)
@@ -134,26 +134,26 @@ importers:
                 specifier: ^7.0.14
                 version: 7.0.14(zod@4.4.3)
             equipped:
-                specifier: 5.3.4
-                version: 5.3.4(@types/json-schema@7.0.15)
+                specifier: 5.3.6
+                version: 5.3.6(@types/json-schema@7.0.15)
             valleyed:
-                specifier: 4.5.24
-                version: 4.5.24
+                specifier: 4.5.25
+                version: 4.5.25
 
     libs/core2:
         dependencies:
             equipped:
-                specifier: 5.3.4
-                version: 5.3.4(@types/json-schema@7.0.15)
+                specifier: 5.3.6
+                version: 5.3.6(@types/json-schema@7.0.15)
             valleyed:
-                specifier: 4.5.24
-                version: 4.5.24
+                specifier: 4.5.25
+                version: 4.5.25
 
     libs/form-draft:
         devDependencies:
             valleyed:
-                specifier: 4.5.24
-                version: 4.5.24
+                specifier: 4.5.25
+                version: 4.5.25
             vue:
                 specifier: 3.5.38
                 version: 3.5.38(typescript@6.0.3)
@@ -3374,8 +3374,8 @@ packages:
         resolution: { integrity: sha512-xUtoPkMggbz0MPyPiIWr1Kp4aeWJjDZ6SMvURhimjdZgsRuDplF5/s9hcgGhyXMhs+6vpnuoiZ2kFiu3FMnS8Q== }
         engines: { node: '>=18' }
 
-    equipped@5.3.4:
-        resolution: { integrity: sha512-ioaM3/+kZRZkeI51r94C4GXJxrXdmU966FXvQ6IRPZE/tIBXwyqiJxcCG1h46U06/TPhKrMK0ELWkc7X/sV0Nw== }
+    equipped@5.3.6:
+        resolution: { integrity: sha512-TmsJmFLdwzE7rCyb6C9iC1HA1y3I/n3v49AlLdt8JR0RQrnj8Ug3dltdhD7gmSXCs3Jda249Si+yIJTHl4hnTw== }
 
     error-ex@1.3.4:
         resolution: { integrity: sha512-sqQamAnR14VgCr1A618A3sGrygcpK+HEbenA/HiEAkkUwcZIIB/tgWqHFxWgOyDh4nB4JCRimh79dR5Ywc9MDQ== }
@@ -6270,8 +6270,9 @@ packages:
         resolution: { integrity: sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A== }
         hasBin: true
 
-    valleyed@4.5.24:
-        resolution: { integrity: sha512-u4K/pg0Li5WNu9i5z/p4+Y4rDZT7r7/ZU7vudlbxfXMYd/BH33rQNYaSHyDUuyEs7X7LjDuSqrFtx4FvpiS6TA== }
+    valleyed@4.5.25:
+        resolution: { integrity: sha512-9rjahtzoPaEVJjvPqyOH327ZgsJELwjinmlbVYylfLsSCo8WASWII60aoebZCDwQ9dDCURAoYg7h3fjbzAbkqQ== }
+        engines: { node: '>=20.19' }
 
     vary@1.1.2:
         resolution: { integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg== }
@@ -9769,7 +9770,7 @@ snapshots:
 
     environment@1.1.0: {}
 
-    equipped@5.3.4(@types/json-schema@7.0.15):
+    equipped@5.3.6(@types/json-schema@7.0.15):
         dependencies:
             '@confluentinc/kafka-javascript': 1.8.0
             '@fastify/cookie': 11.0.2
@@ -9811,7 +9812,7 @@ snapshots:
             socket.io: 4.8.3
             supertest: 7.2.2
             ulid: 3.0.2
-            valleyed: 4.5.24
+            valleyed: 4.5.25
         transitivePeerDependencies:
             - '@aws-sdk/credential-providers'
             - '@mongodb-js/zstd'
@@ -13225,7 +13226,7 @@ snapshots:
 
     uuid@11.1.0: {}
 
-    valleyed@4.5.24:
+    valleyed@4.5.25:
         dependencies:
             '@standard-schema/spec': 1.1.0
             url-regex-safe: 4.0.0

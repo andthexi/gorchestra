@@ -9,7 +9,7 @@ import {
 	type CoreStorage,
 	type CoreStorageAdapter as GorchestraCoreStorageAdapter,
 } from '@gorchestra/core'
-import { Migrator, Repo, type AnySchema, type OrmAdapter, type OrmAdapterConfig, type RepoSurface } from 'equipped/orm'
+import { Migrator, Repo, type AnySchema, type OrmAdapter, type InferAdapterConfig, type RepoSurface } from 'equipped/orm'
 import { v } from 'valleyed'
 
 import { createDefaultCorePortfolioStorageBackend } from './json-adapter'
@@ -37,7 +37,7 @@ export type CorePortfolioStorageAdapter = GorchestraCoreStorageAdapter &
 
 export type CorePortfolioStorageBackend<A extends CorePortfolioStorageAdapter = CorePortfolioStorageAdapter> = {
 	adapter: A
-	resolve: (schema: AnySchema) => OrmAdapterConfig<A>
+	resolve: (schema: AnySchema) => InferAdapterConfig<A>
 }
 
 export type CorePortfolioStorageAdapterFactoryInput = {

@@ -4,7 +4,7 @@ import { idPipe, revisionVersionPipe, titlePipe } from './domain/commons'
 
 // Only Core-authored validators with static paths and non-input-echoing messages
 // belong here. This projection is not a sanitizer for arbitrary PipeErrors.
-function inputIssues(error: PipeError): PipeOutput<typeof inputIssuePipe>[] {
+export function inputIssues(error: PipeError): PipeOutput<typeof inputIssuePipe>[] {
 	return error.messages.map(({ path, message }) => (path === undefined ? { message } : { path, message }))
 }
 
@@ -59,6 +59,7 @@ const schemaMetadataInvalidPipe = v.object({ type: v.is('schema-metadata-invalid
 const schemaVersionUnrecognizedPipe = v.object({ type: v.is('schema-version-unrecognized', 'Invalid input.') })
 export type SchemaMetadataInvalidError = PipeOutput<typeof schemaMetadataInvalidPipe>
 export type SchemaVersionUnrecognizedError = PipeOutput<typeof schemaVersionUnrecognizedPipe>
+export type StorageOperationFailedError = PipeOutput<typeof storageOperationFailedPipe>
 const storageNotEmptyPipe = v.object({ type: v.is('storage-not-empty', 'Invalid input.') })
 const storageAlreadyInitializedPipe = v.object({ type: v.is('storage-already-initialized', 'Invalid input.') })
 const storageNotInitializedPipe = v.object({ type: v.is('storage-not-initialized', 'Invalid input.') })
@@ -66,8 +67,27 @@ const schemaAlreadyCurrentPipe = v.object({ type: v.is('schema-already-current',
 
 const secretDecodingFailedPipe = v.object({ type: v.is('secret-decoding-failed', 'Invalid input.'), secretId: idPipe })
 
+export const factoryErrorPipe = v.or([
+	invalidInputPipe,
+	storageOperationFailedPipe,
+	schemaMetadataInvalidPipe,
+	schemaVersionUnrecognizedPipe,
+	storageNotEmptyPipe,
+	internalErrorPipe,
+])
+export const setupErrorPipe = v.or([
+	storageOperationFailedPipe,
+	schemaMetadataInvalidPipe,
+	schemaVersionUnrecognizedPipe,
+	storageNotEmptyPipe,
+	storageAlreadyInitializedPipe,
+	internalErrorPipe,
+])
+export type FactoryError = PipeOutput<typeof factoryErrorPipe>
+export type SetupError = PipeOutput<typeof setupErrorPipe>
+
 // Keep input and parsed output types distinct for transforming branch pipes.
-function resultPipe<I, O, EI, EO>(value: Pipe<I, O>, error: Pipe<EI, EO>) {
+export function resultPipe<I, O, EI, EO>(value: Pipe<I, O>, error: Pipe<EI, EO>) {
 	return v.discriminate(
 		(result) => {
 			switch (result.ok) {

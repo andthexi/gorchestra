@@ -1,4 +1,6 @@
-import type { AnyMigration } from 'equipped/orm'
+import type { Migration } from 'equipped/orm'
+
+import type { StorageAdapter } from '../../dependencies'
 
 // Released snapshot: never import current models or edit this ID/definition.
 // Future schema changes belong in new catalog entries.
@@ -60,7 +62,7 @@ export const initialFoundationMigration = {
 			],
 		},
 	],
-} as const satisfies AnyMigration
+} as const satisfies Migration<StorageAdapter>
 
 if (import.meta.vitest) {
 	const { it, expect } = import.meta.vitest
