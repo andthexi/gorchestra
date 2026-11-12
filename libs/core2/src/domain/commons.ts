@@ -28,7 +28,7 @@ const attributionFields = {
 	by: v.custom<string>((value) => typeof value === 'string', 'Expected attribution by to be a string.'),
 	cid: v.nullable(v.custom<string>((value) => typeof value === 'string', 'Expected attribution cid to be a string or null.')),
 }
-const attributionPipe = v.object({ ...attributionFields, cid: v.defaults(attributionFields.cid, null) })
+export const attributionPipe = v.object({ ...attributionFields, cid: v.defaults(attributionFields.cid, null) })
 
 export const auditStampPipe = v.object({
 	src: v.custom<'local'>((value) => value === 'local', 'Expected a local audit stamp.'),
