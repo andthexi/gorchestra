@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `docs/` tree contains canonical domain context, ADRs, coverage notes, and durable documentation for Gorchestra.
+The `docs/` tree contains canonical domain context, contract references, ADRs, and durable documentation for Gorchestra.
 
 ## Ownership
 
@@ -13,7 +13,8 @@ The `docs/` tree contains canonical domain context, ADRs, coverage notes, and du
 ## Local Contracts
 
 - Context files define current domain language for their scope.
-- ADRs normally record durable, surprising, or trade-off-heavy decisions. For the Core redesign in `docs/core2/`, the user explicitly requires every distinct rework decision, including small field/API choices, paused scope, deferrals, rejected alternatives and superseded history; do not apply the normal materiality filter there.
+- Offer ADRs sparingly, only when **all three** are true: the decision is hard to reverse, surprising without context, and the result of a real tradeoff with genuine alternatives. If any is missing, skip the ADR. This rule applies to `docs/core2/` too; acceptance or deferral alone is insufficient. Keep plain model/API facts in reference docs and task sequencing, backlog exclusions, research and future review checkpoints out of ADRs.
+- Prefer a short title and 1–3 sentences covering context, decision and why. Add status, considered options or consequences only when they genuinely add value; do not require boilerplate sections or exhaustive source/decision bookkeeping.
 - Keep decision disposition separate from implementation status. `docs/core/` owns the existing `libs/core`; `docs/core2/` owns the parallel redesign destined for `libs/core2`, unimplemented at D1.
 - ADR filenames use sortable date+time prefixes: `YYYY-MM-DD-HHMM-slug.md`.
 - Update relevant context docs or ADRs when a change alters durable domain language, decisions, responsibilities, or relationships.
@@ -24,7 +25,7 @@ The `docs/` tree contains canonical domain context, ADRs, coverage notes, and du
 - Read the nearest context file before changing domain documentation.
 - Read relevant ADRs before changing or superseding a documented decision.
 - If source changes and docs changes are part of the same semantic change, keep them synchronized in the same branch.
-- Keep usage/context documentation concise, operational, and current. Preserve superseded ADR decisions with explicit replacement links; do not delete the redesign's required decision history as stale usage guidance.
+- Keep usage/context documentation concise, operational, and current. When a qualifying decision is superseded, link its replacement and retain only the history needed to understand the tradeoff; do not preserve planning conversations as ADRs.
 
 ## Verification
 
@@ -34,5 +35,5 @@ The `docs/` tree contains canonical domain context, ADRs, coverage notes, and du
 ## Child DOX Index
 
 - `docs/core/AGENTS.md` — Core domain context and ADR documentation contracts for the existing `libs/core`.
-- `docs/core2/AGENTS.md` — parallel Core redesign documentation for future `libs/core2`; exhaustive ADR coverage and explicit unimplemented/paused status. Start at [context](core2/CONTEXT.md) and the [ADR index](core2/adr/README.md).
+- `docs/core2/AGENTS.md` — parallel Core redesign documentation for future `libs/core2`; contract reference and selected architectural tradeoffs, with implementation status distinct from decision acceptance. Start at [context](core2/CONTEXT.md), [contracts](core2/contracts.md) and the [ADR index](core2/adr/README.md).
 - `docs/consumers/AGENTS.md` — Consumer context and ADR documentation contracts.

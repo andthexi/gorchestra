@@ -1,41 +1,9 @@
-# Keep credential protection Consumer-owned and transient
+# Keep Secret protection Consumer-owned
 
-## Status
+Accepted; **unimplemented** in this documentation-only snapshot.
 
-Decision disposition: accepted. Individual keyed statements below control mixed records.
+Core needs stable Portfolio-owned Secret identity across Assets, but Consumers own credential protection, storage and keys. Secret writes accept transient raw values and invoke the required Consumer encoder before storing an opaque `valueRef`, replacing pre-encoded write inputs; normal results use an explicit safe metadata projection rather than returning storage records for every Consumer to redact. A single ID-keyed batch decoder serves both one and many captured references, avoiding single-only resolution or positional/reference-based matching while keeping all protected values out of ordinary results, errors, logs and model context.
 
-Implementation: **unimplemented** at D1. Scope: foundation.
+Exactly the requested decoder keys must return string/null values: malformed batches fail every requested ID, while valid mixed results retain their per-ID outcomes and an operation obtains all required credentials before proceeding. Encoding is not necessarily encryption, equal references need not mean equal underlying values, and local rollback cannot undo a Consumer's external protection effects; no automatic compensation, startup probe, decode-after-encode or explicit round-trip test gate is imposed. Repository credentials use an explicitly selected same-Portfolio PAT-backed Secret even for public repositories, never host/anonymous fallback.
 
-ADR created: 2026-11-12-0140 UTC. Original decision date: unknown; filename time is promotion time, not a reconstructed decision date.
-
-## Context
-
-The Consumer selects protection, storage and key management; an opaque valueRef may refer to mutable external data.
-
-## Decision
-
-<a id="codec-06"></a>
-
-### CODEC-06 — Secrecy and external effects
-
-**Disposition:** accepted. **Implementation:** unimplemented.
-
-Raw values and valueRef stay out of ordinary public records/results/errors/logs/Events/model context/transcripts/command arguments. Raw value is transient authorized write input, never a persisted fallback; valueRef is deliberately persisted internally and passed to Consumer decode. Protected format/encryption/key management is Consumer-owned. No Core choice of encrypted payload/store/tagged variants, automatic retry/fallback/compensation or external protected-store rollback promise. Same reference does not prove same underlying value.
-
-**Recorded rationale:** Local reference atomicity cannot freeze or undo a Consumer’s external store.
-
-## Alternatives and supersession
-
-- **CODEC-06:** No additional alternative is selected by this record.
-
-## Consequences
-
-Core does not claim encoding is encryption or that database rollback undoes external protection effects. Raw values remain transient and no compensation/retry/reveal path is introduced.
-
-The decision record does not claim runtime verification. Foundation implementation tasks must prove applicable behavior; paused scope requires separate authorization.
-
-## Provenance
-
-Sources are provenance labels, not required local links. The [coverage register](decision-coverage.md) records the complete source inventory and duplicate occurrences.
-
-- **CODEC-06:** `S43` — `rework/project-source.md`, lines 260–286,318–328; `S46` — `rework/sdk-handler-tree.md`, lines 138–140; `S35` — `rework/foundation-model-contract.md`, lines 511–513.
+Sources: `rework/foundation-model-contract.md`, Secret boundary and callbacks; `rework/project-source.md`, protection and PAT binding; `rework/sdk-handler-tree.md`, codec validation.
