@@ -4,7 +4,7 @@
 
 - This private package is `@gorchestra/core2` at `libs/core2`, developed alongside the Consumer-used `@gorchestra/core`. Task 1 implements tested value/error primitives and type-only exports; models, lifecycle and Portfolio operations remain unimplemented.
 - Use unnumbered Core/domain identifiers such as `CoreDependencies`, `PortfolioClient` and `Portfolio`. The numeric suffix is only a package/path disambiguator.
-- Read [package status](README.md), [domain context](../../docs/core2/CONTEXT.md), [ADRs](../../docs/core2/adr/README.md), and [testing guidance](../../docs/core2/testing.md) before implementing a slice.
+- Read [package status](README.md), [domain context](../../docs/core2/CONTEXT.md), [ADRs](../../docs/core2/adr/), and [testing guidance](../../docs/core2/testing.md) before implementing a slice.
 
 ## Local contracts
 

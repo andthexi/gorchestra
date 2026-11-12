@@ -1,46 +1,124 @@
-# Core domain context
+# Gorchestra Core
 
-## Scope and navigation
+Core is the reusable Portfolio-level orchestration context. It owns Portfolio data and work rules without taking on Consumer tenancy, authentication or deployment policy. This context describes the parallel design at `libs/core2`; [existing Core context](../core/CONTEXT.md) describes the library still used by the Server Consumer. The package suffix distinguishes implementations, not domain language. Expedition and downstream execution remain outside the current foundation implementation.
 
-This documents the accepted vocabulary for the new Core design in `libs/core2` (`@gorchestra/core2`). **Task 1 adds tested value/error primitives and type-only exports; models, lifecycle capabilities and Portfolio operations remain unimplemented.** This vocabulary is not a claim that those planned operations work. The numeric suffix distinguishes paths/packages, not a different domain or numbered code identifiers.
+## Language
 
-The existing Server Consumer still uses `@gorchestra/core`; [existing Core context](../core/CONTEXT.md) continues to describe that implementation. This subtree does not supersede its contracts or authorize a Consumer cutover or legacy-store conversion.
+**Portfolio**:
+A first-class grouping and isolated boundary for Projects, reusable knowledge and credential references. Portfolio containment does not make every record part of one aggregate.
+_Avoid_: Workspace, Project Space, tenant
 
-The [foundation contract reference](contracts.md) records accepted shapes and operations without presenting them as a working API. The [ADR index](adr/README.md) records only hard-to-reverse, surprising choices made through genuine tradeoffs; it is not an exhaustive source or planning register. [Local documentation contracts](AGENTS.md) govern maintenance. See [package status](../../libs/core2/README.md) and [testing guidance](testing.md) for the implemented primitive boundary and remaining qualification limits; later usage examples must follow actual implementation.
+**Consumer**:
+An application layer that provides user experience, authentication, authorization, Portfolio registration and selection, storage configuration, and Secret protection around Core.
+_Avoid_: Core provider, Portfolio
 
-## Foundation vocabulary
+**Project**:
+A continuing undertaking that owns configured Assets and is referenced by independent Expeditions. A Project may exist before any Assets or work are added.
+_Avoid_: Repository, Expedition, workspace
 
-| Term                          | Meaning and relationships                                                                                                                                                                                                                                                              |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Portfolio**                 | First-class domain grouping and isolated storage boundary for Projects, reusable knowledge and credential references. Consumers own registry, selection and access; scope does not merge all records into one aggregate.                                                               |
-| **Consumer**                  | Application layer providing user experience, authentication, authorization, Portfolio selection, backend configuration and Secret protection. Workspace and membership are Consumer concerns, not new Core models.                                                                     |
-| **Project**                   | Continuing undertaking owning durable Assets and referenced by independent Expeditions. Its accepted foundation shape is identity, title, nested source-control spec and creation attribution. A Project may be created empty.                                                         |
-| **Asset**                     | One identified Project-owned allocation/configuration record. The current variant is a GitHub repository on github.com with owner/name and a required same-Portfolio Secret reference. It is not a wrapper around a Repository, a checkout, a produced Artifact or a shared aggregate. |
-| **Secret**                    | Top-level Portfolio-owned credential identity reusable by Assets across Projects in that Portfolio. Ordinary metadata omits its protected reference and raw value. Title is supplied at creation; value replacement retains identity/bindings.                                         |
-| **Protected value reference** | Exact opaque nonempty string returned by Consumer encoding and stored internally as valueRef. It is not plaintext, a child model or a Core-selected encryption scheme. Core does not interpret it or guarantee external-store rollback.                                                |
-| **Memory**                    | Independent user-maintained reusable knowledge, with immutable parentage and its own immutable revisions. A Memory can have content and children. Its compact current summary contains revision identity, version and title, not body or revision attribution.                         |
-| **MemoryRevision**            | Complete immutable title/body/version/creation record owned by one Memory. Exact revision citations do not follow future edits. Version controls history order and expected-version writes; revision identity controls lookup/citation.                                                |
-| **Attribution / AuditStamp**  | Core-generated local operation time with exact Consumer-supplied by/cid values. It records who the Consumer attributed an operation to, not authentication, authorization or idempotency. Original creation remains fixed; supported writes use their own stamp.                       |
-| **Lifecycle capability**      | PortfolioSetup, PortfolioMigration or ready PortfolioClient, selected by the future classification factory. They share resource ownership. Portfolio is the separate attribution-bound domain facade, not another physical connection or a persisted record created by binding.        |
+**Asset**:
+One identified, immutable Project-owned target configuration. The source-control variant identifies a GitHub repository and the same-Portfolio Secret used for access; it is not a checkout or an artifact produced by work.
+_Avoid_: Repository wrapper, checkout, Artifact
 
-Relationships, not copied child lists, determine ownership, usages and targets. The compact Memory revision summary and fixed original Memory creation stamp are explicit read-convenience exceptions. Secret/Project title renames, Asset rebinding and their updated fields are excluded from the current foundation; no generic update or archival substitute is implied.
+**Secret**:
+A Portfolio-owned credential identity reusable by Assets across Projects. Ordinary Secret metadata excludes both the raw value and its protected reference.
+_Avoid_: Provider-specific credential model, plaintext record
 
-## Paused planning vocabulary
+**Protected Secret Value Reference**:
+An opaque Consumer-produced value that allows the Consumer to resolve a Secret's plaintext. It may refer to an external store or contain an encrypted envelope; Core does not interpret the protection scheme.
+_Avoid_: Plaintext secret, encryption key, Secret identity
 
-These accepted concepts are retained for navigation and future work, **not implemented by the foundation**. Expedition work remains paused.
+**Secret Value Replacement**:
+Assigning a new protected value to an existing Secret while preserving its identity and all Asset references to it.
+_Avoid_: Replacement Secret, Asset rebinding, Secret metadata update
 
-- **Expedition** is an independent bounded undertaking belonging to a Project. It owns context versions, Questions, Findings, Decisions and accepted Blueprints. Its selected planning phases are charting, discovery, drafting and planned; planned means materialized handoff, not successful delivery.
-- **Map** assembles current Expedition understanding. **Frontier** derives open, unblocked, unclaimed Questions. Neither is a separate writable aggregate.
-- **Question** is precise discovery work with an accepted research, grilling or human-prerequisite method. **Unknowns**, notes and boundaries are context values, not additional work records.
-- **Finding** is an observation; **Decision** is a settled conclusion. **Evidence** is an immutable supporting locator/version/excerpt owned by the citing content, not a registry or certification of truth.
-- **AgentInteraction** independently owns integration state and immutable proposed-result versions for its domain target. Runtime transcript/execution stays outside Core. A proposed result is not accepted work; human acceptance applies domain changes.
-- **Blueprint** is Expedition-owned accepted work scope, created only at final acceptance in the selected single-creation MVP. It materializes the complete initial Delivery/Slice/dependency graph atomically without starting execution or changing Asset/Secret configuration.
-- **Delivery** is an independent accepted outcome targeting one existing Project Asset. It owns **Slices**, which derive that target and contain immutable **Instructions**. Dependencies belong to the dependent work's aggregate.
-- **Operation** is an independent aggregate owning a proposed external effect and scope, its **Approval**, and effect-specific evidence/**Receipts**; it references rather than owns the requesting work. Approval grants permission for the exact scope; a Receipt records verified external read-back. They are not every SDK invocation or another planning review gate.
-- **Archive Period** retains record-owned reversible archival history as vocabulary; it does not grant Project, Asset or Secret archival capabilities.
+**Portfolio Memory**:
+The Portfolio's user-maintained reusable knowledge, organized as Memories and their immutable revisions. Knowledge remains independent of any one Project or Expedition.
+_Avoid_: Project snapshot, Blueprint output, workspace wiki
 
-Core-owned repository-provider behavior remains distinct from Consumer-supplied storage, Secret callbacks and the generic AgentRuntime integration category. Repository read/ref-selection APIs and concrete AgentRuntime interfaces/injection timing are deferred; the executable foundation dependency design requires storage and secrets only, not placeholder services.
+**Memory**:
+A note-like item that may have both content and children through an immutable parent relationship. It keeps a compact current revision summary containing identity, version and title; full content and revision attribution belong to Memory Revisions.
+_Avoid_: Folder-only record, embedded revision history, mutable body
 
-## Boundaries that do not follow from vocabulary
+**Memory Revision**:
+One immutable title and body snapshot belonging to a Memory. Revision identity supports exact citations that do not follow later edits; version orders that Memory's history and guards subsequent edits.
+_Avoid_: Latest pointer, edit-in-place content, global version
 
-Accepted design is not implementation approval for paused features. This snapshot delivers no runtime behavior, Consumer cutover or integrations. Unselected Expedition/runtime schemas and exploratory proposals remain in the original design notes, not as accepted API contracts or a published backlog. Removing a planning-only ADR does not authorize the excluded feature or change a reviewed choice.
+**Audit Stamp**:
+Core-recorded operation time paired with exact Consumer-supplied actor and correlation references. It records attribution, not authentication, authorization or idempotency, and original creation attribution remains fixed.
+_Avoid_: User identity, permission, idempotency key
+
+**Expedition**:
+An independent bounded undertaking belonging to a Project. It owns discovery context, Questions, Findings, Decisions and accepted Blueprints; its planned phase means materialized handoff, not successful delivery.
+_Avoid_: Project, Delivery, chat session
+
+**Map**:
+The assembled current understanding of an Expedition, derived from its owned discovery facts and context.
+_Avoid_: Independently edited aggregate, stored discovery copy
+
+**Frontier**:
+The derived set of open, unblocked and unclaimed Questions available for discovery.
+_Avoid_: Stored queue, scheduler, separate aggregate
+
+**Question**:
+Precise discovery work with an accepted research, grilling or human-prerequisite method. Unknowns, notes and boundaries remain context values rather than additional work records.
+_Avoid_: Chat prompt, arbitrary note, task backlog
+
+**Finding**:
+An observation recorded in discovery, distinct from a settled conclusion.
+_Avoid_: Decision, verified truth
+
+**Decision**:
+A settled domain conclusion reached through discovery.
+_Avoid_: Finding, runtime approval, architectural decision record
+
+**Evidence**:
+An immutable supporting locator, version or excerpt owned by the content that cites it. A stored citation does not certify truth or future source availability.
+_Avoid_: Evidence registry, complete source archive, certification
+
+**Agent Interaction**:
+An independent owner of integration state and immutable proposed-result versions for one domain target. Runtime execution and transcripts remain outside Core; a saved proposal is not accepted work.
+_Avoid_: Chat session, runtime transcript, target aggregate
+
+**Blueprint**:
+Expedition-owned accepted work scope that materializes one coherent initial Delivery, Slice and dependency graph. Acceptance does not start execution or alter Asset and Secret configuration.
+_Avoid_: Draft work record, running Delivery, evolving task list
+
+**Delivery**:
+An independent accepted outcome targeting one existing Asset in its Project. It owns Slices and retains its accepted origin without giving later planning changes authority over execution.
+_Avoid_: Expedition, Blueprint, individual Slice
+
+**Slice**:
+A bounded executable and independently reviewable part of a Delivery. It derives its target from the Delivery and carries immutable Instructions.
+_Avoid_: Independent target, planning Question, Delivery
+
+**Instructions**:
+The immutable accepted directions for carrying out a Slice.
+_Avoid_: Live chat, mutable planning notes, runtime transcript
+
+**Operation**:
+An independent aggregate for a proposed external effect and its exact scope, Approval and Receipts. It references the requesting work rather than owning it; it is not every SDK call.
+_Avoid_: Domain query, runtime submission, work aggregate
+
+**Approval**:
+Permission for the exact scope of a proposed external effect. Changed content cannot reuse an earlier Approval.
+_Avoid_: Blueprint acceptance, runtime completion, Receipt
+
+**Receipt**:
+Effect-specific evidence of an externally verified outcome. It records an observation, not retroactive permission to perform the effect.
+_Avoid_: Approval, submitted request, assumed success
+
+**Archive Period**:
+Record-owned reversible archival history. The term alone does not grant archival operations to a model.
+_Avoid_: Deleted flag, generic retirement API
+
+## Relationships
+
+- **Consumers → Core**: Consumers select and authorize a Portfolio and supply isolated storage and Secret-protection mechanics. Workspace and membership authority remain outside Core.
+- **Projects → Assets → Secrets**: Projects own configured targets; Assets reference reusable Secrets in the same Portfolio. A changed target requires a different Asset, while Secret Value Replacement preserves references.
+- **Memories → Memory Revisions**: Parentage defines the knowledge hierarchy. Each edit appends an immutable revision and atomically updates the Memory's compact current summary; exact citations retain their revision identity.
+- **Expeditions → Blueprints → Deliveries → Slices**: Reviewed planning materializes accepted work without starting it. Deliveries retain independent ownership, and Slices derive their target from their Delivery.
+- **Agent Interactions → domain proposals**: Saving a proposal and accepting its domain changes are separate actions. Runtime completion is not domain completion or acceptance.
+- **Operations → Approvals and Receipts**: Proposed scope, authority and verified external outcome are distinct facts. Domain gates still govern whether requesting work may proceed.
+- Ownership, child collections, usages and work targets derive from relationships rather than synchronized copies. Memory's compact revision summary and fixed original creation attribution are deliberate read-convenience exceptions.
+- Core owns repository-provider behavior; Consumers supply storage, protection and runtime integration. Configuring an Asset does not establish live provider validity or access.

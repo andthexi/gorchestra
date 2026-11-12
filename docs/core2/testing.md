@@ -4,7 +4,7 @@
 
 Task 1 supplies real primitive/error source and **43 passing runtime tests across two files**, with forced scoped TypeScript, ESLint and formatting passing. Tests live inline in `src/domain/commons.ts` and `src/errors.ts`; they cover exact primitive strings (including constructor-spoof/boxed-value rejection), required stored stamp fields, faithful safe issue projection, and parsed Result/error envelopes. This resolves Task 0’s no-input/no-tests gap; models, lifecycle, storage and domain operation tests remain unimplemented. Do not introduce dummy tests, discovery exclusions or `passWithNoTests`.
 
-The following policy applies only to `libs/core2`. Existing Core and Consumer suites retain their contracts. Read the [package status](../../libs/core2/README.md), [context](CONTEXT.md), [contract reference](contracts.md#internal-definition-and-verification-boundary), and [ADR index](adr/README.md).
+The following policy applies only to `libs/core2`. Existing Core and Consumer suites retain their contracts. Read the [package status](../../libs/core2/README.md), [context](CONTEXT.md) and relevant [ADRs](adr/).
 
 ## Task 0 verification record
 
