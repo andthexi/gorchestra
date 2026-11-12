@@ -2,9 +2,13 @@
 
 ## Implemented boundary and scope
 
-The complete scoped suite has **62 passing runtime tests across eight files**, with forced scoped TypeScript, ESLint and formatting passing. Inline tests cover shared primitives/errors, the five model schemas and `src/storage/schema.ts`. Coverage includes primitive-string rejection, exact IDs and text, required stored stamp fields, faithful safe issue projection, parsed Result envelopes, nested model shapes and Secret metadata projection. Model pipes reuse the actual schema fields, retaining input/output transformations without applying native create defaults.
+The complete scoped suite has **75 passing runtime tests across eleven files**, with forced scoped TypeScript, ESLint and formatting passing. Inline tests cover shared primitives/errors, the five model schemas, `src/storage/schema.ts`, the native migration catalog and pure history classification. Coverage includes primitive-string rejection, exact IDs and text, required stored stamp fields, faithful safe issue projection, parsed Result envelopes, nested model shapes and Secret metadata projection. Model pipes reuse the actual schema fields, retaining input/output transformations without applying native create defaults.
 
-Real Equipped InMemory create/read tests exercise all five models and logical table names, supplied-ID persistence, native omitted-ID generation through the explicit slot, and missing-slot failure without writes. Async slot tests cover independent awaits and enclosing-context restoration. These are model and ID-transport checks, not lifecycle, migration, codec, domain-operation or transaction-isolation qualification. Those boundaries remain unimplemented; no provider, network, credentials, fake Repo or module-import mocks are used. Do not introduce dummy tests, discovery exclusions or `passWithNoTests`.
+Real Equipped InMemory create/read tests exercise all five models and logical table names, supplied-ID persistence, native omitted-ID generation through the explicit slot, and missing-slot failure without writes. Async slot tests cover independent awaits and enclosing-context restoration. These are model and ID-transport checks, not lifecycle, codec, domain-operation or transaction-isolation qualification. Those boundaries remain unimplemented; no provider, network, credentials, fake Repo or module-import mocks are used. Do not introduce dummy tests, discovery exclusions or `passWithNoTests`.
+
+The immutable initial migration has literal table/field regression expectations independent of current schemas. Tests build the actual catalog with native `Migrator.from(repo, adapter).migrations(...).build()`, apply it to fresh InMemory storage, introspect all five logical tables with no foreign keys/indexes, validate the raw ledger and verify a repeated native run leaves it unchanged. Catalog IDs have focused developer assertions for validity, uniqueness and intended order, not another production validator.
+
+History tests use test-owned multi-entry catalogs for empty/proper-prefix/complete and out-of-order membership. They reject malformed raw arrays/entries, nonprimitive or malformed IDs, invalid timestamps, duplicates, unknown IDs and gaps with type-only failures. Precedence is full-entry validation, duplicates, unknown IDs, then prefix coverage; extra keys strip without repairing input. These tests are not a Core setup/migrate runner, whole-run rollback/isolation proof, physical-resolver qualification or a fix for Equipped #148/#149.
 
 The following policy applies only to `libs/core2`. Existing Core and Consumer suites retain their contracts. Read the [package status](../../libs/core2/README.md), [context](CONTEXT.md) and relevant [ADRs](adr/).
 
@@ -61,7 +65,7 @@ await startVitest("test", [], { run: true, config: "vitest.config.ts" }, { envDi
 '
 ```
 
-This runs the actual package configuration, preserving failure/no-test status, without Vite's implicit dotenv reads. Run and report each package separately; the new foundation package has real primitive, model and ID-transport tests. Do not equate them with full legacy-suite qualification.
+This runs the actual package configuration, preserving failure/no-test status, without Vite's implicit dotenv reads. Run and report each package separately; the new foundation package has real primitive, model, ID-transport, catalog and history tests. Do not equate them with full legacy-suite qualification.
 
 The Server tsconfig requires generated `.nuxt/tsconfig.json`, absent after `--ignore-scripts`. On Linux, the supported Nuxt CLI `--dotenv=/dev/null` option redirects the dotenv filename; **do not use `--no-dotenv`**, which can fall back to `.env`. Disable telemetry and review the installed CLI/c12 behavior before using it:
 
