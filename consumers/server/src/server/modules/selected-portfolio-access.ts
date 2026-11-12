@@ -35,7 +35,7 @@ export async function resolveSelectedPortfolioAccess(
 ): Promise<ResolveSelectedPortfolioAccessResult> {
 	const authentication = await verifySessionToken({
 		serverCache: input.serverCache,
-		token: input.sessionToken,
+		token: input.sessionToken ?? null,
 		now: input.now,
 		signingKey: input.sessionSigningKey,
 	})
@@ -44,7 +44,7 @@ export async function resolveSelectedPortfolioAccess(
 	const access = await resolveSelectionAccess({
 		serverStorage: input.serverStorage,
 		userId: authentication.session.userId,
-		selectionToken: input.selectionToken,
+		selectionToken: input.selectionToken ?? null,
 		now: input.now,
 		signingKey: input.selectionSigningKey,
 	})
@@ -104,6 +104,23 @@ if (import.meta.vitest) {
 		it('rejects missing Selection after authenticating the Session', async () => {
 			await withSelectedAccessFixture(async ({ input }) => {
 				expect(await resolveSelectedPortfolioAccess({ ...input, selectionToken: null })).toEqual({
+					resolved: false,
+					source: 'selection',
+					reason: 'missing-token',
+				})
+			})
+		})
+
+		it('rejects omitted tokens at the same boundaries as null tokens', async () => {
+			await withSelectedAccessFixture(async ({ input }) => {
+				const { sessionToken: _sessionToken, ...withoutSession } = input
+				expect(await resolveSelectedPortfolioAccess(withoutSession)).toEqual({
+					resolved: false,
+					source: 'session',
+					reason: 'missing-token',
+				})
+				const { selectionToken: _selectionToken, ...withoutSelection } = input
+				expect(await resolveSelectedPortfolioAccess(withoutSelection)).toEqual({
 					resolved: false,
 					source: 'selection',
 					reason: 'missing-token',
