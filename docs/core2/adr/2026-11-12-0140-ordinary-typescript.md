@@ -4,7 +4,7 @@
 
 Decision disposition: accepted, superseded. Individual keyed statements below control mixed records.
 
-Implementation: **unimplemented** at D1. Scope: foundation.
+Implementation: **partial** at Task 0: normal project configuration and testing guidance exist, but no production/runtime-test source exists yet. D1 recorded the decision before scaffolding. Scope: foundation.
 
 ADR created: 2026-11-12-0140 UTC. Original decision date: unknown; filename time is promotion time, not a reconstructed decision date.
 
@@ -18,7 +18,7 @@ The user rejected maintaining a dedicated type-only test suite despite earlier s
 
 ### TEST-02 — Ordinary TypeScript only
 
-**Disposition:** accepted. **Implementation:** unimplemented.
+**Disposition:** accepted. **Implementation:** partial: ordinary project reference configured and executed; expected no-input diagnostic remains until Task 1. The approved root/package instruction chain records the scoped no-separate-type-tests policy.
 
 Use normal project TypeScript checking for production and runtime-test source. No dedicated type-assertion suites, tsd/expectTypeOf blocks, positive/negative compile-only fixtures, or expected-compiler-error harness. Keep precise production types and runtime validation.
 

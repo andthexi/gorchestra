@@ -2,11 +2,11 @@
 
 ## Scope and navigation
 
-This documents the accepted vocabulary for the new Core design destined for `libs/core2` (`@gorchestra/core2`). **The package is unimplemented and has not been scaffolded in Task D1.** There is no runnable new API to use yet. The numeric suffix distinguishes paths/packages, not a different domain or numbered code identifiers.
+This documents the accepted vocabulary for the new Core design in `libs/core2` (`@gorchestra/core2`). **Task 0 adds package configuration only; all runtime behavior remains unimplemented.** There is no runnable new API to use yet. The numeric suffix distinguishes paths/packages, not a different domain or numbered code identifiers.
 
 The existing Server Consumer still uses `@gorchestra/core`; [existing Core context](../core/CONTEXT.md) continues to describe that implementation. This subtree does not supersede its contracts or authorize a Consumer cutover or legacy-store conversion.
 
-Read the [ADR index](adr/README.md) for accepted and historical decisions and the [coverage register](adr/decision-coverage.md) for complete source reconciliation. [Local documentation contracts](AGENTS.md) govern maintenance. Package usage and testing documentation are added alongside actual implementation, beginning in Task 0; they are not placeholders for completed work here.
+Read the [ADR index](adr/README.md) for accepted and historical decisions and the [coverage register](adr/decision-coverage.md) for complete source reconciliation. [Local documentation contracts](AGENTS.md) govern maintenance. See [package status](../../libs/core2/README.md) and [testing guidance](testing.md) for the configuration gate; usage examples will follow actual implementation, not substitute for it.
 
 ## Foundation vocabulary
 

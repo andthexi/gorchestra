@@ -1,6 +1,6 @@
 # Core ADR index
 
-This is the complete decision record for the parallel Core redesign, not a claim that its library exists. **All runtime behavior is unimplemented at D1; Expedition and downstream/runtime work remain paused.** Existing [Core documentation](../../core/CONTEXT.md) still owns the Consumer-used library.
+This is the complete decision record for the parallel Core redesign, not a claim of a working API. **All runtime behavior remains unimplemented; Expedition and downstream/runtime work remain paused.** Task 0 adds package configuration and dependency alignment; see [package status](../../../libs/core2/README.md) and [testing guidance](../testing.md). D1's review snapshot remains historical evidence, separate from later delivery status. Existing [Core documentation](../../core/CONTEXT.md) still owns the Consumer-used library.
 
 Decision disposition (`accepted`, `deferred`, `rejected`, `superseded`) is separate from implementation status. A deferred entry records a scope choice, not approval of every saved proposal. Original dates are unknown; sortable filenames use actual promotion time.
 

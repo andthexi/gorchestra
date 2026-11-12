@@ -4,7 +4,7 @@
 
 Decision disposition: accepted. Individual keyed statements below control mixed records.
 
-Implementation: **partial; D1 documentation and routing authored; parent review/PR delivery and later usage synchronization pending** at D1. Scope: delivery process.
+Implementation: **partial**. D1 documentation was reviewed and delivered in [PR #38](https://github.com/andthexi/gorchestra/pull/38). Task 0 adds package status/testing guidance and approved instruction routing; runtime usage synchronization remains ongoing. Scope: delivery process.
 
 ADR created: 2026-11-12-0140 UTC. Original decision date: unknown; filename time is promotion time, not a reconstructed decision date.
 
@@ -18,7 +18,7 @@ Ignored notes cannot remain the only record, and the user explicitly requested e
 
 ### DOC-01 — Exhaustive promotion
 
-**Disposition:** accepted. **Implementation:** partial; D1 documentation authored, parent commit/PR delivery and later task synchronization pending.
+**Disposition:** accepted. **Implementation:** D1 promotion reviewed and delivered in PR #38; later task synchronization remains ongoing.
 
 Record every distinct rework decision in a focused ADR or inseparable keyed section, including paused scope and small API/field choices. Deduplicate repeated occurrences; preserve explicit supersession and non-decisions. Inventory every artifact and keep self-contained rationale, source labels, disposition, and implementation status. Use actual ADR creation timestamps; original decision dates are unknown unless evidenced.
 
@@ -28,7 +28,7 @@ Record every distinct rework decision in a focused ADR or inseparable keyed sect
 
 ### DOC-02 — Synchronized routing
 
-**Disposition:** accepted. **Implementation:** partial; D1 documentation authored, parent commit/PR delivery and later task synchronization pending.
+**Disposition:** accepted. **Implementation:** partial; Task 0 updates README/context/testing links and approved root/library/documentation/package instructions; runtime usage remains unimplemented.
 
 Route new Core documentation through docs/core2 and preserve docs/core for the existing library. Update context/usage/testing alongside each real implementation slice; do not advertise planned APIs as working or link nonexistent package usage. Update scope status both in the owning ADR and coverage register.
 

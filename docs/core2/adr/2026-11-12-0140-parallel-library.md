@@ -4,7 +4,7 @@
 
 Decision disposition: accepted. Individual keyed statements below control mixed records.
 
-Implementation: **unimplemented** at D1. Scope: delivery process.
+Implementation: **partial** at Task 0: private package/configuration exists, but source entry and all runtime behavior remain unimplemented. D1 recorded the decision before scaffolding. Scope: delivery process.
 
 ADR created: 2026-11-12-0140 UTC. Original decision date: unknown; filename time is promotion time, not a reconstructed decision date.
 
@@ -18,7 +18,7 @@ The redesigned API and data model intentionally break compatibility. Existing Co
 
 ### PKG-01 — Parallel package
 
-**Disposition:** accepted. **Implementation:** unimplemented.
+**Disposition:** accepted. **Implementation:** partial: package manifest, project reference and Vitest discovery exist; the declared source entry is intentionally absent until Task 1.
 
 Place the new private ESM library at `libs/core2`, named `@gorchestra/core2`, with source entry `./src/index.ts`; retain existing Core and all Consumer imports. No compatibility shim, implicit legacy conversion, or retirement of the old library.
 
@@ -52,7 +52,7 @@ Do not import implementation from existing Core or ignored rework. Reimplement o
 
 ## Consequences
 
-Task 0 creates the private package; D1 creates documentation only. Existing stores, source, exports, migrations, and docs/core remain unchanged.
+Task 0 creates the private package configuration; D1 created documentation only. Existing stores, source, exports, migrations, and docs/core remain unchanged. No Consumer imports the new package. The approved root/library/docs/package instruction chain routes to the parallel library and its selected test policy. This interim configuration gate is not a working API or full legacy runtime qualification.
 
 The decision record does not claim runtime verification. Foundation implementation tasks must prove applicable behavior; paused scope requires separate authorization.
 

@@ -11,8 +11,8 @@ allowBuilds:
     unrs-resolver: true
 
 overrides:
-    equipped: file://~/Desktop/code/packages/equipped
-    valleyed: 4.5.23
+    equipped: 5.3.4
+    valleyed: 4.5.24
 
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:

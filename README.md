@@ -9,21 +9,22 @@ This repo is a private pnpm workspace. The root `package.json` owns product proc
 Current workspace packages:
 
 - `libs/core` (`@gorchestra/core`) — a private internal package exported directly from source (`./src/index.ts`) for workspace packages to consume.
+- `libs/core2` (`@gorchestra/core2`) — the parallel Core foundation package, currently configuration-only with no runtime API. The Server Consumer has not switched to it. See [package status](libs/core2/README.md) and [domain context](docs/core2/CONTEXT.md).
 - `libs/form-draft` (`@gorchestra/form-draft`) — private form draft primitives used by consumer UI forms.
 - `consumers/server` (`@gorchestra/consumer-server`) — the private v1 Server Consumer package, started by the root application entrypoint.
 
 ## Core redesign documentation
 
-The Server Consumer still uses `@gorchestra/core`. A parallel Core foundation is planned at `libs/core2` (`@gorchestra/core2`), but **the package is unimplemented and not yet scaffolded** in the documentation-only decision-promotion task. See [new Core context](docs/core2/CONTEXT.md), the [ADR index](docs/core2/adr/README.md), and the [complete decision coverage register](docs/core2/adr/decision-coverage.md). Existing [Core documentation](docs/core/CONTEXT.md) remains authoritative for the Consumer-used library. Recording paused Expedition/runtime/downstream decisions does not resume their implementation.
+The Server Consumer still uses `@gorchestra/core`. The parallel foundation at `libs/core2` (`@gorchestra/core2`) now has package, TypeScript and Vitest configuration, but **all runtime behavior remains unimplemented**. The declared source entry is intentionally absent until the first real implementation slice; this is not an importable API yet. See [new Core context](docs/core2/CONTEXT.md), the [testing guide](docs/core2/testing.md), the [ADR index](docs/core2/adr/README.md), and the [complete decision coverage register](docs/core2/adr/decision-coverage.md). Existing [Core documentation](docs/core/CONTEXT.md) remains authoritative for the Consumer-used library. Recording paused Expedition/runtime/downstream decisions does not resume their implementation.
 
-The accepted dependency policy keeps package manifest declarations as `latest` and centralizes repo-wide exact resolution in global `pnpm-workspace.yaml` overrides: Equipped `5.3.4`, Valleyed `4.5.24`, including transitive dependencies and without local-path or package-specific exceptions. **Task 0 applies and verifies those overrides and the generated lockfile; D1 changes no dependency configuration or installed packages.** See the [dependency decision](docs/core2/adr/2026-11-12-0140-canonical-dependencies.md).
+Package manifest declarations remain `latest`; global `pnpm-workspace.yaml` overrides select Equipped `5.3.4` and Valleyed `4.5.24` repo-wide, including transitive dependencies, without local-path or package-specific exceptions. Future version changes belong in those overrides, followed by a pnpm-generated lockfile refresh and complete installed-resolution verification. Existing manifests, Core source and Consumer imports are unchanged. See the [dependency decision](docs/core2/adr/2026-11-12-0140-canonical-dependencies.md).
 
 ## Common commands
 
 Install dependencies from the repository root:
 
 ```bash
-pnpm install
+pnpm install --ignore-scripts
 ```
 
 Run the common quality gates from the repository root:
@@ -34,6 +35,16 @@ pnpm format
 pnpm typecheck
 pnpm test
 ```
+
+The script-free install does not run Server's Nuxt preparation. For credential-free checks, use the [reviewed preparation and disabled-dotenv test procedure](docs/core2/testing.md#credential-free-verification), not bare application/typecheck scripts. Set `pnpm_config_verify_deps_before_run=error` on pnpm run/exec commands to prevent implicit installs.
+
+The normal scoped foundation test command is:
+
+```sh
+pnpm_config_verify_deps_before_run=error pnpm --filter @gorchestra/core2 test
+```
+
+At Task 0 it reports no tests, and its TypeScript project reports no inputs. These are expected interim configuration-gate failures, not passing runtime checks. Do not mask them with dummy source/tests; Task 1 supplies actual tested source.
 
 Useful fix commands:
 

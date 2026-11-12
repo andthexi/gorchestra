@@ -6,6 +6,19 @@ Reviewed the complete recursively discovered `rework/` tree: **51 artifacts, 30 
 
 All runtime implementation is **unimplemented at D1**. Accepted decisions outside the foundation remain paused. Later explicit amendments control older duplicate summaries. Source paths below are provenance labels, not broken links to ignored files. ADRs contain the decisions and rationale needed without the original notes or scratch plan.
 
+### Task 0 delivery status amendments
+
+The inventory, occurrence review and decision table below preserve the **D1 review snapshot**, including its then-current implementation labels. The following later statuses supersede only those delivery labels, not decision dispositions or historical review evidence. All runtime behavior remains unimplemented.
+
+- [DEP-01](2026-11-12-0140-canonical-dependencies.md#dep-01): implemented dependency alignment; global overrides, generated lockfile, expanded root/recursive installed trees and unchanged frozen install verified. Existing manifest declarations remain `latest`.
+- [DEP-02](2026-11-12-0140-canonical-dependencies.md#dep-02): partial; registry/install verification is real, but full legacy runtime qualification awaits isolated-network handling for the test-owned all-interface listener and global-provider path. Root TypeScript reports existing-source optional-property mismatches; Server vue-tsc exits 0 with an omitted unresolved route-block plugin. No upstream isolation/mapping fix is inferred.
+- [PKG-01](2026-11-12-0140-parallel-library.md#pkg-01): partial; private manifest, TypeScript reference and Vitest configuration exist, with no source entry or runtime API yet. Approved root/library/documentation/package instructions now provide the required routing.
+- [TEST-02](2026-11-12-0140-ordinary-typescript.md#test-02): partial configuration/guidance only; no-input/no-tests are expected interim diagnostics, not passes. The approved scoped instruction exception is recorded in root and package instructions.
+- [DOC-01](2026-11-12-0140-documentation-delivery.md#doc-01): D1 exhaustive promotion reviewed and delivered in [PR #38](https://github.com/andthexi/gorchestra/pull/38); later synchronization remains ongoing.
+- [DOC-02](2026-11-12-0140-documentation-delivery.md#doc-02): partial; package README, context and [testing guide](../testing.md) now route to existing configuration. Approved AGENTS routing is in place; runtime usage synchronization remains pending.
+
+### D1 review method and caveats
+
 The inventory's hashes identify exactly what was reviewed. Complete bodies, tables, amendments and visual text were read in bounded batches; long physical lines were wrapped for review rather than truncated. HTML presentation CSS was non-decision formatting; all semantic text/links and script contents were inspected. PNG was visually checked as the SVG's rendered counterpart. Probe code/results were read as evidence, not rerun as production tests.
 
 **Reconciliation rule:** only explicitly selected choices (including decisions to defer/reject) become decision identities. Fictional scenario values, audit recommendations, generic external-library comparisons, speculative future alternatives and probe observations remain non-decisions. A section can contain selected restatements and unresolved details together. The occurrence table below maps reviewed statements, not every sentence in that section, to their controlling identity.
