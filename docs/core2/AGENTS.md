@@ -1,22 +1,35 @@
-# Core documentation DOX
+# Core Documentation DOX
 
-## Ownership and scope
+## Purpose
 
-- This subtree owns the redesign's domain context, contract reference and architectural decisions for `libs/core2` (`@gorchestra/core2`). The package is **unimplemented and not scaffolded** in this documentation-only snapshot.
-- Existing `libs/core` and [its documentation](../core/CONTEXT.md) remain authoritative for the Server Consumer. Add live package instructions and usage/testing guides only alongside actual implementation.
-- Use unnumbered Core/domain names in prose and code. The suffix is only a path/package disambiguator.
+The `docs/core2/` tree documents domain language and architectural decisions for the parallel Core design at `libs/core2` (`@gorchestra/core2`). Existing `libs/core` and [its documentation](../core/CONTEXT.md) remain authoritative for the Server Consumer.
 
-## Local contracts
+## Ownership
 
-- Read [context](CONTEXT.md), the [contract reference](contracts.md), the [ADR index](adr/README.md) and the affected records before changing a decision.
-- Offer an ADR only if **all three** hold: it is hard to reverse, surprising without context, and the result of a real tradeoff with genuine alternatives. If any is missing, skip it. Accepted-but-unimplemented choices can qualify; acceptance, importance or deferral alone cannot. Task/PR delivery, backlog-only exclusions, research, easy-to-change conventions and future review checkpoints are not ADRs.
-- Prefer a short title and 1–3 sentences for context, decision and why. Add status, considered options or consequences only when useful, not mandatory subsections. Keep the timestamp filename convention.
-- Keep plain field shapes and operation signatures in the contract reference rather than creating one ADR per fact. Consolidate tightly related choices without inventing alternatives or reasons. No exhaustive source/section register or decision-count target is required.
-- Use accepted or superseded decision status, separate from implementation status. Preserve relevant rejected alternatives in the decision's rationale; link actual replacement ADRs when superseding a decision. Do not reproduce every intermediate planning exchange.
-- ADRs must be self-contained. Source-note labels can support provenance, but ignored notes are not runtime dependencies. Unselected proposals, audit recommendations, examples and probe outputs are not accepted contracts.
-- Accepted design does not authorize paused Expedition/runtime work or change existing Core behavior. Keep usage claims aligned with actual implementation; do not advertise executable examples before the package exists.
+- `CONTEXT.md` owns domain terms and relationships, following the existing Core and Consumer documentation structure.
+- `adr/` owns individual architectural decisions. Do not add an ADR README, decision inventory or standalone contract specification.
+- Package README/source own implemented usage, schemas and API details. The implementation plan owns pending task requirements; focused testing documentation owns verification procedures.
+
+## Local Contracts
+
+- Read [context](CONTEXT.md) and affected [ADRs](adr/) before changing language or decisions.
+- Use unnumbered Core/domain names in prose and code. The numeric suffix is only a path/package disambiguator.
+- Offer an ADR only if **all three** hold: it is hard to reverse, surprising without context, and the result of a real tradeoff with genuine alternatives. If any is missing, skip it. Acceptance, importance, task delivery, deferral or a future review checkpoint alone is insufficient.
+- Prefer a short title and 1–3 sentences for context, decision and why. Add status, options or consequences only when useful. Keep the `YYYY-MM-DD-HHMM-slug.md` filename convention.
+- Keep decisions self-contained; source-note labels may support rationale but are not dependencies readers need to understand it. Preserve actual replacement links without reproducing intermediate planning exchanges or inventing alternatives.
+- Keep acceptance separate from implementation status. Accepted designs do not authorize paused Expedition/downstream work, a Consumer cutover or changes to existing Core behavior.
+
+## Work Guidance
+
+- Keep `CONTEXT.md` a glossary, not a schema/API specification, task checklist or verification report.
+- Document working package usage alongside source changes. Do not move unimplemented method tables or implementation plans into the glossary or a renamed catalog.
+- Prefer source/context links over duplicating detailed contracts across documents.
 
 ## Verification
 
-- Check that retained ADRs explain real choices and limitations, the index reaches them, and relative links (including replacement links) and owned Markdown formatting are valid.
-- Preserve existing Core/Consumer source and `docs/core/**`. Do not force-add or rewrite ignored source notes or unrelated files.
+- Check relative links and owned Markdown formatting. Verify relevant source behavior when documenting implemented usage.
+- Preserve existing Core/Consumer source and `docs/core/**`; do not force-add or rewrite ignored notes or unrelated files.
+
+## Child DOX Index
+
+- `adr/` — Core architectural decisions. No child AGENTS.md currently required.
