@@ -1,6 +1,6 @@
 # Use the native migration ledger
 
-Accepted. The immutable initial catalog and pure raw-history classifier are implemented; lifecycle admission, empty-storage inspection and whole-run transitions remain unimplemented. See [package status](../../../libs/core2/README.md#internal-migration-support).
+Accepted. The immutable initial catalog, raw-history classification, native empty-storage inspection, lifecycle admission and whole-catalog setup are implemented. Upgrade execution remains unimplemented. See [package status](../../../libs/core2/README.md#internal-migration-support).
 
 A separate Core version marker or last-version-only tracker would duplicate Equipped's migration authority and require conversion or another runner. Use the native `id`/`appliedAt` ledger with an immutable, append-only catalog of author-time ULID migrations, and classify raw history by exact catalog membership and contiguous-prefix coverage rather than a maximum ID, timestamp order or `Migrator.status` projection. This preserves every released upgrade path without a second schema-version counter, but makes released IDs and changes permanent and requires rejecting malformed, duplicate, gapped or unknown history rather than repairing it.
 

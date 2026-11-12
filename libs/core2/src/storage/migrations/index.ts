@@ -1,9 +1,10 @@
-import type { AnyMigration } from 'equipped/orm'
+import type { Migration } from 'equipped/orm'
 
 import { initialFoundationMigration } from './initial-foundation'
+import type { StorageAdapter } from '../../dependencies'
 
 // Append new author-time IDs in ascending order; retain all released entries.
-const migrations = [initialFoundationMigration] as const satisfies readonly AnyMigration[]
+export const migrations = [initialFoundationMigration] as const satisfies readonly Migration<StorageAdapter>[]
 
 if (import.meta.vitest) {
 	const { it, expect } = import.meta.vitest
