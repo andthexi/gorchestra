@@ -3,6 +3,7 @@ packages:
     - 'consumers/*'
 
 verifyDepsBeforeRun: error
+autoInstallPeers: false
 
 allowBuilds:
     '@confluentinc/kafka-javascript': true
