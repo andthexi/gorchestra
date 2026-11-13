@@ -2,6 +2,8 @@ packages:
     - 'libs/*'
     - 'consumers/*'
 
+verifyDepsBeforeRun: error
+
 allowBuilds:
     '@confluentinc/kafka-javascript': true
     '@parcel/watcher': false

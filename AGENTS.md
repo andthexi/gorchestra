@@ -64,6 +64,7 @@ This root AGENTS.md is the project-wide DOX rail: it gives repo-wide instruction
 ## Verification
 
 - Use the closest child AGENTS.md for subtree-specific checks.
+- Keep `verifyDepsBeforeRun: error`: `pnpm run` and `pnpm exec` must stop when installed dependencies are out of sync rather than installing implicitly. Run dependency installation explicitly before retrying; do not bypass this check.
 - For repo-wide source/config changes, run from repo root: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm format`, and `pnpm fallow:audit`.
 
 ## Child DOX Index
