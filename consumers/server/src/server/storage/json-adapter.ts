@@ -12,7 +12,7 @@ export async function createDefaultServerStorageBackend(
 	await mkdir(dirname(filePath), { recursive: true })
 	return {
 		adapter: JsonAdapter.create({ filePath }),
-		resolve: (schema) => ({ table: schema.name }),
+		resolve: (name) => ({ table: name }),
 	}
 }
 

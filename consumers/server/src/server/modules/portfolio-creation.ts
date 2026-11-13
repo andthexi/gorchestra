@@ -126,7 +126,7 @@ if (import.meta.vitest) {
 			expect(portfolioRegistered).toHaveBeenCalledWith(portfolio.id)
 			const coreStorage = await openCorePortfolioStorage({ config: corePortfolioStorage, coreStorageNamespace })
 			try {
-				expect(await coreStorage.adapter.loadMigrations()).toEqual([
+				expect(await coreStorage.adapter.loadMigrations(coreStorage.storage.resolveConfig('_equipped_migrations'))).toEqual([
 					expect.objectContaining({ id: '2026-06-16-0001-create-core-storage' }),
 					expect.objectContaining({ id: '2026-07-13-0002-durable-dispatch' }),
 				])

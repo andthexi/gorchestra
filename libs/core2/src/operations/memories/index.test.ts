@@ -33,6 +33,30 @@ async function withInputRefusal(work: (memories: Portfolio['memories']) => Promi
 }
 
 describe('memories', () => {
+	it('rejects malformed append versions and blank titles before transaction admission', async () => {
+		await withInputRefusal(async ({ revisions }) => {
+			const boxed: unknown = Object(1)
+			const input = { memoryId: '01k00000000000000000000001', expectedVersion: 1, title: 'Title', body: '' }
+			for (const expectedVersion of [undefined, null, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, NaN, Infinity, -Infinity, '1', boxed])
+				await expectInvalid(revisions.create, { ...input, expectedVersion }, 'expectedVersion')
+			for (const title of ['', ' \t\r\n'])
+				expect(await revisions.create({ ...input, title })).toEqual({
+					ok: false,
+					error: { type: 'invalid-input', issues: [{ path: 'title', message: 'Expected a nonblank title.' }] },
+				})
+			expect(
+				await revisions.create({
+					...input,
+					get body(): string {
+						throw new Error('synthetic-PROTECTED')
+					},
+				}),
+			).toEqual({
+				ok: false,
+				error: { type: 'invalid-input', issues: [{ message: 'Invalid input.' }] },
+			})
+		})
+	})
 	it('returns a parsed native pair and ignores caller-supplied identity, creation and summary', async () => {
 		const { dependencies } = createCountedSecretDependencies()
 		const adapter = dependencies.storage.adapter
@@ -93,6 +117,7 @@ describe('memories', () => {
 					[find, { memoryId: invalid }, 'memoryId'],
 					[revisions.find, { revisionId: invalid }, 'revisionId'],
 					[revisions.list, { memoryId: invalid }, 'memoryId'],
+					[revisions.create, { memoryId: invalid, expectedVersion: 1, title: 'Title', body: '' }, 'memoryId'],
 				] as const)
 					await expectInvalid(operation, input, path)
 			}
@@ -102,21 +127,28 @@ describe('memories', () => {
 				[revisions.list, 'memoryId'],
 			] as const)
 				await expectInvalid(operation, { [field]: null })
+			await expectInvalid(revisions.create, { memoryId: null, expectedVersion: 1, title: 'Title', body: '' })
 		})
 	})
 	it('rejects nonprimitive text, omitted fields and throwing getters before any transaction or codec', async () => {
 		await withInputRefusal(async ({ create, find, list, revisions }) => {
 			const boxed: unknown = Object('text')
 			for (const field of ['title', 'body']) {
-				for (const invalid of [undefined, null, 1, boxed, { constructor: { name: 'String' } }])
+				for (const invalid of [undefined, null, 1, boxed, { constructor: { name: 'String' } }]) {
 					await expectInvalid(create, { parentId: null, title: 'Title', body: '', [field]: invalid }, field)
+					await expectInvalid(
+						revisions.create,
+						{ memoryId: '01k00000000000000000000001', expectedVersion: 1, title: 'Title', body: '', [field]: invalid },
+						field,
+					)
+				}
 			}
 			for (const title of ['', ' 	\r\n'])
 				expect(await create({ parentId: null, title, body: '' })).toEqual({
 					ok: false,
 					error: { type: 'invalid-input', issues: [{ path: 'title', message: 'Expected a nonblank title.' }] },
 				})
-			for (const operation of [create, find, list, revisions.find, revisions.list]) {
+			for (const operation of [create, find, list, revisions.find, revisions.list, revisions.create]) {
 				for (const input of [undefined, null, {}, [], 1]) await expectInvalid(operation, input)
 			}
 			for (const input of [

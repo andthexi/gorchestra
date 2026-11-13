@@ -42,7 +42,7 @@ import type { RevisionGate } from '../domain/revision-gate'
 import type { Secret } from '../domain/secret'
 import type { Slice } from '../domain/slice'
 import type { SliceArtifact } from '../domain/slice-artifact'
-import type { CoreServices, CoreStorage } from '../services'
+import type { CoreServices, CoreStorage, CoreStorageAdapter } from '../services'
 import { coreIdResourceSchemas } from './storage/schema-registry'
 
 const {
@@ -477,9 +477,9 @@ function createTestCoreStorageWithView() {
 	patchAdapterFailures(adapter, tx, () => {
 		transactionCalls += 1
 	})
-	const service = Repo.from(adapter)
-		.resolve((schema) => ({ table: schema.name }))
-		.build() as CoreStorage
+	const service = Repo.from<CoreStorageAdapter>(adapter)
+		.resolve((name) => ({ table: name }))
+		.build()
 	attachStorageSurface(tx, service)
 
 	return {

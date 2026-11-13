@@ -1,4 +1,4 @@
-import { OrmAdapter, type AnySchema, type InferAdapterConfig, type Migration } from 'equipped/orm'
+import { OrmAdapter, type InferAdapterConfig, type Migration } from 'equipped/orm'
 import { v, PipeError } from 'valleyed'
 
 import type { Id } from './domain/commons'
@@ -110,7 +110,7 @@ export function dependenciesPipe() {
 // Internal opaque resolver result: only the paired native adapter interprets it.
 // Never re-pair a resolver with another adapter or manufacture configurations.
 export type RuntimeDependencies = {
-	storage: { adapter: StorageAdapter; resolveSchema: (schema: AnySchema) => unknown }
+	storage: { adapter: StorageAdapter; resolveSchema: (name: string) => unknown }
 	secrets: {
 		encode: (input: { secretId: Id; value: string }) => Promise<string | null>
 		decode: (input: { secrets: Array<{ secretId: Id; valueRef: string }> }) => Promise<Record<Id, string | null>>
@@ -118,5 +118,5 @@ export type RuntimeDependencies = {
 }
 
 export type CoreDependencies<A extends StorageAdapter> = Omit<RuntimeDependencies, 'storage'> & {
-	storage: { adapter: A; resolveSchema: (schema: AnySchema) => InferAdapterConfig<NoInfer<A>> }
+	storage: { adapter: A; resolveSchema: (name: string) => InferAdapterConfig<NoInfer<A>> }
 } & StorageAdmission<NoInfer<A>>

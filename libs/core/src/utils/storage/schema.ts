@@ -59,7 +59,7 @@ if (import.meta.vitest) {
 		it('requires Core to provide storage ids explicitly', async () => {
 			const schema = coreSchema('examples').field('title', v.string()).build()
 			const storage = Repo.from(InMemoryAdapter.create({}))
-				.resolve((resolvedSchema) => ({ table: resolvedSchema.name }))
+				.resolve((name) => ({ table: name }))
 				.build()
 
 			await expect(storage.on(schema).one().create({ title: 'Example' })).rejects.toThrow(

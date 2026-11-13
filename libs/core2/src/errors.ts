@@ -48,14 +48,14 @@ export const notFoundPipe = v.object({
 
 export const duplicateAssetPipe = v.object({ type: v.is('duplicate-asset-target', 'Invalid input.'), assetId: idPipe })
 
-const revisionConflictPipe = v.object({
+export const revisionConflictPipe = v.object({
 	type: v.is('revision-conflict', 'Invalid input.'),
 	memoryId: idPipe,
 	expectedVersion: revisionVersionPipe,
 })
 
 export const secretEncodingFailedPipe = v.object({ type: v.is('secret-encoding-failed', 'Invalid input.') })
-const revisionVersionExhaustedPipe = v.object({ type: v.is('revision-version-exhausted', 'Invalid input.') })
+export const revisionVersionExhaustedPipe = v.object({ type: v.is('revision-version-exhausted', 'Invalid input.') })
 const schemaMetadataInvalidPipe = v.object({ type: v.is('schema-metadata-invalid', 'Invalid input.') })
 const schemaVersionUnrecognizedPipe = v.object({ type: v.is('schema-version-unrecognized', 'Invalid input.') })
 export type SchemaMetadataInvalidError = PipeOutput<typeof schemaMetadataInvalidPipe>

@@ -19,7 +19,7 @@ export function createTestDependencies() {
 	return {
 		storage: {
 			adapter: InMemoryAdapter.create({}),
-			resolveSchema: (schema: { name: string }) => ({ table: schema.name }),
+			resolveSchema: (name: string) => ({ table: name }),
 		},
 		secrets: {
 			encode: ({ secretId, value }: { secretId: string; value: string }) => {

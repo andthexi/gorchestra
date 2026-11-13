@@ -36,7 +36,7 @@ if (import.meta.vitest) {
 		const schema = Schema.from('test_records').pk('id', idPipe, requireExplicitId).build()
 		const adapter = InMemoryAdapter.create({})
 		const repo = Repo.from(adapter)
-			.resolve((model) => ({ table: model.name }))
+			.resolve((name) => ({ table: name }))
 			.build()
 		const id = Instance.createId()
 		const created = await withExplicitId(id, () => repo.on(schema).one().create({ id }))
@@ -51,7 +51,7 @@ if (import.meta.vitest) {
 		const { InMemoryAdapter } = await import('equipped/orm/adapters/in-memory')
 		const { projectSchema } = await import('../domain/project')
 		const repo = Repo.from(InMemoryAdapter.create({}))
-			.resolve((model) => ({ table: model.name }))
+			.resolve((name) => ({ table: name }))
 			.build()
 		const id = Instance.createId()
 		const created = await withExplicitId(id, () =>
@@ -75,7 +75,7 @@ if (import.meta.vitest) {
 		const { InMemoryAdapter } = await import('equipped/orm/adapters/in-memory')
 		const { projectSchema } = await import('../domain/project')
 		const repo = Repo.from(InMemoryAdapter.create({}))
-			.resolve((model) => ({ table: model.name }))
+			.resolve((name) => ({ table: name }))
 			.build()
 		await expect(
 			repo
@@ -127,7 +127,7 @@ if (import.meta.vitest) {
 		const { memoryRevisionSchema } = await import('../domain/memory-revision')
 		const adapter = InMemoryAdapter.create({})
 		const repo = Repo.from(adapter)
-			.resolve((model) => ({ table: model.name }))
+			.resolve((name) => ({ table: name }))
 			.build()
 		const created = { src: 'local', at: '2026-11-11T00:00:00.000Z', by: '  test\n', cid: null } as const
 		const projectId = Instance.createId()

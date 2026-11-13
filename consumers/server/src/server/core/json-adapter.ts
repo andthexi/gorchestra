@@ -11,7 +11,7 @@ export async function createDefaultCorePortfolioStorageBackend(
 	await mkdir(input.storageDirectory, { recursive: true })
 	return {
 		adapter: JsonAdapter.create({ filePath: getDefaultCorePortfolioStorageFilePath(input.storageDirectory) }),
-		resolve: (schema) => ({ table: schema.name }),
+		resolve: (name) => ({ table: name }),
 	}
 }
 
