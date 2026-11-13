@@ -7,4 +7,12 @@ export type { Memory } from './domain/memory'
 export type { MemoryRevision } from './domain/memory-revision'
 export type { Project } from './domain/project'
 export type { Secret } from './domain/secret'
-export type { Result, SharedOperationError, InvalidInputError, FactoryError, SetupError, StorageOperationFailedError } from './errors'
+export type {
+	Result,
+	SharedOperationError,
+	InvalidInputError,
+	FactoryError,
+	SetupError,
+	MigrationError,
+	StorageOperationFailedError,
+} from './errors'
