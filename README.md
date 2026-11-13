@@ -9,7 +9,7 @@ This repo is a private pnpm workspace. The root `package.json` owns product proc
 Current workspace packages:
 
 - `libs/core` (`@gorchestra/core`) — a private internal package exported directly from source (`./src/index.ts`) for workspace packages to consume.
-- `libs/core2` (`@gorchestra/core2`) — the parallel Core foundation package with validated native storage opening, explicit setup/migration, shared cleanup, attributed Project/Secret/Asset operations, derived Secret usages, Memory hierarchy and conditional immutable Revision append/read operations. Public InMemory overlap regressions and independent source review pass; final foundation qualification remains pending. The Server Consumer has not switched to it. See [package status](libs/core2/README.md) and [domain context](docs/core2/CONTEXT.md).
+- `libs/core2` (`@gorchestra/core2`) — the parallel Core foundation package with validated native storage opening, explicit setup/migration, shared cleanup, attributed Project/Secret/Asset operations, derived Secret usages, Memory hierarchy and conditional immutable Revision append/read operations. All 17 foundation leaves and shared-boundary tests are implemented; the Server Consumer remains on the existing Core. The Server Consumer has not switched to it. See [package status](libs/core2/README.md) and [domain context](docs/core2/CONTEXT.md).
 - `libs/form-draft` (`@gorchestra/form-draft`) — private form draft primitives used by consumer UI forms.
 - `consumers/server` (`@gorchestra/consumer-server`) — the private v1 Server Consumer package, started by the root application entrypoint.
 
