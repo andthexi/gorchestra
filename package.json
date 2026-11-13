@@ -35,7 +35,7 @@
 	"devDependencies": {
 		"@commitlint/cli": "21.2.4",
 		"@commitlint/config-conventional": "21.2.4",
-		"@types/node": "^25.9.2",
+		"@types/node": "24.19.2",
 		"eslint": "10.14.0",
 		"eslint-import-resolver-typescript": "4.4.5",
 		"pino-pretty": "13.2.0",
