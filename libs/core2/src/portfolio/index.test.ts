@@ -11,9 +11,10 @@ describe('attributed Portfolio', () => {
 			expect(requireSuccess(await find({ projectId: project.id }))).toEqual(project)
 			expect(requireSuccess(await list())).toEqual([project])
 			expect(Object.keys(portfolio)).toEqual(['projects', 'secrets'])
-			expect(Object.keys(portfolio.projects).sort()).toEqual(['create', 'find', 'list'])
+			expect(Object.keys(portfolio.projects).sort()).toEqual(['assets', 'create', 'find', 'list'])
+			expect(Object.keys(portfolio.projects.assets).sort()).toEqual(['create', 'find', 'list'])
 			for (const key of ['as', 'shutdown', 'setup', 'migrate', 'memories']) expect(portfolio).not.toHaveProperty(key)
-			expect(Object.keys(portfolio.secrets).sort()).toEqual(['create', 'find', 'list', 'updateValue'])
+			expect(Object.keys(portfolio.secrets).sort()).toEqual(['create', 'find', 'list', 'updateValue', 'usages'])
 			expect(Object.isFrozen(portfolio)).toBe(false)
 			expect(Object.isFrozen(portfolio.projects)).toBe(false)
 		})
@@ -83,6 +84,23 @@ describe('attributed Portfolio', () => {
 				error: { type: 'invalid-input', issues: [{ path: 'title', message: 'Expected a nonblank title.' }] },
 			})
 			expect(await portfolio.projects.list()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+			const id = '01k00000000000000000000001'
+			const { create, find, list } = portfolio.projects.assets
+			const { usages } = portfolio.secrets
+			for (const result of [
+				await create({
+					projectId: id,
+					spec: { type: 'repository', source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: id } },
+				}),
+				await find({ projectId: id, assetId: id }),
+				await list({ projectId: id }),
+				await usages({ secretId: id }),
+			])
+				expect(result).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+			expect(await list({ projectId: 'invalid' })).toEqual({
+				ok: false,
+				error: { type: 'invalid-input', issues: [{ path: 'projectId', message: 'Expected a Core id.' }] },
+			})
 		} finally {
 			adapter.session = session
 			requireSuccess(await opened.shutdown())

@@ -31,7 +31,7 @@ export const assetSchema = Schema.from('assets')
 	.field('created', auditStampPipe)
 	.build()
 
-const assetPipe = schemaPipe(assetSchema)
+export const assetPipe = schemaPipe(assetSchema)
 export type Asset = PipeOutput<typeof assetPipe>
 
 if (import.meta.vitest) {
