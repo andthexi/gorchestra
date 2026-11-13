@@ -1,6 +1,6 @@
 # Use native Repo with explicit validation
 
-Accepted. Project and Secret handlers use native Repo with shared storage-call classification and schema-derived stored-read validation; Secret reads validate protected fields before safe projection. Asset/Memory operations remain pending; see [package usage](../../../libs/core2/README.md#secret-metadata-and-protection).
+Accepted. Project, Secret and Asset handlers use native Repo with shared storage-call classification and schema-derived stored-read validation; protected fields and ownership prerequisites are validated before use. Memory operations remain pending; see [package usage](../../../libs/core2/README.md#project-assets-and-secret-usages).
 
 Persisted fields are not automatically revalidated by Equipped, and final output validation is too late once a handler has used corrupt data to make an ownership decision or external call. Supply native Repo directly to internal handlers with explicit shared schema-derived read/error helpers, rather than build the previously proposed recursive guarded Repo/builder facade or a second flattened persistence representation. This keeps one model-owned schema and the native storage API, accepting authoring discipline instead of claiming runtime sandboxing or revocation of escaped builders.
 

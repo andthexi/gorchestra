@@ -8,6 +8,31 @@ export function requireSuccess<T, E>(result: Result<T, E>): T {
 	return result.value
 }
 
+export async function createAssetPrerequisites(portfolio: Portfolio) {
+	const project = requireSuccess(await portfolio.projects.create({ title: 'App', spec: { type: 'source-control' } }))
+	const secret = requireSuccess(await portfolio.secrets.create({ title: 'Access', value: 'synthetic-pat' }))
+	const input: Parameters<Portfolio['projects']['assets']['create']>[0] = {
+		projectId: project.id,
+		spec: {
+			type: 'repository',
+			source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: secret.id },
+		},
+	}
+	return { project, secret, input }
+}
+
+export async function createAssetFixture(portfolio: Portfolio) {
+	const prerequisites = await createAssetPrerequisites(portfolio)
+	const asset = requireSuccess(await portfolio.projects.assets.create(prerequisites.input))
+	return { ...prerequisites, asset }
+}
+
+export async function createProjectPair(portfolio: Portfolio) {
+	const project = requireSuccess(await portfolio.projects.create({ title: 'App', spec: { type: 'source-control' } }))
+	const other = requireSuccess(await portfolio.projects.create({ title: 'Other', spec: { type: 'source-control' } }))
+	return { project, other }
+}
+
 export async function withReadyPortfolio<T>(
 	work: (portfolio: Portfolio) => Promise<T>,
 	dependencies = createTestDependencies(),
