@@ -21,7 +21,7 @@
 		"fallow:health": "fallow health --score",
 		"fallow:dead-code": "fallow dead-code",
 		"commitlint": "commitlint",
-		"lint-staged": "lint-staged",
+		"lint-staged": "lint-staged --concurrent false",
 		"prepare": "husky"
 	},
 	"lint-staged": {
