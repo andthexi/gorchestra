@@ -14,7 +14,7 @@ The dependency boundary checks the concrete adapter and its resolver together; C
 - `PortfolioClient`: `state: 'ready'`, synchronous `as({ by, cid })` and `shutdown()`.
 - `PortfolioMigration`: `state: 'migration'`, explicit `migrate()` and `shutdown()`. A proper nonempty prefix needs multiple released migrations; the current catalog has one entry, so upgrade tests use a private test-owned catalog.
 
-`as()` returns a `Result` containing a privately constructed `Portfolio` with bound Project/Secret create/find/list, Secret value replacement/usages and Project-scoped Asset create/find/list. The Portfolio has no lifecycle controls or rebinding method. Memory operations are not implemented yet; no placeholder namespaces or methods are exposed. Secret creation and value replacement invoke the required Consumer encoder; metadata reads, Asset operations and Secret usages never invoke codecs. Internal definitions, schemas, Repo, codec helpers, migration injection and owner controls are not Consumer APIs.
+`as()` returns a `Result` containing a privately constructed `Portfolio` with bound Project/Secret create/find/list, Secret value replacement/usages, Project-scoped Asset create/find/list, Memory create/find/list and exact Revision find/list. The Portfolio has no lifecycle controls or rebinding method. Appending later Memory revisions remains unimplemented; no placeholder method is exposed. Secret creation and value replacement invoke the required Consumer encoder; metadata reads, Asset/Memory operations and Secret usages never invoke codecs. Internal definitions, schemas, Repo, codec helpers, migration injection and owner controls are not Consumer APIs.
 
 Public types include `CoreDependencies<A>`, `FactoryError`, `SetupError`, `MigrationError`, `InvalidInputError`, `StorageOperationFailedError`, `Result<T, E>`, `SharedOperationError`, `Id`, `AuditStamp`, and the schema-derived `Project`, `Asset`, `Secret`, `Memory` and `MemoryRevision` records. `Secret` contains only safe metadata, never `valueRef` or raw values. Source owns the exact [dependency signatures](src/dependencies.ts), [lifecycle API](src/portfolio-client/index.ts) and [error unions](src/errors.ts).
 
@@ -169,13 +169,43 @@ Asset find first requires the Project, validates the full Asset, then checks own
 
 Native scoped queries select the relevant rows; Core validates every returned row before sorting or use, and one malformed row fails the whole list. This is not a scan for corruption in unrelated rows excluded by the predicate. Lists are complete plain arrays without pagination or implicit limits. All four leaves use the existing whole-operation transaction and parsed Result boundary.
 
+## Memory hierarchy and immutable revision reads
+
+| Operation                 | Required input              | Success value                                 | Specific failure beyond shared errors   |
+| ------------------------- | --------------------------- | --------------------------------------------- | --------------------------------------- |
+| `memories.create`         | `{ parentId, title, body }` | `{ memory, revision }`, starting at version 1 | `not-found` for the parent Memory       |
+| `memories.find`           | `{ memoryId }`              | Compact Memory                                | `not-found` for Memory                  |
+| `memories.list`           | `{ parentId }`              | Roots or direct children, ID ascending        | `not-found` for a nonnull parent Memory |
+| `memories.revisions.find` | `{ revisionId }`            | Exact full MemoryRevision                     | `not-found` for MemoryRevision          |
+| `memories.revisions.list` | `{ memoryId }`              | Complete full history, version ascending      | `not-found` for Memory                  |
+
+Given a bound `portfolio`:
+
+```ts
+const created = await portfolio.memories.create({ parentId: null, title: '  Notes  ', body: '  exact body\n' })
+if (!created.ok) throw new Error(created.error.type)
+const { memory, revision } = created.value
+const roots = await portfolio.memories.list({ parentId: null })
+const children = await portfolio.memories.list({ parentId: memory.id })
+const snapshot = await portfolio.memories.revisions.find({ revisionId: revision.id })
+const history = await portfolio.memories.revisions.list({ memoryId: memory.id })
+```
+
+`parentId` is always required: explicit null creates/lists roots; an ID creates/lists direct children of a required, fully validated same-Portfolio Memory. There is no omitted-root default, recursive listing, reparenting or copied child collection. Duplicate titles are allowed. Titles trim outer whitespace; bodies preserve exact primitive strings, including empty strings, whitespace and Unicode.
+
+[Creation](src/operations/memories/create.ts) generates one Memory ID and one Revision ID, uses a separate explicit-ID slot for each native insert, and shares one invocation stamp across both records. The Memory stores only `id`, `parentId`, `revision: { id, version, title }` and original `created`; the full immutable Revision stores `id`, `memoryId`, `version`, `title`, `body` and `created`. Both inserts and complete Result validation stay inside one transaction. A failed second insert, malformed final pair or failed commit must not leave either record behind, subject to the adapter's actual rollback behavior.
+
+Memory find/list return compact records without bodies or revision attribution. Exact Revision find needs only `revisionId`, queries that snapshot directly and never follows the latest head or requires a redundant Memory ID. Revision list requires the full valid Memory even when history is empty, and returns all selected full snapshots by version. Every selected row is validated before use or sorting; one malformed row fails the list. Returned data is detached from storage, not a live persistence entity. These operations perform no codec/provider calls or storage repair.
+
+Later revision append, conflict/exhaustion handling and its concurrency acceptance remain pending; no public `memories.revisions.create` method exists yet.
+
 ## Implemented validation
 
 [Shared values](src/domain/commons.ts) validate primitive strings, lowercase ULIDs, safe integer versions/timestamps and attribution. Titles trim outer whitespace; bodies and protected/caller strings remain exact. Caller attribution defaults omitted `cid` to null, while stored Audit Stamps require explicit string/null `cid`. The operation runner prepares one stamp per invocation inside the transaction and reuses it across owned writes.
 
 The model modules own the implemented shapes: [Project](src/domain/project.ts), [Asset](src/domain/asset.ts), [Secret](src/domain/secret.ts), [Memory](src/domain/memory.ts) and [MemoryRevision](src/domain/memory-revision.ts). Specs and revision summaries remain nested objects. Whole-record validation derives from the actual Equipped fields without applying create defaults; public Secret metadata explicitly selects its four safe field pipes. Parsing trims titles and strips undeclared fields without modifying the input or writing repairs to storage.
 
-[Explicit-ID transport](src/storage/schema.ts) preserves the identity generated with Equipped `Instance.createId()` through native primary-key generation, which runs even when a row already supplies its ID. Native InMemory create/read tests exercise all five models and prove that a missing ID slot fails rather than generating a replacement. Project, Secret and Asset creation use this internal write support; Memory operations remain pending.
+[Explicit-ID transport](src/storage/schema.ts) preserves the identity generated with Equipped `Instance.createId()` through native primary-key generation, which runs even when a row already supplies its ID. Native InMemory create/read tests exercise all five models and prove that a missing ID slot fails rather than generating a replacement. Project, Secret, Asset and initial Memory/Revision creation use this internal write support; the two Memory inserts each receive their own slot.
 
 [Result and error contracts](src/errors.ts) parse envelopes through Valleyed and preserve its transformations and normal field stripping. Invalid-input issues retain safe schema-owned wording and present paths in order, without copying values or causes. Core-authored validators must use static paths and non-input-echoing messages; issue projection is not a sanitizer for arbitrary custom errors.
 

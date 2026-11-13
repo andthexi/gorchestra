@@ -11,7 +11,7 @@ export const memorySchema = Schema.from('memories')
 	.field('created', auditStampPipe)
 	.build()
 
-const memoryPipe = schemaPipe(memorySchema)
+export const memoryPipe = schemaPipe(memorySchema)
 export type Memory = PipeOutput<typeof memoryPipe>
 
 if (import.meta.vitest) {

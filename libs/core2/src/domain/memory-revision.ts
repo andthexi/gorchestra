@@ -13,7 +13,7 @@ export const memoryRevisionSchema = Schema.from('memory_revisions')
 	.field('created', auditStampPipe)
 	.build()
 
-const memoryRevisionPipe = schemaPipe(memoryRevisionSchema)
+export const memoryRevisionPipe = schemaPipe(memoryRevisionSchema)
 export type MemoryRevision = PipeOutput<typeof memoryRevisionPipe>
 
 if (import.meta.vitest) {
