@@ -7,6 +7,111 @@ import { expect, it } from 'vitest'
 import { PortfolioClient, type CoreDependencies, type PortfolioSetup, type PortfolioMigration, type Result } from '../index'
 import { createTestDependencies, requireSuccess } from '../testing/fixtures'
 
+it.each([false, true])('drains a pending Secret encoder before cleanup (encoder fails: %s)', async (fail) => {
+	const deps = createTestDependencies()
+	const adapter = deps.storage.adapter
+	const entered = Promise.withResolvers<void>()
+	const encodeGate = Promise.withResolvers<void>()
+	const cleanupEntered = Promise.withResolvers<void>()
+	const cleanupGate = Promise.withResolvers<void>()
+	const events: string[] = []
+	let encodes = 0
+	let decodes = 0
+	let closed = false
+	let activeSession = false
+	let cleaned = 0
+	deps.secrets.encode = async () => {
+		encodes++
+		entered.resolve()
+		await encodeGate.promise
+		events.push('encoder-settled')
+		if (fail) throw new Error('synthetic-PROTECTED')
+		return 'synthetic-reference'
+	}
+	deps.secrets.decode = () => {
+		decodes++
+		return Promise.resolve({})
+	}
+	const opened = requireSuccess(await PortfolioClient.new(deps))
+	if (opened.state !== 'uninitialized') throw new Error('Expected setup')
+	const client = requireSuccess(await opened.setup())
+	const portfolio = requireSuccess(client.as({ by: 'drain' }))
+	const session = adapter.session.bind(adapter)
+	const createMany = adapter.createMany.bind(adapter)
+	const writes: Array<Record<string, unknown>[]> = []
+	adapter.session = async (work) => {
+		activeSession = true
+		try {
+			return await session(work)
+		} finally {
+			activeSession = false
+			events.push('session-settled')
+		}
+	}
+	adapter.createMany = (...args) => {
+		writes.push(args[2])
+		return createMany(...args)
+	}
+	adapter.disconnect = async () => {
+		cleaned++
+		events.push('cleanup')
+		expect(activeSession).toBe(false)
+		cleanupEntered.resolve()
+		await cleanupGate.promise
+	}
+	const pending = portfolio.secrets.create({ title: 'Pending', value: 'synthetic-PROTECTED' })
+	try {
+		await entered.promise
+		expect(activeSession).toBe(true)
+		expect(writes).toEqual([])
+		expect(adapter.stores.get('secrets')?.size ?? 0).toBe(0)
+		const shutdown = client.shutdown()
+		void shutdown.then(() => {
+			closed = true
+		})
+		expect(opened.shutdown()).toBe(shutdown)
+		expect(client.as({ by: 'later' })).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+		expect(await portfolio.secrets.create({ title: 'Too late', value: 'synthetic-raw' })).toEqual({
+			ok: false,
+			error: { type: 'storage-operation-failed' },
+		})
+		expect(await portfolio.secrets.find({ secretId: '01k00000000000000000000001' })).toEqual({
+			ok: false,
+			error: { type: 'storage-operation-failed' },
+		})
+		expect(await portfolio.secrets.list()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+		expect(closed).toBe(false)
+		expect(cleaned).toBe(0)
+		expect(writes).toEqual([])
+		encodeGate.resolve()
+		const result = await pending
+		if (fail) expect(result).toEqual({ ok: false, error: { type: 'secret-encoding-failed' } })
+		else {
+			const secret = requireSuccess(result)
+			expect(writes).toEqual([[{ ...secret, valueRef: 'synthetic-reference' }]])
+		}
+		await cleanupEntered.promise
+		expect(events).toEqual(['encoder-settled', 'session-settled', 'cleanup'])
+		expect(writes).toHaveLength(fail ? 0 : 1)
+		expect(adapter.stores.get('secrets')?.size ?? 0).toBe(fail ? 0 : 1)
+		expect(encodes).toBe(1)
+		expect(decodes).toBe(0)
+		expect(closed).toBe(false)
+		cleanupGate.resolve()
+		expect(await shutdown).toEqual({ ok: true, value: undefined })
+		expect(await opened.shutdown()).toEqual({ ok: true, value: undefined })
+		expect(cleaned).toBe(1)
+	} finally {
+		encodeGate.resolve()
+		cleanupGate.resolve()
+		await pending
+		await opened.shutdown()
+		adapter.session = session
+		adapter.createMany = createMany
+		delete adapter.disconnect
+	}
+})
+
 it.each([false, true])('keeps public Project admission closed throughout shared cleanup (first attempt fails: %s)', async (fail) => {
 	const deps = createTestDependencies()
 	const adapter = deps.storage.adapter

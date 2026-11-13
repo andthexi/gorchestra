@@ -1,6 +1,6 @@
 # Keep Secret protection Consumer-owned
 
-Accepted; **unimplemented** in this documentation-only snapshot.
+Accepted. Secret create/find/list, safe metadata projection, validated internal codecs and pending-encoder shutdown draining are implemented. Secret value replacement and credential-consuming domain operations remain pending; see [package usage](../../../libs/core2/README.md#secret-metadata-and-protection).
 
 Core needs stable Portfolio-owned Secret identity across Assets, but Consumers own credential protection, storage and keys. Secret writes accept transient raw values and invoke the required Consumer encoder before storing an opaque `valueRef`, replacing pre-encoded write inputs; normal results use an explicit safe metadata projection rather than returning storage records for every Consumer to redact. A single ID-keyed batch decoder serves both one and many captured references, avoiding single-only resolution or positional/reference-based matching while keeping all protected values out of ordinary results, errors, logs and model context.
 
