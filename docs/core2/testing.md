@@ -4,7 +4,7 @@
 
 **Equipped 5.3.7 qualification:** the earlier public and native-only probes reproduced acknowledged Project-create loss on 5.3.6. The global override now consumes 5.3.7, whose [merged isolation fix](https://github.com/andthexi/equipped/pull/178) serializes native root sessions and operations. The parent rerun passed 377 tests in 24 files, including the public Project overlap regression, three Revision-concurrency cases and configured-ledger consistency. A release-aware native-only probe also passed three runs. Submit overlapping work, release the held invocation, then await both; never await a queued second transaction while holding the first. No Core mutex or weakened rollback is accepted.
 
-A separate synthetic JSON probe wrote one applied migration using published 5.3.6 and reopened it using 5.3.7: history became empty while the saved row remained. The old array-shaped `__migrations` field is not recognized by the new per-target ledger format. Existing JSON-store upgrades remain unqualified; no real application data was touched, no data conversion is included, and fresh-store tests cannot clear this limitation.
+The user confirmed this is a prerelease with no client migrations applied using the old JSON ledger format. Backward conversion is out of scope and is not an acceptance or deployment blocker. The synthetic format probe remains historical evidence, not an outstanding migration requirement.
 
 The scoped suite exercises the public factory/setup/shutdown and attributed Portfolio's Project, Secret, Asset and Memory boundaries as well as the inherited primitive/model support. Inline tests cover shared primitives/errors, the five model schemas, `src/storage/schema.ts`, the native migration catalog, pure history classification, the operation runner and validated codec helpers. Coverage includes primitive-string rejection, exact IDs and text, required stored stamp fields, faithful safe issue projection, parsed Result envelopes, nested model shapes and Secret metadata projection. Model pipes reuse the actual schema fields, retaining input/output transformations without applying native create defaults.
 
@@ -63,8 +63,6 @@ Nuxt preparation used `--dotenv=/dev/null`. The first `vue-tsc` run exited 0 but
 NODE_PATH="$(node --input-type=module -e 'import { realpathSync } from "node:fs"; import { dirname } from "node:path"; console.log(dirname(realpathSync("node_modules/nuxt")))')" \
   node node_modules/vue-tsc/bin/vue-tsc.js --noEmit
 ```
-
-Existing 5.3.6 JSON-store migration remains unqualified as described above; compilation and fresh-store tests do not resolve that incompatible persisted ledger.
 
 ## Task 0 verification record
 

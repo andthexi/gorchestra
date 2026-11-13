@@ -6,7 +6,7 @@ The dependency boundary checks the concrete adapter and its resolver together; C
 
 **Equipped 5.3.7 overlap regressions pass.** The parent rerun passed 377 Core tests in 24 files, including the held missing-Project lookup versus independent create and three overlapping Revision-append outcomes. This release supplies the [native root-session isolation fix](https://github.com/andthexi/equipped/pull/178); the compatibility update adapts logical-name resolvers, explicit migration locking and configured ledger access. No Core mutex or weakened rollback contract is supplied. Independent source review passed; final foundation qualification remains separate.
 
-Existing 5.3.6 JSON stores are not qualified for this upgrade: 5.3.7 ignores their array-shaped migration ledger, so recorded migrations appear pending even while application rows remain. Do not open existing stores with the upgraded Server until that format transition is explicitly resolved. This package neither converts legacy data nor repairs history.
+This prerelease has no client migrations applied using the old ledger format. Backward conversion of that format is out of scope, not a delivery or deployment prerequisite.
 
 ## Public surface
 
