@@ -64,6 +64,7 @@ This root AGENTS.md is the project-wide DOX rail: it gives repo-wide instruction
 ## Verification
 
 - Use the closest child AGENTS.md for subtree-specific checks.
+- Keep the package-wide `minimumReleaseAgeExclude` entries for Equipped, Valleyed, and xi-configs: the user authors and trusts all three packages, including future updates. These exceptions do not change explicit version pins or overrides, or the release-age delay for other packages.
 - Keep `verifyDepsBeforeRun: error`: `pnpm run` and `pnpm exec` must stop when installed dependencies are out of sync rather than installing implicitly. Run dependency installation explicitly before retrying; do not bypass this check.
 - For repo-wide source/config changes, run from repo root: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm format`, and `pnpm fallow:audit`.
 

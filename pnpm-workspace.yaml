@@ -9,7 +9,6 @@ allowBuilds:
     '@parcel/watcher': false
     esbuild: true
     msgpackr-extract: true
-    protobufjs: true
     unrs-resolver: true
 
 overrides:
@@ -20,3 +19,4 @@ minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
     - equipped
     - valleyed
+    - xi-configs
