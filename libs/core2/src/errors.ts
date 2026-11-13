@@ -86,6 +86,16 @@ export const setupErrorPipe = v.or([
 ])
 export type FactoryError = PipeOutput<typeof factoryErrorPipe>
 export type SetupError = PipeOutput<typeof setupErrorPipe>
+export const migrationErrorPipe = v.or([
+	storageOperationFailedPipe,
+	schemaMetadataInvalidPipe,
+	schemaVersionUnrecognizedPipe,
+	storageNotEmptyPipe,
+	storageNotInitializedPipe,
+	schemaAlreadyCurrentPipe,
+	internalErrorPipe,
+])
+export type MigrationError = PipeOutput<typeof migrationErrorPipe>
 
 // Keep input and parsed output types distinct for transforming branch pipes.
 export function resultPipe<I, O, EI, EO>(value: Pipe<I, O>, error: Pipe<EI, EO>) {
