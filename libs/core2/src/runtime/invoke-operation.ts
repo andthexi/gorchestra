@@ -4,6 +4,7 @@ import type { attributionPipe } from '../domain/commons'
 import { inputIssues, resultPipe, type Result, type SharedOperationError } from '../errors'
 import { defineOperation, type Operation } from './define-operation'
 import { Owner } from './owner'
+import { createSecretHelpers } from './secrets'
 import { transaction } from './transaction'
 
 export async function invokeOperation<II, IO, OI, OO, EI, EO>(
@@ -27,6 +28,7 @@ export async function invokeOperation<II, IO, OI, OO, EI, EO>(
 			try {
 				result = await definition.handler(parsed, {
 					storage: owner.repo,
+					secrets: createSecretHelpers(owner.dependencies.secrets),
 					stamp: { src: 'local', at: new Date().toISOString(), ...attribution },
 				})
 			} catch {
@@ -315,7 +317,10 @@ if (import.meta.vitest) {
 				handler: (input, context) => {
 					expect(input.text.toFixed()).toBe('4')
 					expect(context.storage).toBe(owner.repo)
-					expect(Object.keys(context).sort()).toEqual(['stamp', 'storage'])
+					expect(Object.keys(context).sort()).toEqual(['secrets', 'stamp', 'storage'])
+					expect(Object.keys(context.secrets).sort()).toEqual(['decode', 'encode'])
+					expect(context.secrets.encode).not.toBe(owner.dependencies.secrets.encode)
+					expect(context.secrets.decode).not.toBe(owner.dependencies.secrets.decode)
 					return Promise.resolve({ ok: true, value: 'parsed', cause: 'synthetic-PROTECTED' })
 				},
 			})
