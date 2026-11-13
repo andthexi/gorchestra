@@ -4,6 +4,8 @@ packages:
 
 verifyDepsBeforeRun: error
 autoInstallPeers: false
+nodeVersion: 24.22.3
+engineStrict: true
 
 allowBuilds:
     '@confluentinc/kafka-javascript': true
