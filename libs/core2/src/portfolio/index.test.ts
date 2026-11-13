@@ -13,7 +13,7 @@ describe('attributed Portfolio', () => {
 			expect(Object.keys(portfolio)).toEqual(['projects', 'secrets'])
 			expect(Object.keys(portfolio.projects).sort()).toEqual(['create', 'find', 'list'])
 			for (const key of ['as', 'shutdown', 'setup', 'migrate', 'memories']) expect(portfolio).not.toHaveProperty(key)
-			expect(Object.keys(portfolio.secrets).sort()).toEqual(['create', 'find', 'list'])
+			expect(Object.keys(portfolio.secrets).sort()).toEqual(['create', 'find', 'list', 'updateValue'])
 			expect(Object.isFrozen(portfolio)).toBe(false)
 			expect(Object.isFrozen(portfolio.projects)).toBe(false)
 		})
