@@ -46,7 +46,7 @@ export const notFoundPipe = v.object({
 	id: idPipe,
 })
 
-const duplicateAssetPipe = v.object({ type: v.is('duplicate-asset-target', 'Invalid input.'), assetId: idPipe })
+export const duplicateAssetPipe = v.object({ type: v.is('duplicate-asset-target', 'Invalid input.'), assetId: idPipe })
 
 const revisionConflictPipe = v.object({
 	type: v.is('revision-conflict', 'Invalid input.'),

@@ -3,10 +3,157 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { auditStampPipe } from '../../domain/commons'
 import { PortfolioClient } from '../../index'
-import { createTestDependencies, requireSuccess, withReadyPortfolio } from '../../testing/fixtures'
+import { createCountedSecretDependencies } from '../../testing/dependencies'
+import { createProjectPair, createTestDependencies, requireSuccess, withReadyPortfolio } from '../../testing/fixtures'
 import { hostileDiagnostics, nonStringValues } from '../../testing/secret-codecs'
 
 describe('secrets', () => {
+	it('returns complete ID-sorted usages and rejects a malformed selected row, not unrelated rows', async () => {
+		const dependencies = createTestDependencies()
+		const adapter = dependencies.storage.adapter
+		await withReadyPortfolio(async (portfolio) => {
+			const { project, other } = await createProjectPair(portfolio)
+			const secret = requireSuccess(await portfolio.secrets.create({ title: 'Access', value: 'synthetic-pat' }))
+			const unused = requireSuccess(await portfolio.secrets.create({ title: 'Other access', value: 'synthetic-other' }))
+			const asset = requireSuccess(
+				await portfolio.projects.assets.create({
+					projectId: project.id,
+					spec: { type: 'repository', source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: secret.id } },
+				}),
+			)
+			const expected = Array.from({ length: 125 }, (_, index) => ({
+				...asset,
+				id: `01k${index.toString().padStart(23, '0')}`,
+				projectId: index % 2 === 0 ? project.id : other.id,
+			}))
+			adapter.stores.get('assets')!.clear()
+			for (const row of [...expected].reverse()) adapter.stores.get('assets')!.set(row.id, row)
+			adapter.stores
+				.get('assets')!
+				.set(asset.id, { ...asset, spec: { ...asset.spec, source: { ...asset.spec.source, secretId: unused.id } } })
+			adapter.stores.get('assets')!.set(unused.id, {
+				...asset,
+				id: unused.id,
+				spec: { ...asset.spec, source: { ...asset.spec.source, secretId: `${secret.id}extra` } },
+				created: null,
+			})
+			expect(requireSuccess(await portfolio.secrets.usages({ secretId: secret.id }))).toEqual(expected)
+			expect(requireSuccess(await portfolio.secrets.usages({ secretId: unused.id }))).toEqual([
+				{ ...asset, spec: { ...asset.spec, source: { ...asset.spec.source, secretId: unused.id } } },
+			])
+			adapter.stores.get('assets')!.set(expected[0]!.id, { ...expected[0]!, created: null })
+			expect(await portfolio.secrets.usages({ secretId: secret.id })).toEqual({
+				ok: false,
+				error: { type: 'invalid-storage-output' },
+			})
+		}, dependencies)
+	})
+	it('requires the full Secret before querying usages even for orphan references', async () => {
+		const dependencies = createTestDependencies()
+		const adapter = dependencies.storage.adapter
+		const findMany = adapter.findMany.bind(adapter)
+		await withReadyPortfolio(async (portfolio) => {
+			const secret = requireSuccess(await portfolio.secrets.create({ title: 'Access', value: 'synthetic-pat' }))
+			const fullSecret = structuredClone(adapter.stores.get('secrets')!.get(secret.id)!)
+			const missing = '01k00000000000000000000001'
+			const reads: string[] = []
+			adapter.findMany = (...args) => {
+				reads.push(args[0].name)
+				return findMany(...args)
+			}
+			try {
+				expect(await portfolio.secrets.usages({ secretId: missing })).toEqual({
+					ok: false,
+					error: { type: 'not-found', resource: 'secret', id: missing },
+				})
+				expect(reads.splice(0)).toEqual(['secrets'])
+				adapter.stores.set(
+					'assets',
+					new Map([
+						[
+							'01k00000000000000000000002',
+							{
+								id: '01k00000000000000000000002',
+								projectId: '01k00000000000000000000003',
+								spec: {
+									type: 'repository',
+									source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: missing },
+								},
+								created: secret.created,
+							},
+						],
+					]),
+				)
+				expect(await portfolio.secrets.usages({ secretId: missing })).toEqual({
+					ok: false,
+					error: { type: 'not-found', resource: 'secret', id: missing },
+				})
+				expect(reads.splice(0)).toEqual(['secrets'])
+				for (const corrupt of [
+					{ ...fullSecret, valueRef: '' },
+					{ ...fullSecret, valueRef: undefined },
+					{ ...fullSecret, valueRef: 1 },
+					{ ...fullSecret, valueUpdated: undefined },
+					{ ...fullSecret, valueUpdated: { ...secret.valueUpdated, cid: undefined } },
+					{ ...fullSecret, created: null },
+				]) {
+					adapter.stores.get('secrets')!.set(secret.id, corrupt)
+					expect(await portfolio.secrets.usages({ secretId: secret.id })).toEqual({
+						ok: false,
+						error: { type: 'invalid-storage-output' },
+					})
+					expect(reads.splice(0)).toEqual(['secrets'])
+				}
+				adapter.stores.get('secrets')!.set(secret.id, fullSecret)
+				expect(requireSuccess(await portfolio.secrets.usages({ secretId: secret.id }))).toEqual([])
+			} finally {
+				adapter.findMany = findMany
+			}
+		}, dependencies)
+	})
+	it('derives full current usages across Projects without codecs, including after replacement', async () => {
+		const { dependencies, codecCalls } = createCountedSecretDependencies()
+		await withReadyPortfolio(async (portfolio) => {
+			const { project, other } = await createProjectPair(portfolio)
+			const secret = requireSuccess(await portfolio.secrets.create({ title: 'Access', value: 'synthetic-pat' }))
+			const unused = requireSuccess(await portfolio.secrets.create({ title: 'Unused', value: 'synthetic-other' }))
+			const baseline = { ...codecCalls }
+			const { usages } = portfolio.secrets
+			expect(requireSuccess(await usages({ secretId: secret.id }))).toEqual([])
+			const assets = []
+			for (const projectId of [project.id, other.id])
+				assets.push(
+					requireSuccess(
+						await portfolio.projects.assets.create({
+							projectId,
+							spec: { type: 'repository', source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: secret.id } },
+						}),
+					),
+				)
+			for (const asset of assets) {
+				expect(requireSuccess(await portfolio.projects.assets.find({ projectId: asset.projectId, assetId: asset.id }))).toEqual(
+					asset,
+				)
+				expect(requireSuccess(await portfolio.projects.assets.list({ projectId: asset.projectId }))).toEqual([asset])
+			}
+			expect(
+				await portfolio.projects.assets.create({
+					projectId: project.id,
+					spec: { type: 'repository', source: { provider: 'github', owner: 'owner', name: 'repo', secretId: unused.id } },
+				}),
+			).toEqual({ ok: false, error: { type: 'duplicate-asset-target', assetId: assets[0]!.id } })
+			assets.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+			expect(requireSuccess(await usages({ secretId: secret.id }))).toEqual(assets)
+			expect(requireSuccess(await usages({ secretId: unused.id }))).toEqual([])
+			expect(codecCalls).toEqual(baseline)
+			const after = requireSuccess(await portfolio.secrets.updateValue({ secretId: secret.id, value: 'synthetic-replacement' }))
+			expect(after.id).toBe(secret.id)
+			const replacementBaseline = { ...codecCalls }
+			expect(codecCalls.encodes).toBe(baseline.encodes + 1)
+			expect(requireSuccess(await usages({ secretId: secret.id }))).toEqual(assets)
+			expect(codecCalls).toEqual(replacementBaseline)
+		}, dependencies)
+	})
 	it('returns parsed safe replacement metadata rather than native protected extras', async () => {
 		const dependencies = createTestDependencies()
 		const adapter = dependencies.storage.adapter
@@ -394,19 +541,9 @@ describe('secrets', () => {
 		}, dependencies)
 	})
 	it('rejects invalid replacement input before opening a transaction', async () => {
-		const dependencies = createTestDependencies()
+		const { dependencies, codecCalls } = createCountedSecretDependencies()
 		const adapter = dependencies.storage.adapter
 		const session = adapter.session.bind(adapter)
-		let encodes = 0
-		let decodes = 0
-		dependencies.secrets.encode = () => {
-			encodes++
-			return Promise.resolve('synthetic-reference')
-		}
-		dependencies.secrets.decode = () => {
-			decodes++
-			return Promise.resolve({})
-		}
 		await withReadyPortfolio(async (portfolio) => {
 			const secret = requireSuccess(await portfolio.secrets.create({ title: 'Keep', value: 'synthetic-old' }))
 			let sessions = 0
@@ -443,8 +580,8 @@ describe('secrets', () => {
 					expect(JSON.stringify(result)).not.toContain('synthetic-PROTECTED')
 				}
 				expect(sessions).toBe(0)
-				expect(encodes).toBe(1)
-				expect(decodes).toBe(0)
+				expect(codecCalls.encodes).toBe(1)
+				expect(codecCalls.decodes).toBe(0)
 			} finally {
 				adapter.session = session
 			}

@@ -14,7 +14,7 @@ The dependency boundary checks the concrete adapter and its resolver together; C
 - `PortfolioClient`: `state: 'ready'`, synchronous `as({ by, cid })` and `shutdown()`.
 - `PortfolioMigration`: `state: 'migration'`, explicit `migrate()` and `shutdown()`. A proper nonempty prefix needs multiple released migrations; the current catalog has one entry, so upgrade tests use a private test-owned catalog.
 
-`as()` returns a `Result` containing a privately constructed `Portfolio` with bound Project and Secret create/find/list operations plus `secrets.updateValue`. The Portfolio has no lifecycle controls or rebinding method. Secret usages and Asset/Memory operations are not implemented yet; no placeholder namespaces or methods are exposed. Secret creation and value replacement invoke the required Consumer encoder; metadata reads never invoke codecs. Internal definitions, schemas, Repo, codec helpers, migration injection and owner controls are not Consumer APIs.
+`as()` returns a `Result` containing a privately constructed `Portfolio` with bound Project/Secret create/find/list, Secret value replacement/usages and Project-scoped Asset create/find/list. The Portfolio has no lifecycle controls or rebinding method. Memory operations are not implemented yet; no placeholder namespaces or methods are exposed. Secret creation and value replacement invoke the required Consumer encoder; metadata reads, Asset operations and Secret usages never invoke codecs. Internal definitions, schemas, Repo, codec helpers, migration injection and owner controls are not Consumer APIs.
 
 Public types include `CoreDependencies<A>`, `FactoryError`, `SetupError`, `MigrationError`, `InvalidInputError`, `StorageOperationFailedError`, `Result<T, E>`, `SharedOperationError`, `Id`, `AuditStamp`, and the schema-derived `Project`, `Asset`, `Secret`, `Memory` and `MemoryRevision` records. `Secret` contains only safe metadata, never `valueRef` or raw values. Source owns the exact [dependency signatures](src/dependencies.ts), [lifecycle API](src/portfolio-client/index.ts) and [error unions](src/errors.ts).
 
@@ -116,7 +116,7 @@ Each operation parses input before admission, runs its full handler using native
 | `secrets.list`        | No arguments          | All safe Secret metadata, ID ascending | None                                                                              |
 | `secrets.updateValue` | `{ secretId, value }` | Safe Secret metadata                   | `not-found` with resource `secret` and the requested ID; `secret-encoding-failed` |
 
-All public Secret results contain only `id`, `title`, `created` and `valueUpdated`. Neither plaintext nor `valueRef` is returned. Creation trims the title but preserves the exact nonempty raw value, including whitespace-only strings. Core generates the ID, awaits `encode({ secretId, value })` inside the operation transaction, validates an exact nonempty primitive reference, and only then inserts the complete row with matching creation/value-update stamps. Null, empty/nonstring results, throws and rejections return type-only `secret-encoding-failed`; there is no placeholder row, implicit retry or decode-after-encode. Native write/commit failures remain storage failures. A local rollback does not undo an external protection-store effect.
+Secret metadata returned by create/find/list/updateValue contains only `id`, `title`, `created` and `valueUpdated`. Neither plaintext nor `valueRef` is returned. Creation trims the title but preserves the exact nonempty raw value, including whitespace-only strings. Core generates the ID, awaits `encode({ secretId, value })` inside the operation transaction, validates an exact nonempty primitive reference, and only then inserts the complete row with matching creation/value-update stamps. Null, empty/nonstring results, throws and rejections return type-only `secret-encoding-failed`; there is no placeholder row, implicit retry or decode-after-encode. Native write/commit failures remain storage failures. A local rollback does not undo an external protection-store effect.
 
 `find` and `list` validate the full stored record, including its protected reference, before safe projection; a corrupt reference cannot be hidden by dropping that field. One malformed member fails the whole list. Reads and Project operations do not invoke either codec. Detached Secret methods retain their Portfolio binding.
 
@@ -136,13 +136,46 @@ Decoder response data must have exactly the requested own enumerable string keys
 
 Shutdown waits for an already-admitted encoder and its transaction to settle before cleanup, on both success and failure. Callbacks must not reenter operations or shutdown on the same owner.
 
+## Project Assets and Secret usages
+
+| Operation                | Input                    | Success value                                      | Specific failure beyond shared errors                                                |
+| ------------------------ | ------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `projects.assets.create` | `{ projectId, spec }`    | Asset                                              | `not-found` for Project/Secret; `duplicate-asset-target` with the existing `assetId` |
+| `projects.assets.find`   | `{ projectId, assetId }` | Asset                                              | `not-found` for Project/Asset                                                        |
+| `projects.assets.list`   | `{ projectId }`          | All Project Assets, ID ascending                   | `not-found` for Project                                                              |
+| `secrets.usages`         | `{ secretId }`           | All referring Assets across Projects, ID ascending | `not-found` for Secret                                                               |
+
+Given a bound `portfolio` and existing same-Portfolio `projectId` and `secretId`:
+
+```ts
+const configured = await portfolio.projects.assets.create({
+	projectId,
+	spec: {
+		type: 'repository',
+		source: { provider: 'github', owner: 'Example', name: 'App', secretId },
+	},
+})
+if (!configured.ok) throw new Error(configured.error.type)
+const found = await portfolio.projects.assets.find({ projectId, assetId: configured.value.id })
+const assets = await portfolio.projects.assets.list({ projectId })
+const usages = await portfolio.secrets.usages({ secretId })
+```
+
+An Asset contains only `id`, `projectId`, nested `spec` and `created`; it has no title or expanded Secret. Creation validates the complete required Project and Secret, then every returned Project-scoped candidate before comparing owner/name case-insensitively. A same-Project duplicate is refused even when a different Secret is selected; a different Project may use the same target. Stored casing is preserved. An observed duplicate is rejected without a write, but concurrent duplicate prevention is not promised.
+
+Repository owner/name are separate exact ASCII identifiers, not URLs or combined locators. Asset creation generates one ID and stamp and writes only the Asset. It never invokes codecs or GitHub; valid configuration is not proof of provider access, and the required explicit Secret has no anonymous fallback.
+
+Asset find first requires the Project, validates the full Asset, then checks ownership. A valid Asset belonging to another Project returns `not-found` for the requested Asset without disclosing its owner. Asset list requires the Project even for an empty result. Usages requires the complete Secret before querying current nested Asset references; it returns full Assets, not copied reverse lists, IDs or counters. Secret value replacement preserves those references. These reads do not expand related records or verify live provider state.
+
+Native scoped queries select the relevant rows; Core validates every returned row before sorting or use, and one malformed row fails the whole list. This is not a scan for corruption in unrelated rows excluded by the predicate. Lists are complete plain arrays without pagination or implicit limits. All four leaves use the existing whole-operation transaction and parsed Result boundary.
+
 ## Implemented validation
 
 [Shared values](src/domain/commons.ts) validate primitive strings, lowercase ULIDs, safe integer versions/timestamps and attribution. Titles trim outer whitespace; bodies and protected/caller strings remain exact. Caller attribution defaults omitted `cid` to null, while stored Audit Stamps require explicit string/null `cid`. The operation runner prepares one stamp per invocation inside the transaction and reuses it across owned writes.
 
 The model modules own the implemented shapes: [Project](src/domain/project.ts), [Asset](src/domain/asset.ts), [Secret](src/domain/secret.ts), [Memory](src/domain/memory.ts) and [MemoryRevision](src/domain/memory-revision.ts). Specs and revision summaries remain nested objects. Whole-record validation derives from the actual Equipped fields without applying create defaults; public Secret metadata explicitly selects its four safe field pipes. Parsing trims titles and strips undeclared fields without modifying the input or writing repairs to storage.
 
-[Explicit-ID transport](src/storage/schema.ts) preserves the identity generated with Equipped `Instance.createId()` through native primary-key generation, which runs even when a row already supplies its ID. Native InMemory create/read tests exercise all five models and prove that a missing ID slot fails rather than generating a replacement. Project and Secret creation use this internal write support; Asset/Memory operations remain pending.
+[Explicit-ID transport](src/storage/schema.ts) preserves the identity generated with Equipped `Instance.createId()` through native primary-key generation, which runs even when a row already supplies its ID. Native InMemory create/read tests exercise all five models and prove that a missing ID slot fails rather than generating a replacement. Project, Secret and Asset creation use this internal write support; Memory operations remain pending.
 
 [Result and error contracts](src/errors.ts) parse envelopes through Valleyed and preserve its transformations and normal field stripping. Invalid-input issues retain safe schema-owned wording and present paths in order, without copying values or causes. Core-authored validators must use static paths and non-input-echoing messages; issue projection is not a sanitizer for arbitrary custom errors.
 
