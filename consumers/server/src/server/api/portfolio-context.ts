@@ -53,7 +53,7 @@ async function resolveSelectedPortfolioRequest(
 	const resolved = await resolveSelectedPortfolioAccess({
 		serverStorage: context.serverStorage,
 		serverCache: context.serverCache,
-		sessionToken: getSessionToken(cookies),
+		sessionToken: getSessionToken(cookies) ?? null,
 		selectionToken: cookies[selectionCookieName] ?? null,
 		now: context.now(),
 		sessionSigningKey: context.security.sessionSigningKey,
