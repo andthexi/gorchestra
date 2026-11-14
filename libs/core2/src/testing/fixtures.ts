@@ -8,6 +8,12 @@ export function requireSuccess<T, E>(result: Result<T, E>): T {
 	return result.value
 }
 
+export async function createMemoryFixture(portfolio: Portfolio) {
+	const parent = requireSuccess(await portfolio.memories.create({ parentId: null, title: 'Parent', body: 'parent body' }))
+	const child = requireSuccess(await portfolio.memories.create({ parentId: parent.memory.id, title: 'Child', body: 'child body' }))
+	return { parent, child }
+}
+
 export async function createAssetPrerequisites(portfolio: Portfolio) {
 	const project = requireSuccess(await portfolio.projects.create({ title: 'App', spec: { type: 'source-control' } }))
 	const secret = requireSuccess(await portfolio.secrets.create({ title: 'Access', value: 'synthetic-pat' }))

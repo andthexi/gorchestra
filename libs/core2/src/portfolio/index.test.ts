@@ -10,11 +10,13 @@ describe('attributed Portfolio', () => {
 			const project = requireSuccess(await create({ title: 'Detached', spec: { type: 'source-control' } }))
 			expect(requireSuccess(await find({ projectId: project.id }))).toEqual(project)
 			expect(requireSuccess(await list())).toEqual([project])
-			expect(Object.keys(portfolio)).toEqual(['projects', 'secrets'])
+			expect(Object.keys(portfolio)).toEqual(['projects', 'secrets', 'memories'])
 			expect(Object.keys(portfolio.projects).sort()).toEqual(['assets', 'create', 'find', 'list'])
 			expect(Object.keys(portfolio.projects.assets).sort()).toEqual(['create', 'find', 'list'])
-			for (const key of ['as', 'shutdown', 'setup', 'migrate', 'memories']) expect(portfolio).not.toHaveProperty(key)
+			for (const key of ['as', 'shutdown', 'setup', 'migrate']) expect(portfolio).not.toHaveProperty(key)
 			expect(Object.keys(portfolio.secrets).sort()).toEqual(['create', 'find', 'list', 'updateValue', 'usages'])
+			expect(Object.keys(portfolio.memories).sort()).toEqual(['create', 'find', 'list', 'revisions'])
+			expect(Object.keys(portfolio.memories.revisions).sort()).toEqual(['find', 'list'])
 			expect(Object.isFrozen(portfolio)).toBe(false)
 			expect(Object.isFrozen(portfolio.projects)).toBe(false)
 		})
@@ -95,6 +97,11 @@ describe('attributed Portfolio', () => {
 				await find({ projectId: id, assetId: id }),
 				await list({ projectId: id }),
 				await usages({ secretId: id }),
+				await portfolio.memories.create({ parentId: null, title: 'Closed', body: '' }),
+				await portfolio.memories.find({ memoryId: id }),
+				await portfolio.memories.list({ parentId: null }),
+				await portfolio.memories.revisions.find({ revisionId: id }),
+				await portfolio.memories.revisions.list({ memoryId: id }),
 			])
 				expect(result).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
 			expect(await list({ projectId: 'invalid' })).toEqual({
