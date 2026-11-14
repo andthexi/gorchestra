@@ -1,9 +1,9 @@
 import { v, type Pipe, type PipeInput, type PipeOutput } from 'valleyed'
 
 import type { InvalidInputError } from '../errors'
-import type { Result } from './types'
 import { validateCoreInput } from '../validation'
 import { workContextPipe, type WorkContext } from '../work/types'
+import type { Result } from './types'
 
 export const buildWorkHandler =
 	<T extends Pipe<unknown, unknown>, TValue, TError>(

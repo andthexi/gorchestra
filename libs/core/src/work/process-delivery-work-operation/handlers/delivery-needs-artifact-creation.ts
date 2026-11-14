@@ -1,14 +1,17 @@
-import { actionRecord, externalOperationEvidence } from './result'
 import type { DeliveryWorkState } from '../../../domain/delivery'
 import type { DeliveryArtifact } from '../../../domain/delivery-artifact'
 import type { InvariantViolationError } from '../../../errors'
 import { sourceControlDeliveryBranchName } from '../../../utils/providers/source-control/branches'
-import type { SourceControlArtifactCreation, SourceControlCreateArtifactBranchInput } from '../../../utils/providers/source-control/types'
+import type {
+	SourceControlArtifactCreation,
+	SourceControlCreateArtifactBranchInput,
+} from '../../../utils/providers/source-control/types'
 import type { CoreRuntime } from '../../../utils/runtime'
 import { nextId, runtimeRecord } from '../../../utils/runtime-values'
 import { createRecord } from '../../../utils/storage/helpers'
 import type { Result as CoreResult } from '../../../utils/types'
 import type { DeliveryWorkHandlerResult, ResolvedDeliveryHandlerContext } from '../../delivery-work/types'
+import { actionRecord, externalOperationEvidence } from './result'
 
 export type DeliveryArtifactCreationInput = SourceControlCreateArtifactBranchInput & {
 	deliveryId: string
@@ -69,7 +72,9 @@ async function recordDeliveryArtifactCreationResult(
 					ok: true,
 					value: {
 						processedCount: 1,
-						failures: [{ scope: { type: 'delivery' }, operation: 'create-artifact', summary: creation.summary }],
+						failures: [
+							{ scope: { type: 'delivery' }, operation: 'create-artifact', summary: creation.summary },
+						],
 					},
 				}
 			: actionPut
@@ -125,17 +130,25 @@ if (import.meta.vitest) {
 			const input = deliveryArtifactCreationInput(context)
 			if (!input.ok) throw new Error('Expected input.')
 
-			const result = await recordDeliveryArtifactCreationResult(context, { type: 'needs-artifact-creation' }, input.value, {
-				type: 'passed',
-				mode: 'created',
-				summary: 'created',
-			})
+			const result = await recordDeliveryArtifactCreationResult(
+				context,
+				{ type: 'needs-artifact-creation' },
+				input.value,
+				{
+					type: 'passed',
+					mode: 'created',
+					summary: 'created',
+				},
+			)
 
 			expect(result).toEqual({ ok: true, value: { processedCount: 1, failures: [] } })
 			expect(context.tx.deliveryArtifacts.records.get('01k00000000000000000010001')).toEqual({
 				id: '01k00000000000000000010001',
 				deliveryId: '01k00000000000000000000008',
-				config: { type: 'source-control', deliveryBranch: 'gorchestra/deliveries/d-MDFrMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDg' },
+				config: {
+					type: 'source-control',
+					deliveryBranch: 'gorchestra/deliveries/d-MDFrMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDg',
+				},
 				created: { at: '2026-06-10T12:00:00.000Z' },
 			})
 			expect(context.tx.actions.records.get('01k00000000000000000010002')?.result).toEqual({
@@ -150,11 +163,16 @@ if (import.meta.vitest) {
 			const input = deliveryArtifactCreationInput(context)
 			if (!input.ok) throw new Error('Expected input.')
 
-			const result = await recordDeliveryArtifactCreationResult(context, { type: 'needs-artifact-creation' }, input.value, {
-				type: 'failed',
-				reason: { type: 'source-branch-not-found', branch: 'main' },
-				summary: 'GitHub artifact source branch was not found.',
-			})
+			const result = await recordDeliveryArtifactCreationResult(
+				context,
+				{ type: 'needs-artifact-creation' },
+				input.value,
+				{
+					type: 'failed',
+					reason: { type: 'source-branch-not-found', branch: 'main' },
+					summary: 'GitHub artifact source branch was not found.',
+				},
+			)
 
 			expect(result).toEqual({
 				ok: true,

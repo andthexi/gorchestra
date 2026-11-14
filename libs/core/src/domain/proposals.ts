@@ -83,7 +83,10 @@ export const rawPlanOutputProposalPipe = v.object({
 type RawPlanOutputProposal = PipeOutput<typeof rawPlanOutputProposalPipe>
 
 export const planOutputProposalPipe = rawPlanOutputProposalPipe.pipe(
-	v.custom<RawPlanOutputProposal>(isStructurallyValidPlanOutputProposal, 'Expected a structurally valid non-empty Plan Output proposal.'),
+	v.custom<RawPlanOutputProposal>(
+		isStructurallyValidPlanOutputProposal,
+		'Expected a structurally valid non-empty Plan Output proposal.',
+	),
 )
 export type PlanOutputProposal = PipeOutput<typeof planOutputProposalPipe>
 
@@ -115,7 +118,9 @@ function hasKeys(record: Record<string, unknown>): boolean {
 function proposedDeliveriesAreStructurallyValid(deliveries: Record<string, ProposedDelivery>): boolean {
 	return (
 		deliveryDependenciesAreKnownAndAcyclic(deliveries) &&
-		Object.entries(deliveries).every(([deliveryKey, delivery]) => proposedDeliveryIsStructurallyValid(deliveryKey, delivery))
+		Object.entries(deliveries).every(([deliveryKey, delivery]) =>
+			proposedDeliveryIsStructurallyValid(deliveryKey, delivery),
+		)
 	)
 }
 
@@ -136,11 +141,16 @@ function deliveryDependenciesAreKnownAndAcyclic(deliveries: Record<string, Propo
 	const keys = new Set(Object.keys(deliveries))
 	return (
 		Object.entries(deliveries).every(([deliveryKey, delivery]) =>
-			Object.keys(delivery.dependsOnProposedDeliveryKeys).every((dependency) => dependency !== deliveryKey && keys.has(dependency)),
+			Object.keys(delivery.dependsOnProposedDeliveryKeys).every(
+				(dependency) => dependency !== deliveryKey && keys.has(dependency),
+			),
 		) &&
 		!hasCycle(
 			Object.fromEntries(
-				Object.entries(deliveries).map(([key, delivery]) => [key, Object.keys(delivery.dependsOnProposedDeliveryKeys)]),
+				Object.entries(deliveries).map(([key, delivery]) => [
+					key,
+					Object.keys(delivery.dependsOnProposedDeliveryKeys),
+				]),
 			),
 		)
 	)
@@ -157,9 +167,15 @@ function sliceDependenciesAreKnownAndAcyclic(slices: Record<string, ProposedSlic
 	const keys = new Set(Object.keys(slices))
 	return (
 		Object.entries(slices).every(([sliceKey, slice]) =>
-			Object.keys(slice.dependsOnProposedSliceKeys).every((dependency) => dependency !== sliceKey && keys.has(dependency)),
+			Object.keys(slice.dependsOnProposedSliceKeys).every(
+				(dependency) => dependency !== sliceKey && keys.has(dependency),
+			),
 		) &&
-		!hasCycle(Object.fromEntries(Object.entries(slices).map(([key, slice]) => [key, Object.keys(slice.dependsOnProposedSliceKeys)])))
+		!hasCycle(
+			Object.fromEntries(
+				Object.entries(slices).map(([key, slice]) => [key, Object.keys(slice.dependsOnProposedSliceKeys)]),
+			),
+		)
 	)
 }
 
@@ -169,7 +185,12 @@ function hasCycle(graph: Record<string, string[]>): boolean {
 	return Object.keys(graph).some((node) => visitsCycle(node, graph, visiting, visited))
 }
 
-function visitsCycle(node: string, graph: Record<string, string[]>, visiting: Set<string>, visited: Set<string>): boolean {
+function visitsCycle(
+	node: string,
+	graph: Record<string, string[]>,
+	visiting: Set<string>,
+	visited: Set<string>,
+): boolean {
 	if (visited.has(node)) return false
 	if (visiting.has(node)) return true
 
@@ -184,13 +205,21 @@ function visitsCycle(node: string, graph: Record<string, string[]>, visiting: Se
 
 function proposedMemoryCreationKeysAreGloballyUnique(memories: Record<string, ProposedMemoryCreation>): boolean {
 	const keys = new Set<string>()
-	return Object.entries(memories).every(([key, memory]) => collectUniqueMemoryCreationKeys(key, memory.children, keys))
+	return Object.entries(memories).every(([key, memory]) =>
+		collectUniqueMemoryCreationKeys(key, memory.children, keys),
+	)
 }
 
-function collectUniqueMemoryCreationKeys(key: string, children: Record<string, ProposedChildMemoryCreation>, keys: Set<string>): boolean {
+function collectUniqueMemoryCreationKeys(
+	key: string,
+	children: Record<string, ProposedChildMemoryCreation>,
+	keys: Set<string>,
+): boolean {
 	if (keys.has(key)) return false
 	keys.add(key)
-	return Object.entries(children).every(([childKey, child]) => collectUniqueMemoryCreationKeys(childKey, child.children, keys))
+	return Object.entries(children).every(([childKey, child]) =>
+		collectUniqueMemoryCreationKeys(childKey, child.children, keys),
+	)
 }
 
 if (import.meta.vitest) {
@@ -207,7 +236,9 @@ if (import.meta.vitest) {
 
 		it('rejects non-contiguous slice orders and unknown same-delivery slice dependencies', () => {
 			expect(v.validate(planOutputProposalPipe, outputWithSliceOrderGap())).toMatchObject({ valid: false })
-			expect(v.validate(planOutputProposalPipe, outputWithUnknownSliceDependency())).toMatchObject({ valid: false })
+			expect(v.validate(planOutputProposalPipe, outputWithUnknownSliceDependency())).toMatchObject({
+				valid: false,
+			})
 		})
 
 		it('rejects proposed dependency cycles', () => {
@@ -216,7 +247,9 @@ if (import.meta.vitest) {
 		})
 
 		it('rejects duplicate proposed Memory keys across the creation tree', () => {
-			expect(v.validate(planOutputProposalPipe, outputWithDuplicateNestedMemoryKey())).toMatchObject({ valid: false })
+			expect(v.validate(planOutputProposalPipe, outputWithDuplicateNestedMemoryKey())).toMatchObject({
+				valid: false,
+			})
 		})
 	})
 
@@ -229,7 +262,11 @@ if (import.meta.vitest) {
 			proposedDeliveries: {
 				'01k00000000000000000100029': {
 					title: 'Delivery A',
-					target: { type: 'source-control', repositoryId: '01k00000000000000000000034', targetBranch: 'main' },
+					target: {
+						type: 'source-control',
+						repositoryId: '01k00000000000000000000034',
+						targetBranch: 'main',
+					},
 					slices: {
 						'01k00000000000000000100038': {
 							order: 0,
@@ -274,7 +311,11 @@ if (import.meta.vitest) {
 			proposedDeliveries: {
 				'01k00000000000000000100029': {
 					title: 'Delivery A',
-					target: { type: 'source-control', repositoryId: '01k00000000000000000000034', targetBranch: 'main' },
+					target: {
+						type: 'source-control',
+						repositoryId: '01k00000000000000000000034',
+						targetBranch: 'main',
+					},
 					slices: {
 						'01k00000000000000000100038': {
 							order: 0,
@@ -298,7 +339,9 @@ if (import.meta.vitest) {
 
 	function outputWithUnknownSliceDependency(): RawPlanOutputProposal {
 		const output = validOutput()
-		output.proposedDeliveries['01k00000000000000000100029']!.slices['01k00000000000000000100038']!.dependsOnProposedSliceKeys = {
+		output.proposedDeliveries['01k00000000000000000100029']!.slices[
+			'01k00000000000000000100038'
+		]!.dependsOnProposedSliceKeys = {
 			missing: true,
 		}
 		return output
@@ -320,16 +363,22 @@ if (import.meta.vitest) {
 			dependsOnDeliveryIds: {},
 			dependsOnProposedDeliveryKeys: { '01k00000000000000000100029': true },
 		}
-		output.proposedDeliveries['01k00000000000000000100029']!.dependsOnProposedDeliveryKeys = { '01k00000000000000000100030': true }
+		output.proposedDeliveries['01k00000000000000000100029']!.dependsOnProposedDeliveryKeys = {
+			'01k00000000000000000100030': true,
+		}
 		return output
 	}
 
 	function outputWithSliceCycle(): RawPlanOutputProposal {
 		const output = validOutput()
-		output.proposedDeliveries['01k00000000000000000100029']!.slices['01k00000000000000000100038']!.dependsOnProposedSliceKeys = {
+		output.proposedDeliveries['01k00000000000000000100029']!.slices[
+			'01k00000000000000000100038'
+		]!.dependsOnProposedSliceKeys = {
 			'01k00000000000000000100039': true,
 		}
-		output.proposedDeliveries['01k00000000000000000100029']!.slices['01k00000000000000000100039']!.dependsOnProposedSliceKeys = {
+		output.proposedDeliveries['01k00000000000000000100029']!.slices[
+			'01k00000000000000000100039'
+		]!.dependsOnProposedSliceKeys = {
 			'01k00000000000000000100038': true,
 		}
 		return output

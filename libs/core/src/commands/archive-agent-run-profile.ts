@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import type { AgentRunProfile } from '../domain/agent-run-profile'
 import { idPipe } from '../domain/commons'
 import type {
@@ -15,6 +14,7 @@ import { buildCommandHandler } from '../utils/command-handler'
 import { archiveStoredRecordWithAudit } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const archiveAgentRunProfileInputPipe = v.object({ agentRunProfileId: idPipe })
 export type Input = PipeOutput<typeof archiveAgentRunProfileInputPipe>

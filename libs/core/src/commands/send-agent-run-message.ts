@@ -12,13 +12,13 @@ import type {
 	ResourceNotFoundError,
 	StorageOperationFailedError,
 } from '../errors'
-import type { CommandContext } from './types'
 import { requireInteractiveAgentRunOpen } from '../utils/agent-run-targets'
 import { appendAgentRunEvent } from '../utils/agent-runs'
 import { buildCommandHandler } from '../utils/command-handler'
 import { auditStamp } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const sendAgentRunMessageInputPipe = v.object({
 	agentRunId: idPipe,
@@ -43,20 +43,27 @@ export function createSendAgentRunMessageCommand(runtime: CoreRuntime): Operatio
 		const stamp = auditStamp(runtime.values, context)
 		if (!stamp.ok) return stamp
 
-		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(async ({ storage, notifications, dispatch }) => {
-			const agentRun = await requireInteractiveAgentRunOpen(storage, input.agentRunId)
-			if (!agentRun.ok) return agentRun
+		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(
+			async ({ storage, notifications, dispatch }) => {
+				const agentRun = await requireInteractiveAgentRunOpen(storage, input.agentRunId)
+				if (!agentRun.ok) return agentRun
 
-			const event = await appendAgentRunEvent({ values: runtime.values, notifications }, storage, input.agentRunId, {
-				type: 'input-message',
-				source: { type: 'operator', authorized: stamp.value },
-				parts: input.parts,
-			})
-			if (!event.ok) return event
+				const event = await appendAgentRunEvent(
+					{ values: runtime.values, notifications },
+					storage,
+					input.agentRunId,
+					{
+						type: 'input-message',
+						source: { type: 'operator', authorized: stamp.value },
+						parts: input.parts,
+					},
+				)
+				if (!event.ok) return event
 
-			const requested = await requestAgentRunModelTurn(dispatch, input.agentRunId, event.value.id)
-			return requested.ok ? event : requested
-		})
+				const requested = await requestAgentRunModelTurn(dispatch, input.agentRunId, event.value.id)
+				return requested.ok ? event : requested
+			},
+		)
 	})
 }
 
@@ -85,7 +92,10 @@ if (import.meta.vitest) {
 			const command = createSendAgentRunMessageCommand(createTestCoreRuntime(options))
 
 			const result = await command(
-				{ agentRunId: '01k00000000000000000000002', parts: [{ type: 'text', text: 'Please refine the plan.', metadata: null }] },
+				{
+					agentRunId: '01k00000000000000000000002',
+					parts: [{ type: 'text', text: 'Please refine the plan.', metadata: null }],
+				},
 				context,
 			)
 
@@ -103,7 +113,10 @@ if (import.meta.vitest) {
 			const command = createSendAgentRunMessageCommand(createTestCoreRuntime(options))
 
 			const result = await command(
-				{ agentRunId: '01k00000000000000000000002', parts: [{ type: 'text', text: 'Please refine the plan.', metadata: null }] },
+				{
+					agentRunId: '01k00000000000000000000002',
+					parts: [{ type: 'text', text: 'Please refine the plan.', metadata: null }],
+				},
 				context,
 			)
 
@@ -122,7 +135,10 @@ if (import.meta.vitest) {
 
 			expect(result).toMatchObject({
 				ok: false,
-				error: { type: 'storage-operation-failed', operation: { type: 'create', resource: 'dispatch-request' } },
+				error: {
+					type: 'storage-operation-failed',
+					operation: { type: 'create', resource: 'dispatch-request' },
+				},
 			})
 			expectNoInputMessages(options)
 		})
@@ -142,7 +158,10 @@ if (import.meta.vitest) {
 			const command = createSendAgentRunMessageCommand(createTestCoreRuntime(options))
 
 			const result = await command(
-				{ agentRunId: '01k00000000000000000000002', parts: [{ type: 'text', text: 'Next turn.', metadata: null }] },
+				{
+					agentRunId: '01k00000000000000000000002',
+					parts: [{ type: 'text', text: 'Next turn.', metadata: null }],
+				},
 				context,
 			)
 
@@ -164,15 +183,23 @@ if (import.meta.vitest) {
 				context,
 			)
 
-			expect(result).toEqual({ ok: false, error: { type: 'agent-run-not-interactive', agentRunId: '01k00000000000000000000002' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'agent-run-not-interactive', agentRunId: '01k00000000000000000000002' },
+			})
 		})
 	})
 
 	type SendAgentRunMessageResult = Awaited<ReturnType<ReturnType<typeof createSendAgentRunMessageCommand>>>
 
-	async function sendNextTurn(options: ReturnType<typeof planningAgentRunFixture>): Promise<SendAgentRunMessageResult> {
+	async function sendNextTurn(
+		options: ReturnType<typeof planningAgentRunFixture>,
+	): Promise<SendAgentRunMessageResult> {
 		const command = createSendAgentRunMessageCommand(createTestCoreRuntime(options))
-		return command({ agentRunId: '01k00000000000000000000002', parts: [{ type: 'text', text: 'Next turn.', metadata: null }] }, context)
+		return command(
+			{ agentRunId: '01k00000000000000000000002', parts: [{ type: 'text', text: 'Next turn.', metadata: null }] },
+			context,
+		)
 	}
 
 	function expectNoInputMessages(options: ReturnType<typeof planningAgentRunFixture>): void {

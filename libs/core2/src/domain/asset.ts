@@ -1,8 +1,8 @@
 import { Schema } from 'equipped/orm'
 import { v, type PipeOutput } from 'valleyed'
 
-import { auditStampPipe, idPipe } from './commons'
 import { requireExplicitId, schemaPipe } from '../storage/schema'
+import { auditStampPipe, idPipe } from './commons'
 
 const repositoryIdentifierPipe = v
 	.custom<string>((value) => typeof value === 'string', 'Expected a repository identifier.')
@@ -55,27 +55,49 @@ if (import.meta.vitest) {
 				const parsed = v.validate(assetSchema.fields.spec.pipe, spec)
 				expect(parsed.valid).toBe(false)
 				if (parsed.valid) throw new Error('Expected invalid discriminator')
-				expect(JSON.stringify(parsed.error.messages.map(({ path, message }) => ({ path, message })))).not.toContain(sentinel)
+				expect(
+					JSON.stringify(parsed.error.messages.map(({ path, message }) => ({ path, message }))),
+				).not.toContain(sentinel)
 			}
 		}
 		for (const field of ['owner', 'name']) {
 			for (const value of [boxed, spoof, hostile, null]) {
-				const parsed = v.validate(assetSchema.fields.spec.pipe, { type: 'repository', source: { ...source, [field]: value } })
+				const parsed = v.validate(assetSchema.fields.spec.pipe, {
+					type: 'repository',
+					source: { ...source, [field]: value },
+				})
 				expect(parsed.valid).toBe(false)
 				if (parsed.valid) throw new Error('Expected invalid repository identifier')
 				expect(parsed.error.messages.map(({ path }) => path)).toEqual([`source.${field}`])
-				expect(JSON.stringify(parsed.error.messages.map(({ path, message }) => ({ path, message })))).not.toContain(sentinel)
+				expect(
+					JSON.stringify(parsed.error.messages.map(({ path, message }) => ({ path, message }))),
+				).not.toContain(sentinel)
 			}
 		}
 		expect(
-			v.validate(assetSchema.fields.spec.pipe, { type: 'repository', source: { ...source, secretId: `${source.secretId}\n` } }).valid,
+			v.validate(assetSchema.fields.spec.pipe, {
+				type: 'repository',
+				source: { ...source, secretId: `${source.secretId}\n` },
+			}).valid,
 		).toBe(false)
 	})
 
 	it('rejects repository locators and whitespace without repair', () => {
 		const source = { provider: 'github', owner: 'Owner', name: 'Repo', secretId: '01k00000000000000000000002' }
 		for (const field of ['owner', 'name']) {
-			for (const value of ['', '.', '..', ' Owner', 'Repo ', 'Repo\n', 'a/b', 'a\\b', 'https://github.com/a', 'a%2Fb', 'Répo']) {
+			for (const value of [
+				'',
+				'.',
+				'..',
+				' Owner',
+				'Repo ',
+				'Repo\n',
+				'a/b',
+				'a\\b',
+				'https://github.com/a',
+				'a%2Fb',
+				'Répo',
+			]) {
 				expect
 					.soft(
 						v.validate(assetSchema.fields.spec.pipe, {
@@ -98,7 +120,12 @@ if (import.meta.vitest) {
 
 	it('parses a nested repository Asset without flattening or normalizing its source', () => {
 		const stamp = { src: 'local', at: '2026-11-11T00:00:00.000Z', by: 'test', cid: null }
-		const source = { provider: 'github', owner: 'Acme.Tools', name: 'Repo_v2-1', secretId: '01k00000000000000000000002' }
+		const source = {
+			provider: 'github',
+			owner: 'Acme.Tools',
+			name: 'Repo_v2-1',
+			secretId: '01k00000000000000000000002',
+		}
 		const input = {
 			id: '01k00000000000000000000001',
 			projectId: '01k00000000000000000000003',

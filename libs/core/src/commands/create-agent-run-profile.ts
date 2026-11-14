@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import type { AgentRunProfile } from '../domain/agent-run-profile'
 import { agentRunRuntimeRequirementsPipe, agentRunSandboxConfigPipe } from '../domain/agent-run-runtime'
 import { nonEmptyTrimmedStringPipe } from '../domain/commons'
@@ -11,6 +10,7 @@ import { buildCommandHandler } from '../utils/command-handler'
 import { auditStamp, createRecordValue, nextId, validateAgentRunProfileConfig } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const createAgentRunProfileInputPipe = v.object({
 	name: nonEmptyTrimmedStringPipe,
@@ -37,29 +37,37 @@ export function createCreateAgentRunProfileCommand(runtime: CoreRuntime): Operat
 		const id = nextId(runtime.values)
 		if (!id.ok) return Promise.resolve(id)
 
-		return runtime.transactions.run(async ({ storage }): Promise<CoreResult<AgentRunProfile, Exclude<Error, InvalidInputError>>> => {
-			const configValidation = await validateAgentRunProfileConfig(storage, input)
-			if (!configValidation.ok) return configValidation
+		return runtime.transactions.run(
+			async ({ storage }): Promise<CoreResult<AgentRunProfile, Exclude<Error, InvalidInputError>>> => {
+				const configValidation = await validateAgentRunProfileConfig(storage, input)
+				if (!configValidation.ok) return configValidation
 
-			const profile: AgentRunProfile = {
-				id: id.value,
-				name: input.name,
-				modelUse: input.modelUse,
-				runtimeRequirements: input.runtimeRequirements,
-				sandboxConfig: input.sandboxConfig,
-				created: stamp.value,
-				updated: null,
-				archivePeriods: [],
-			}
-			return createRecordValue('agent-run-profile', storage, profile)
-		})
+				const profile: AgentRunProfile = {
+					id: id.value,
+					name: input.name,
+					modelUse: input.modelUse,
+					runtimeRequirements: input.runtimeRequirements,
+					sandboxConfig: input.sandboxConfig,
+					created: stamp.value,
+					updated: null,
+					archivePeriods: [],
+				}
+				return createRecordValue('agent-run-profile', storage, profile)
+			},
+		)
 	})
 }
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { context, createTestCoreRuntime, createTestCoreServices, defaultAgentRunSandboxConfig, localStamp, seedSelectableModel } =
-		await import('../utils/test-helpers')
+	const {
+		context,
+		createTestCoreRuntime,
+		createTestCoreServices,
+		defaultAgentRunSandboxConfig,
+		localStamp,
+		seedSelectableModel,
+	} = await import('../utils/test-helpers')
 
 	describe('createAgentRunProfile command', () => {
 		it('creates Agent Run Profiles with selectable Model Use validation and explicit runtime requirements', async () => {
@@ -119,7 +127,10 @@ if (import.meta.vitest) {
 				context,
 			)
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'secret', id: '01k00000000000000000000040' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'secret', id: '01k00000000000000000000040' },
+			})
 		})
 	})
 }

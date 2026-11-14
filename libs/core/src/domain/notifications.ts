@@ -12,8 +12,16 @@ const assistantMessageDraftDeltaPipe = v.discriminate((delta) => delta.type, {
 	'text-delta': v.object({ type: v.eq('text-delta'), contentIndex: nonNegativeIntegerPipe, delta: streamedTextPipe }),
 	'text-ended': v.object({ type: v.eq('text-ended'), contentIndex: nonNegativeIntegerPipe, text: streamedTextPipe }),
 	'thinking-started': v.object({ type: v.eq('thinking-started'), contentIndex: nonNegativeIntegerPipe }),
-	'thinking-delta': v.object({ type: v.eq('thinking-delta'), contentIndex: nonNegativeIntegerPipe, delta: streamedTextPipe }),
-	'thinking-ended': v.object({ type: v.eq('thinking-ended'), contentIndex: nonNegativeIntegerPipe, text: streamedTextPipe }),
+	'thinking-delta': v.object({
+		type: v.eq('thinking-delta'),
+		contentIndex: nonNegativeIntegerPipe,
+		delta: streamedTextPipe,
+	}),
+	'thinking-ended': v.object({
+		type: v.eq('thinking-ended'),
+		contentIndex: nonNegativeIntegerPipe,
+		text: streamedTextPipe,
+	}),
 	'tool-call-arguments-started': v.object({
 		type: v.eq('tool-call-arguments-started'),
 		contentIndex: nonNegativeIntegerPipe,
@@ -209,12 +217,23 @@ if (import.meta.vitest) {
 			const invalid = [
 				{
 					id: 'invalid',
-					data: { ...assistantData, agentRunId: '01k00000000000000000000002', delta: { type: 'model-output-started' } },
+					data: {
+						...assistantData,
+						agentRunId: '01k00000000000000000000002',
+						delta: { type: 'model-output-started' },
+					},
 				},
-				{ id: '01k00000000000000000000001', data: { ...assistantData, delta: { type: 'model-output-started' } } },
 				{
 					id: '01k00000000000000000000001',
-					data: { ...assistantData, agentRunId: '01k00000000000000000000002', delta: { type: 'model-output-ended' } },
+					data: { ...assistantData, delta: { type: 'model-output-started' } },
+				},
+				{
+					id: '01k00000000000000000000001',
+					data: {
+						...assistantData,
+						agentRunId: '01k00000000000000000000002',
+						delta: { type: 'model-output-ended' },
+					},
 				},
 				{
 					id: '01k00000000000000000000001',
@@ -224,7 +243,10 @@ if (import.meta.vitest) {
 						delta: { type: 'tool-call-arguments-delta', contentIndex: 0, toolCallId: 'tool-1', delta: '{' },
 					},
 				},
-				{ id: '01k00000000000000000000001', data: { ...toolData, update: { type: 'text-delta', delta: 'unsafe' } } },
+				{
+					id: '01k00000000000000000000001',
+					data: { ...toolData, update: { type: 'text-delta', delta: 'unsafe' } },
+				},
 			]
 			expect(invalid.map((value) => v.validate(notificationPipe, value).valid)).toEqual(invalid.map(() => false))
 		})

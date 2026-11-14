@@ -11,7 +11,13 @@
 		"maxCyclomatic": 80,
 		"maxCrap": 4000
 	},
+	"typeAware": {
+		"enabled": false,
+		"projects": ["libs/core2/tsconfig.json"],
+		"require": "best-effort"
+	},
 	"audit": {
-		"gate": "all"
+		"gate": "all",
+		"typeAware": true
 	}
 }

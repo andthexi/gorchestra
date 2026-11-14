@@ -1,5 +1,5 @@
-import { notImplemented } from './result'
 import type { DeliveryWorkHandlerResult } from '../../delivery-work/types'
+import { notImplemented } from './result'
 
 export function handleDeliveryValidationFailed(): DeliveryWorkHandlerResult {
 	return notImplemented('scheduleDeliveryWork.delivery.delivery-validation-failed')
@@ -12,7 +12,10 @@ if (import.meta.vitest) {
 		it('is a Delivery validation failure recovery stub', () => {
 			expect(handleDeliveryValidationFailed()).toEqual({
 				ok: false,
-				error: { type: 'not-implemented', operation: 'scheduleDeliveryWork.delivery.delivery-validation-failed' },
+				error: {
+					type: 'not-implemented',
+					operation: 'scheduleDeliveryWork.delivery.delivery-validation-failed',
+				},
 			})
 		})
 	})

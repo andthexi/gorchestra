@@ -1,14 +1,14 @@
 import { v, type Pipe } from 'valleyed'
 
-import { resolveWorkspaceToolPath } from './path-policy'
-import type { CoreAgentRunToolDefinition } from './registry'
-import { failInvalidInput, failSandboxError, sandboxErrorSummary, toolOutput } from './results'
-import { listMaxEntries, resultLimitTruncation, truncateSearchText } from './truncation'
 import type { AgentRunToolOutput, AgentRunToolTruncation } from '../../../../domain/agent-run-event'
 import { nonEmptyTrimmedStringPipe, positiveIntegerPipe } from '../../../../domain/commons'
 import type { SandboxFileEntry } from '../../../../services'
 import type { ManagedSandbox } from '../../sandboxes/managed'
 import type { CoreAgentRunToolContext } from '../types'
+import { resolveWorkspaceToolPath } from './path-policy'
+import type { CoreAgentRunToolDefinition } from './registry'
+import { failInvalidInput, failSandboxError, sandboxErrorSummary, toolOutput } from './results'
+import { listMaxEntries, resultLimitTruncation, truncateSearchText } from './truncation'
 
 type LsInput = { path: string | undefined; limit: number | undefined }
 const lsInputPipe: Pipe<unknown, LsInput> = v.object({
@@ -24,7 +24,9 @@ export function lsTool(): CoreAgentRunToolDefinition<LsInput> {
 			'List directory contents. Returns entries sorted alphabetically with / suffix for directories. Includes dotfiles. Output is truncated to 500 entries or 50KB.',
 		inputPipe: lsInputPipe,
 		promptSnippet: 'List directory contents',
-		promptGuidelines: ['Use ls to inspect directory contents before reading files when the exact file path is unknown.'],
+		promptGuidelines: [
+			'Use ls to inspect directory contents before reading files when the exact file path is unknown.',
+		],
 		workspaceMutationKind: 'read-only',
 		execute: (input, context) => listWorkspaceDirectory(input, context),
 	}
@@ -50,7 +52,8 @@ function formatEntries(entries: SandboxFileEntry[]): string[] {
 	return [...entries]
 		.sort(
 			(left, right) =>
-				left.name.toLocaleLowerCase().localeCompare(right.name.toLocaleLowerCase()) || left.name.localeCompare(right.name),
+				left.name.toLocaleLowerCase().localeCompare(right.name.toLocaleLowerCase()) ||
+				left.name.localeCompare(right.name),
 		)
 		.map((entry) => (entry.type === 'directory' ? `${entry.name}/` : entry.name))
 }
@@ -63,12 +66,19 @@ function directoryListingOutput(entries: string[], requestedLimit: number | unde
 	const truncated = truncateSearchText(selected)
 	const notices = listingNotices(entryLimited, effectiveLimit, truncated.truncation)
 	return {
-		output: { type: 'text', value: `${truncated.content}${notices.length === 0 ? '' : `\n\n[${notices.join('. ')}]`}` },
+		output: {
+			type: 'text',
+			value: `${truncated.content}${notices.length === 0 ? '' : `\n\n[${notices.join('. ')}]`}`,
+		},
 		truncation: truncated.truncation ?? resultLimitTruncation(entries.length, effectiveLimit, truncated.content),
 	}
 }
 
-function listingNotices(entryLimited: boolean, effectiveLimit: number, truncation: AgentRunToolTruncation | null): string[] {
+function listingNotices(
+	entryLimited: boolean,
+	effectiveLimit: number,
+	truncation: AgentRunToolTruncation | null,
+): string[] {
 	return [
 		...(entryLimited ? [`${effectiveLimit} entries limit reached`] : []),
 		...(truncation === null ? [] : ['50KB output limit reached']),
@@ -95,11 +105,17 @@ if (import.meta.vitest) {
 
 		it('returns empty directory text and records entry-limit truncation', async () => {
 			await expect(
-				lsTool().execute(lsInput('empty'), toolContext({ '/workspace/empty/.keep': 'x' }, ['/workspace/empty/.keep'])),
+				lsTool().execute(
+					lsInput('empty'),
+					toolContext({ '/workspace/empty/.keep': 'x' }, ['/workspace/empty/.keep']),
+				),
 			).resolves.toEqual(toolOutput('(empty directory)'))
 
 			const files = Object.fromEntries(
-				Array.from({ length: 501 }, (_, index) => [`/workspace/many/${String(index).padStart(3, '0')}.txt`, 'x']),
+				Array.from({ length: 501 }, (_, index) => [
+					`/workspace/many/${String(index).padStart(3, '0')}.txt`,
+					'x',
+				]),
 			)
 			const output = await lsTool().execute(lsInput('many'), toolContext(files))
 			expect(output.output.type === 'text' && output.output.value).toContain('500 entries limit reached')
@@ -113,7 +129,9 @@ if (import.meta.vitest) {
 			await expect(lsTool().execute(lsInput('missing'), toolContext({}))).rejects.toMatchObject({
 				reason: { type: 'invalid-input' },
 			})
-			await expect(lsTool().execute(lsInput('file.txt'), toolContext({ '/workspace/file.txt': 'x' }))).rejects.toMatchObject({
+			await expect(
+				lsTool().execute(lsInput('file.txt'), toolContext({ '/workspace/file.txt': 'x' })),
+			).rejects.toMatchObject({
 				reason: { type: 'invalid-input' },
 			})
 		})
@@ -137,11 +155,14 @@ if (import.meta.vitest) {
 
 	function fakeSandbox(files: Record<string, string>, emptyDirectoryFiles: string[]): ManagedSandbox {
 		return {
-			setEnv: () => Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
-			runCommand: () => Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
+			setEnv: () =>
+				Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
+			runCommand: () =>
+				Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
 			readFile: () => Promise.resolve({ ok: true, value: null }),
 			writeFile: () => Promise.resolve({ ok: true, value: undefined }),
-			listDirectory: ({ path }) => Promise.resolve({ ok: true, value: fakeListDirectory(files, emptyDirectoryFiles, path) }),
+			listDirectory: ({ path }) =>
+				Promise.resolve({ ok: true, value: fakeListDirectory(files, emptyDirectoryFiles, path) }),
 			deletePath: () => Promise.resolve({ ok: true, value: undefined }),
 			redactText: ({ text }) => Promise.resolve({ ok: true, value: text }),
 			redactJson: ({ value }) => Promise.resolve({ ok: true, value }),

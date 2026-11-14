@@ -68,8 +68,12 @@ describe('attributed Portfolio', () => {
 			const history = vi.spyOn(dependencies.storage.adapter, 'loadMigrations')
 			const inspect = vi.spyOn(dependencies.storage.adapter, 'introspect')
 			try {
-				const project = requireSuccess(await portfolio.projects.create({ title: 'Project', spec: { type: 'source-control' } }))
-				const { memory } = requireSuccess(await portfolio.memories.create({ parentId: null, title: 'Memory', body: '' }))
+				const project = requireSuccess(
+					await portfolio.projects.create({ title: 'Project', spec: { type: 'source-control' } }),
+				)
+				const { memory } = requireSuccess(
+					await portfolio.memories.create({ parentId: null, title: 'Memory', body: '' }),
+				)
 				expect(requireSuccess(await portfolio.projects.list())).toEqual([project])
 				expect(requireSuccess(await portfolio.memories.list({ parentId: null }))).toEqual([memory])
 				expect(history).not.toHaveBeenCalled()
@@ -97,7 +101,10 @@ describe('attributed Portfolio', () => {
 			const invalid: unknown = Reflect.apply(client.as.bind(client), undefined, [{ by: 1 }])
 			expect(invalid).toEqual({
 				ok: false,
-				error: { type: 'invalid-input', issues: [{ path: 'by', message: 'Expected attribution by to be a string.' }] },
+				error: {
+					type: 'invalid-input',
+					issues: [{ path: 'by', message: 'Expected attribution by to be a string.' }],
+				},
 			})
 			expect(await portfolio.projects.create({ title: '  ', spec: { type: 'source-control' } })).toEqual({
 				ok: false,
@@ -110,7 +117,10 @@ describe('attributed Portfolio', () => {
 			for (const result of [
 				await create({
 					projectId: id,
-					spec: { type: 'repository', source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: id } },
+					spec: {
+						type: 'repository',
+						source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: id },
+					},
 				}),
 				await find({ projectId: id, assetId: id }),
 				await list({ projectId: id }),
@@ -120,7 +130,12 @@ describe('attributed Portfolio', () => {
 				await portfolio.memories.list({ parentId: null }),
 				await portfolio.memories.revisions.find({ revisionId: id }),
 				await portfolio.memories.revisions.list({ memoryId: id }),
-				await portfolio.memories.revisions.create({ memoryId: id, expectedVersion: 1, title: 'Closed', body: '' }),
+				await portfolio.memories.revisions.create({
+					memoryId: id,
+					expectedVersion: 1,
+					title: 'Closed',
+					body: '',
+				}),
 			])
 				expect(result).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
 			expect(await list({ projectId: 'invalid' })).toEqual({
@@ -147,7 +162,9 @@ describe('attributed Portfolio', () => {
 					return await session(work)
 				} catch (cause) {
 					wrapped = true
-					throw Object.assign(new Error('Core operation aborted', { cause }), { context: { operation: 'session' } })
+					throw Object.assign(new Error('Core operation aborted', { cause }), {
+						context: { operation: 'session' },
+					})
 				}
 			}
 			expect(await portfolio.projects.find({ projectId: '01k00000000000000000000001' })).toEqual({

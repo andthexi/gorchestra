@@ -37,7 +37,9 @@ if (import.meta.vitest) {
 					return { ok: true, value: created.value.id }
 				},
 				run: (projectId) => {
-					calls.push(services.tx.projects.records.has(projectId) ? 'outside-after-commit' : 'outside-before-commit')
+					calls.push(
+						services.tx.projects.records.has(projectId) ? 'outside-after-commit' : 'outside-before-commit',
+					)
 					return Promise.resolve({ ok: true, value: 'outside-value' })
 				},
 				write: (_transaction, projectId, outside) => {

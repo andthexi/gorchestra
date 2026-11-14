@@ -51,7 +51,9 @@ export interface ManagedSandbox {
 	release(): Promise<Result<SandboxReleaseOutput, ManagedSandboxError>>
 }
 
-export interface ManagedSandboxProvider<SourceConfig extends AgentRunSandboxSourceConfig = AgentRunSandboxSourceConfig> {
+export interface ManagedSandboxProvider<
+	SourceConfig extends AgentRunSandboxSourceConfig = AgentRunSandboxSourceConfig,
+> {
 	kind: SourceConfig['type']
 	create(input: {
 		key: string
@@ -83,11 +85,15 @@ export async function verifyManagedSandboxFileApiReadiness(input: {
 
 	const read = await input.sandbox.readFile({ path: filePath })
 	if (!read.ok) return read
-	if (read.value?.type !== 'file' || read.value.contentsBase64 !== expectedContentsBase64) return fileApiReadinessFailed()
+	if (read.value?.type !== 'file' || read.value.contentsBase64 !== expectedContentsBase64)
+		return fileApiReadinessFailed()
 
 	const listed = await input.sandbox.listDirectory({ path: input.directoryPath })
 	if (!listed.ok) return listed
-	if (listed.value?.type !== 'directory' || !listed.value.entries.some((entry) => entry.name === 'check.txt' && entry.type === 'file')) {
+	if (
+		listed.value?.type !== 'directory' ||
+		!listed.value.entries.some((entry) => entry.name === 'check.txt' && entry.type === 'file')
+	) {
 		return fileApiReadinessFailed()
 	}
 
@@ -109,7 +115,9 @@ export function manageSandboxProvider<SourceConfig extends AgentRunSandboxSource
 			try {
 				const raw = await provider.create(input)
 				const validated = validateCoreServiceOutput(rawSandboxPipe, raw, 'sandbox', 'create')
-				return validated.ok ? initializeManagedSandbox(validated.value, input.key, 'create', options) : validated
+				return validated.ok
+					? initializeManagedSandbox(validated.value, input.key, 'create', options)
+					: validated
 			} catch {
 				return sandboxOperationFailed('create', 'Sandbox creation failed.')
 			}
@@ -157,7 +165,10 @@ async function initializeManagedSandbox(
 }
 
 function fileApiReadinessFailed(): Result<never, ManagedSandboxFileApiReadinessFailedError> {
-	return { ok: false, error: { type: 'sandbox-file-api-readiness-failed', summary: 'Sandbox file API readiness check failed.' } }
+	return {
+		ok: false,
+		error: { type: 'sandbox-file-api-readiness-failed', summary: 'Sandbox file API readiness check failed.' },
+	}
 }
 
 function manageSandbox(raw: RawSandbox, key: string, options: { logger?: CoreLogger }): ManagedSandbox {
@@ -182,7 +193,10 @@ function manageSandbox(raw: RawSandbox, key: string, options: { logger?: CoreLog
 					Buffer.from(`${JSON.stringify({ ...runtimeEnv.value, [name]: value })}\n`).toString('base64'),
 				)
 				cachedRuntimeEnvRedactionValues = null
-				return { ok: true, value: { exitCode: 0, summary: 'Environment variable set.', stdout: null, stderr: null } }
+				return {
+					ok: true,
+					value: { exitCode: 0, summary: 'Environment variable set.', stdout: null, stderr: null },
+				}
 			} catch {
 				return sandboxOperationFailed('set-env', 'Sandbox runtime environment update failed.')
 			}
@@ -191,7 +205,9 @@ function manageSandbox(raw: RawSandbox, key: string, options: { logger?: CoreLog
 			const runtimeEnv = await readRuntimeEnv(raw, 'run-command')
 			if (!runtimeEnv.ok) return runtimeEnv
 
-			const cwd = managedPublicPath(input.command.cwd ?? '/workspace', 'run-command', { allowWorkspaceRoot: true })
+			const cwd = managedPublicPath(input.command.cwd ?? '/workspace', 'run-command', {
+				allowWorkspaceRoot: true,
+			})
 			if (!cwd.ok) return cwd
 			const executablePolicy = managedCommandExecutablePolicy(input.command.executable, cwd.value)
 			if (!executablePolicy.ok) return executablePolicy
@@ -239,8 +255,15 @@ function manageSandbox(raw: RawSandbox, key: string, options: { logger?: CoreLog
 			if (!safePath.ok) return safePath
 			try {
 				const output = await raw.listDirectory(safePath.value)
-				const validated = validateCoreServiceOutput(sandboxListDirectoryOutputPipe, output, 'sandbox', 'listDirectory')
-				return validated.ok ? { ok: true, value: managedDirectoryOutput(safePath.value, validated.value) } : validated
+				const validated = validateCoreServiceOutput(
+					sandboxListDirectoryOutputPipe,
+					output,
+					'sandbox',
+					'listDirectory',
+				)
+				return validated.ok
+					? { ok: true, value: managedDirectoryOutput(safePath.value, validated.value) }
+					: validated
 			} catch {
 				return sandboxOperationFailed('list-directory', 'Sandbox directory listing failed.')
 			}
@@ -261,7 +284,9 @@ function manageSandbox(raw: RawSandbox, key: string, options: { logger?: CoreLog
 		},
 		redactJson: async ({ value }) => {
 			const redactionValues = await runtimeEnvRedactionValues()
-			return redactionValues.ok ? { ok: true, value: redactJsonValue(value, redactionValues.value, new WeakSet()) } : redactionValues
+			return redactionValues.ok
+				? { ok: true, value: redactJsonValue(value, redactionValues.value, new WeakSet()) }
+				: redactionValues
 		},
 		release: async () => {
 			let wipeFailed = false
@@ -283,7 +308,8 @@ function manageSandbox(raw: RawSandbox, key: string, options: { logger?: CoreLog
 
 			const validated = validateCoreServiceOutput(sandboxReleaseOutputPipe, output, 'sandbox', 'release')
 			if (!validated.ok) return validated
-			if (wipeFailed) options.logger?.warn('Sandbox runtime environment wipe failed before release.', { sandboxKey: key })
+			if (wipeFailed)
+				options.logger?.warn('Sandbox runtime environment wipe failed before release.', { sandboxKey: key })
 			return { ok: true, value: validated.value }
 		},
 	}
@@ -336,9 +362,13 @@ async function readRuntimeEnv(
 	const readOutput = validateCoreServiceOutput(sandboxReadFileOutputPipe, contents, 'sandbox', 'readFile')
 	if (!readOutput.ok) return readOutput
 	if (readOutput.value === null) return { ok: true, value: {} }
-	if (readOutput.value.type !== 'file') return sandboxOperationFailed(operation, 'Sandbox runtime environment store is invalid.')
+	if (readOutput.value.type !== 'file')
+		return sandboxOperationFailed(operation, 'Sandbox runtime environment store is invalid.')
 
-	const parsed = v.validate(runtimeEnvFilePipe, Buffer.from(readOutput.value.contentsBase64, 'base64').toString('utf8'))
+	const parsed = v.validate(
+		runtimeEnvFilePipe,
+		Buffer.from(readOutput.value.contentsBase64, 'base64').toString('utf8'),
+	)
 	return parsed.valid
 		? { ok: true, value: parsed.value }
 		: sandboxOperationFailed(operation, 'Sandbox runtime environment store is invalid.')
@@ -350,7 +380,9 @@ function redactJsonValue(value: unknown, secrets: string[], seen: WeakSet<object
 	if (typeof value !== 'object' || value === null) return value
 	if (seen.has(value)) return '[Circular]'
 	seen.add(value)
-	return Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, redactJsonValue(nested, secrets, seen)]))
+	return Object.fromEntries(
+		Object.entries(value).map(([key, nested]) => [key, redactJsonValue(nested, secrets, seen)]),
+	)
 }
 
 function redactString(value: string, secrets: string[]): string {
@@ -397,7 +429,10 @@ if (import.meta.vitest) {
 			if (!created.ok) throw new Error('Expected sandbox creation to pass.')
 
 			await expect(
-				created.value.writeFile({ path: 'notes/todo.txt', contentsBase64: Buffer.from('hello').toString('base64') }),
+				created.value.writeFile({
+					path: 'notes/todo.txt',
+					contentsBase64: Buffer.from('hello').toString('base64'),
+				}),
 			).resolves.toEqual({ ok: true, value: undefined })
 			await expect(created.value.readFile({ path: '/workspace/notes/todo.txt' })).resolves.toEqual({
 				ok: true,
@@ -411,10 +446,18 @@ if (import.meta.vitest) {
 				ok: true,
 				value: { type: 'directory', entries: [{ name: 'notes', type: 'directory' }] },
 			})
-			await expect(created.value.deletePath({ path: '/workspace/notes' })).resolves.toEqual({ ok: true, value: undefined })
-			await expect(created.value.readFile({ path: '/workspace/notes/todo.txt' })).resolves.toEqual({ ok: true, value: null })
+			await expect(created.value.deletePath({ path: '/workspace/notes' })).resolves.toEqual({
+				ok: true,
+				value: undefined,
+			})
+			await expect(created.value.readFile({ path: '/workspace/notes/todo.txt' })).resolves.toEqual({
+				ok: true,
+				value: null,
+			})
 
-			await expect(created.value.readFile({ path: '/workspace/.gorchestra/runtime-env.json' })).resolves.toMatchObject({
+			await expect(
+				created.value.readFile({ path: '/workspace/.gorchestra/runtime-env.json' }),
+			).resolves.toMatchObject({
 				ok: false,
 				error: { type: 'sandbox-operation-failed', operation: 'read-file' },
 			})
@@ -430,19 +473,25 @@ if (import.meta.vitest) {
 			const created = await provider.create({ key: 'agent-run-key', config: fakeConfig() })
 			if (!created.ok) throw new Error('Expected sandbox creation to pass.')
 
-			await expect(created.value.setEnv({ name: 'NPM_TOKEN', value: 'prepared-secret' })).resolves.toMatchObject({ ok: true })
+			await expect(created.value.setEnv({ name: 'NPM_TOKEN', value: 'prepared-secret' })).resolves.toMatchObject({
+				ok: true,
+			})
 			await expect(created.value.redactText({ text: 'prepared-secret stays private' })).resolves.toEqual({
 				ok: true,
 				value: '[REDACTED] stays private',
 			})
 			await expect(
-				created.value.redactJson({ value: { nested: ['prepared-secret', 7], text: 'prefix prepared-secret suffix' } }),
+				created.value.redactJson({
+					value: { nested: ['prepared-secret', 7], text: 'prefix prepared-secret suffix' },
+				}),
 			).resolves.toEqual({
 				ok: true,
 				value: { nested: ['[REDACTED]', 7], text: 'prefix [REDACTED] suffix' },
 			})
 
-			await expect(created.value.setEnv({ name: 'NPM_TOKEN', value: 'new-secret' })).resolves.toMatchObject({ ok: true })
+			await expect(created.value.setEnv({ name: 'NPM_TOKEN', value: 'new-secret' })).resolves.toMatchObject({
+				ok: true,
+			})
 			await expect(created.value.redactText({ text: 'prepared-secret new-secret' })).resolves.toEqual({
 				ok: true,
 				value: 'prepared-secret [REDACTED]',
@@ -516,7 +565,12 @@ if (import.meta.vitest) {
 			const warnings: unknown[] = []
 			const fake = fakeRawSandboxProvider({ writeFile: () => Promise.reject(new Error('no write')) })
 			const provider = manageSandboxProvider(fake.provider, {
-				logger: { debug: () => {}, info: () => {}, warn: (_message, context) => warnings.push(context), error: () => {} },
+				logger: {
+					debug: () => {},
+					info: () => {},
+					warn: (_message, context) => warnings.push(context),
+					error: () => {},
+				},
 			})
 			const created = await provider.create({ key: 'agent-run-key', config: fakeConfig() })
 			if (!created.ok) throw new Error('Expected sandbox creation to pass.')
@@ -624,7 +678,9 @@ if (import.meta.vitest) {
 		return false
 	}
 
-	function fakeConfig(): AgentRunSandboxConfigForSource<Extract<AgentRunSandboxSourceConfig, { type: 'consumer-managed' }>> {
+	function fakeConfig(): AgentRunSandboxConfigForSource<
+		Extract<AgentRunSandboxSourceConfig, { type: 'consumer-managed' }>
+	> {
 		return {
 			source: { type: 'consumer-managed', ociImage: 'alpine:latest' },
 			resources: { vcpus: 1 },

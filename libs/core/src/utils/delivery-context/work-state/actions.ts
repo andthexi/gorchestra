@@ -1,16 +1,18 @@
-import { invariant, ok } from './result'
-import type { SliceDeliveryValidationAction, WorkStateResult } from './types'
 import type { Action, ActionResult } from '../../../domain/action'
 import type { AgentRun } from '../../../domain/agent-run'
 import type { Id } from '../../../domain/commons'
 import type { DeliveryWorkOperation } from '../../../domain/delivery-work-operation'
 import type { DispatchRequest } from '../../../domain/dispatch-request'
+import { invariant, ok } from './result'
+import type { SliceDeliveryValidationAction, WorkStateResult } from './types'
 
 export function latestPassedSlicePromotion(sliceId: Id, sliceActions: Action[]): Action | null {
 	return latestAction(
 		sliceActions.filter(
 			(action) =>
-				action.result.type === 'promote-slice-artifact' && action.result.sliceId === sliceId && action.result.evidence.passed,
+				action.result.type === 'promote-slice-artifact' &&
+				action.result.sliceId === sliceId &&
+				action.result.evidence.passed,
 		),
 	)
 }
@@ -74,7 +76,10 @@ export function latestInTransitDispatchForOperation(
 	requests: DispatchRequest[],
 	predicate: (operation: DeliveryWorkOperation) => boolean,
 	excludeRequestId?: Id,
-): { type: 'running'; request: DeliveryOperationRequest } | { type: 'queued'; request: DeliveryOperationRequest } | null {
+):
+	| { type: 'running'; request: DeliveryOperationRequest }
+	| { type: 'queued'; request: DeliveryOperationRequest }
+	| null {
 	const matching = requests
 		.filter(
 			(request): request is DeliveryOperationRequest =>

@@ -1,9 +1,14 @@
-import { createEmailOtpChallenge, type EmailOtpMailMessage, verifyEmailOtpChallenge, type VerifyEmailOtpChallengeResult } from './email-otp'
-import { findEmailAuthenticationIdentityByEmail, getOrCreateUserByVerifiedEmail } from './identities'
-import { createSession, type CreateSessionInput, type CreateSessionResult, verifySessionToken } from './sessions'
 import type { ServerCache } from '../cache'
 import type { ServerStorage } from '../storage/repo'
 import type { EmailAuthenticationIdentity, ServerUser } from '../storage/schemas'
+import {
+	createEmailOtpChallenge,
+	type EmailOtpMailMessage,
+	verifyEmailOtpChallenge,
+	type VerifyEmailOtpChallengeResult,
+} from './email-otp'
+import { findEmailAuthenticationIdentityByEmail, getOrCreateUserByVerifiedEmail } from './identities'
+import { createSession, type CreateSessionInput, type CreateSessionResult, verifySessionToken } from './sessions'
 
 type EmailOtpSignInFailureReason = Extract<VerifyEmailOtpChallengeResult, { verified: false }>['reason']
 
@@ -69,7 +74,9 @@ if (import.meta.vitest) {
 	const { createTestServerCache } = await import('../testing/server-cache')
 	const { createTempServerStorageTestHarness } = await import('../testing/server-storage')
 
-	const { cleanupTempServerStorage, withTempServerStorage } = createTempServerStorageTestHarness('gorchestra-server-email-otp-sign-in-')
+	const { cleanupTempServerStorage, withTempServerStorage } = createTempServerStorageTestHarness(
+		'gorchestra-server-email-otp-sign-in-',
+	)
 	const signingKey = 'test-email-otp-sign-in-session-key'
 	const testNow = new Date('2026-06-19T12:00:00.000Z')
 	const firstSessionId = '01k00000000000000000000021'
@@ -91,7 +98,13 @@ if (import.meta.vitest) {
 	}
 
 	async function createOtp(serverCache: ServerCache, email: string, code: string, now = testNow): Promise<void> {
-		await createEmailOtpChallenge({ serverCache, email, generateCode: () => code, mailService: captureMailService([]), now })
+		await createEmailOtpChallenge({
+			serverCache,
+			email,
+			generateCode: () => code,
+			mailService: captureMailService([]),
+			now,
+		})
 	}
 
 	async function testVerifiedEmailOtpCreatesUserIdentityAndSession(): Promise<void> {
@@ -136,7 +149,16 @@ if (import.meta.vitest) {
 			const email = uniqueEmail()
 			await createOtp(serverCache, email, '123456')
 
-			expect(await verifyEmailOtpSignIn({ serverStorage, serverCache, email, code: '000000', now: testNow, signingKey })).toEqual({
+			expect(
+				await verifyEmailOtpSignIn({
+					serverStorage,
+					serverCache,
+					email,
+					code: '000000',
+					now: testNow,
+					signingKey,
+				}),
+			).toEqual({
 				signedIn: false,
 				reason: 'invalid-code',
 			})
@@ -150,9 +172,25 @@ if (import.meta.vitest) {
 			const email = uniqueEmail()
 			await createOtp(serverCache, email, '222222')
 
-			const first = await verifyEmailOtpSignIn({ serverStorage, serverCache, email, code: '222222', now: testNow, signingKey })
+			const first = await verifyEmailOtpSignIn({
+				serverStorage,
+				serverCache,
+				email,
+				code: '222222',
+				now: testNow,
+				signingKey,
+			})
 			expect(first.signedIn).toBe(true)
-			expect(await verifyEmailOtpSignIn({ serverStorage, serverCache, email, code: '222222', now: testNow, signingKey })).toEqual({
+			expect(
+				await verifyEmailOtpSignIn({
+					serverStorage,
+					serverCache,
+					email,
+					code: '222222',
+					now: testNow,
+					signingKey,
+				}),
+			).toEqual({
 				signedIn: false,
 				reason: 'not-found',
 			})
@@ -193,11 +231,15 @@ if (import.meta.vitest) {
 			expect(second.user).toEqual(first.user)
 			expect(second.emailAuthenticationIdentity).toEqual(first.emailAuthenticationIdentity)
 			expect(second.session).toMatchObject({ userId: first.user.id, email, sessionId: secondSessionId })
-			expect(await verifySessionToken({ serverCache, token: first.token, now: secondSignInTime, signingKey })).toEqual({
+			expect(
+				await verifySessionToken({ serverCache, token: first.token, now: secondSignInTime, signingKey }),
+			).toEqual({
 				authenticated: false,
 				reason: 'not-current',
 			})
-			expect(await verifySessionToken({ serverCache, token: second.token, now: secondSignInTime, signingKey })).toEqual({
+			expect(
+				await verifySessionToken({ serverCache, token: second.token, now: secondSignInTime, signingKey }),
+			).toEqual({
 				authenticated: true,
 				session: second.session,
 				refreshRecommended: false,
@@ -210,7 +252,10 @@ if (import.meta.vitest) {
 			'creates a User, Email Authentication Identity, and Session after a verified Email OTP Challenge',
 			testVerifiedEmailOtpCreatesUserIdentityAndSession,
 		)
-		it('does not create an Email Authentication Identity when the Email OTP Challenge fails', testInvalidEmailOtpDoesNotCreateIdentity)
+		it(
+			'does not create an Email Authentication Identity when the Email OTP Challenge fails',
+			testInvalidEmailOtpDoesNotCreateIdentity,
+		)
 		it('makes a successful Email OTP Sign-in single-use', testEmailOtpSignInIsSingleUse)
 		it(
 			'reuses an existing Email Authentication Identity User and replaces the current Session',

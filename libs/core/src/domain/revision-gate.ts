@@ -1,12 +1,16 @@
 import { v, type PipeOutput } from 'valleyed'
 
+import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 import { auditStampPipe, idPipe } from './commons'
 import { revisionScopePipe } from './revision'
-import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 
 export const revisionGateClosedPipe = v.discriminate((value) => value.type, {
 	'closed-without-revision': v.object({ type: v.eq('closed-without-revision'), closed: auditStampPipe }),
-	'consumed-by-revision': v.object({ type: v.eq('consumed-by-revision'), consumed: auditStampPipe, revisionId: idPipe }),
+	'consumed-by-revision': v.object({
+		type: v.eq('consumed-by-revision'),
+		consumed: auditStampPipe,
+		revisionId: idPipe,
+	}),
 })
 export type RevisionGateClosed = PipeOutput<typeof revisionGateClosedPipe>
 

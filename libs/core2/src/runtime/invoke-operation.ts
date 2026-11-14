@@ -76,14 +76,21 @@ if (import.meta.vitest) {
 							context.storage
 								.on(projectSchema)
 								.one()
-								.create({ title: 'Same stamp', spec: { type: 'source-control' }, created: context.stamp }),
+								.create({
+									title: 'Same stamp',
+									spec: { type: 'source-control' },
+									created: context.stamp,
+								}),
 						)
 						expect(context.stamp).toBe(stamp)
 					}
 					return { ok: true, value: undefined }
 				},
 			})
-			expect(await invokeOperation(operation, owner, attribution, undefined)).toEqual({ ok: true, value: undefined })
+			expect(await invokeOperation(operation, owner, attribution, undefined)).toEqual({
+				ok: true,
+				value: undefined,
+			})
 			const rows = await owner.repo.on(projectSchema).all().find()
 			expect(rows).toHaveLength(2)
 			expect(rows[0]?.created).toEqual(rows[1]?.created)
@@ -155,17 +162,21 @@ if (import.meta.vitest) {
 					output: v.eq(undefined),
 					handler: () => Promise.resolve({ ok: false, error: { type: 'invalid-storage-output' } }),
 				})
+				// A matching message must not give an unrelated error the abort's identity.
+				const foreign = new Error('Core operation aborted')
+				let intercepted: unknown
 				adapter.session = async (work) => {
 					try {
 						return await original(work)
 					} catch (error) {
+						intercepted = error
 						switch (mode) {
 							case 'direct':
 								throw error
 							case 'wrapped':
 								throw new EquippedError('synthetic-PROTECTED', { operation: 'session' }, error)
 							case 'foreign':
-								throw new Error('Core operation aborted')
+								throw foreign
 							case 'nested':
 								throw new EquippedError(
 									'outer',
@@ -175,7 +186,7 @@ if (import.meta.vitest) {
 							case 'wrong-context':
 								throw new EquippedError('synthetic-PROTECTED', { operation: 'query' }, error)
 							default:
-								throw new Error('Unexpected test mode')
+								throw new Error('Unexpected test mode', { cause: error })
 						}
 					}
 				}
@@ -186,6 +197,11 @@ if (import.meta.vitest) {
 						ok: false,
 						error: { type: recognized ? 'invalid-storage-output' : 'storage-operation-failed' },
 					})
+					if (mode === 'foreign') {
+						expect(intercepted).toBeDefined()
+						expect(foreign).not.toBe(intercepted)
+						expect(foreign).not.toHaveProperty('cause')
+					}
 					const release = owner.admit()
 					expect(Boolean(release)).toBe(recognized)
 					release?.()

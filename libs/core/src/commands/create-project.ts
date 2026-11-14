@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { nonEmptyTrimmedStringPipe } from '../domain/commons'
 import { projectConfigPipe } from '../domain/config'
 import { projectSourcePipe, type Project } from '../domain/project'
@@ -17,6 +16,7 @@ import {
 } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const createProjectInputPipe = v.object({
 	title: nonEmptyTrimmedStringPipe,
@@ -37,26 +37,37 @@ export function createCreateProjectCommand(runtime: CoreRuntime): Operation {
 		const idResult = nextId(runtime.values)
 		if (!idResult.ok) return Promise.resolve(idResult)
 
-		return runtime.transactions.run(async ({ storage }): Promise<CoreResult<Project, Exclude<Error, InvalidInputError>>> => {
-			const profileValidation = await validateSelectableAgentRunProfiles(storage, agentRunProfileIdsFromProjectConfig(input.config))
-			if (!profileValidation.ok) return profileValidation
+		return runtime.transactions.run(
+			async ({ storage }): Promise<CoreResult<Project, Exclude<Error, InvalidInputError>>> => {
+				const profileValidation = await validateSelectableAgentRunProfiles(
+					storage,
+					agentRunProfileIdsFromProjectConfig(input.config),
+				)
+				if (!profileValidation.ok) return profileValidation
 
-			const project: Project = {
-				id: idResult.value,
-				title: input.title,
-				source: input.source,
-				config: normalizeProjectConfigRecord(input.config, stampResult.value),
-				created: stampResult.value,
-			}
-			return createRecordValue('project', storage, project)
-		})
+				const project: Project = {
+					id: idResult.value,
+					title: input.title,
+					source: input.source,
+					config: normalizeProjectConfigRecord(input.config, stampResult.value),
+					created: stampResult.value,
+				}
+				return createRecordValue('project', storage, project)
+			},
+		)
 	})
 }
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { context, createTestCoreRuntime, createTestCoreServices, defaultDeliveryWorkConfig, localStamp, seedAgentRunProfile } =
-		await import('../utils/test-helpers')
+	const {
+		context,
+		createTestCoreRuntime,
+		createTestCoreServices,
+		defaultDeliveryWorkConfig,
+		localStamp,
+		seedAgentRunProfile,
+	} = await import('../utils/test-helpers')
 
 	describe('createProject command', () => {
 		it('creates Projects with normalized titles, immutable source, required config, and Audit Stamps', async () => {
@@ -65,7 +76,11 @@ if (import.meta.vitest) {
 			const command = createCreateProjectCommand(createTestCoreRuntime(options))
 
 			const result = await command(
-				{ title: '  Build Gorchestra  ', source: { type: 'source-control' }, config: { work: defaultDeliveryWorkConfig() } },
+				{
+					title: '  Build Gorchestra  ',
+					source: { type: 'source-control' },
+					config: { work: defaultDeliveryWorkConfig() },
+				},
 				context,
 			)
 
@@ -79,7 +94,9 @@ if (import.meta.vitest) {
 					created: localStamp(),
 				},
 			})
-			expect(options.tx.projects.records.get('01k00000000000000000010001')).toEqual(result.ok ? result.value : null)
+			expect(options.tx.projects.records.get('01k00000000000000000010001')).toEqual(
+				result.ok ? result.value : null,
+			)
 		})
 
 		it('rejects missing Agent Run Profile references', async () => {

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { acceptDispatchRequest } from './accept'
-import { exclusiveAgentRunClaim } from './claims'
 import type { Id } from '../domain/commons'
 import { maxDispatchReasons, type DispatchReason, type DispatchRequestInput } from '../domain/dispatch-request'
 import { createTestCoreServices, testId } from '../utils/test-helpers'
+import { acceptDispatchRequest } from './accept'
+import { exclusiveAgentRunClaim } from './claims'
 
 function setupAcceptance() {
 	const options = createTestCoreServices()
@@ -61,7 +61,10 @@ describe('acceptDispatchRequest', () => {
 			value: { requestId: first.ok ? first.value.requestId : '', disposition: 'coalesced', wakeNeeded: true },
 		})
 		expect(duplicate).toEqual(second)
-		expect([...setup.options.tx.dispatchRequests.records.values()][0]?.reasons).toEqual([{ type: 'agent-run-created' }, secondReason])
+		expect([...setup.options.tx.dispatchRequests.records.values()][0]?.reasons).toEqual([
+			{ type: 'agent-run-created' },
+			secondReason,
+		])
 	})
 
 	it('creates at most one pending successor behind leased semantic work', async () => {

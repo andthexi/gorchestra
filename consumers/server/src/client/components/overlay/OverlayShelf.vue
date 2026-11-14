@@ -5,7 +5,8 @@
 			v-for="(request, index) in requests"
 			:key="request.id"
 			:request="request"
-			:is-top="index === requests.length - 1" />
+			:isTop="index === requests.length - 1"
+		/>
 	</Teleport>
 </template>
 

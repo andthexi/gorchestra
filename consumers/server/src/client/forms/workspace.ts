@@ -11,7 +11,11 @@ type DisplayNameFormModel = {
 
 const displayNamePipe = v.string().pipe(v.min<string>(1, 'Enter a display name'))
 
-abstract class DisplayNameFormDraft extends FormDraft<DisplayNameFormModel, DisplayNameFormModel, DisplayNameFormFields> {
+abstract class DisplayNameFormDraft extends FormDraft<
+	DisplayNameFormModel,
+	DisplayNameFormModel,
+	DisplayNameFormFields
+> {
 	protected readonly rules = { displayName: displayNamePipe }
 
 	constructor() {

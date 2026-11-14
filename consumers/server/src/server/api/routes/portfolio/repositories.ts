@@ -2,6 +2,10 @@ import { Domain, Queries } from '@gorchestra/core'
 import { Router } from 'equipped/server'
 import { v } from 'valleyed'
 
+import type { ServerApiContext } from '../../context'
+import { throwCoreOperationError } from '../../errors'
+import { withSelectedPortfolioCore } from '../../portfolio-context'
+import { coreIdPipe } from '../../schemas'
 import {
 	createRepositoryRequestSchema,
 	portfolioRequestCookieSchema,
@@ -10,10 +14,6 @@ import {
 	type PaginatedQuery,
 	type RepositoryPreflightEvidence,
 } from './shared'
-import type { ServerApiContext } from '../../context'
-import { throwCoreOperationError } from '../../errors'
-import { withSelectedPortfolioCore } from '../../portfolio-context'
-import { coreIdPipe } from '../../schemas'
 
 export function createRepositoriesApiRouter(context: ServerApiContext) {
 	return new Router()
@@ -39,14 +39,18 @@ export function createRepositoriesApiRouter(context: ServerApiContext) {
 				params: v.object({ projectId: coreIdPipe, repositoryId: coreIdPipe }),
 				response: Queries.GetRepository.resultPipe,
 			},
-		})(async (req) => getSelectedProjectRepository(context, req.cookies, req.params.projectId, req.params.repositoryId))
+		})(async (req) =>
+			getSelectedProjectRepository(context, req.cookies, req.params.projectId, req.params.repositoryId),
+		)
 		.post('/projects/:projectId/repositories/:repositoryId/preflight', {
 			schema: {
 				cookies: portfolioRequestCookieSchema,
 				params: v.object({ projectId: coreIdPipe, repositoryId: coreIdPipe }),
 				response: Domain.Evidence.validationEvidencePipe,
 			},
-		})(async (req) => preflightSelectedProjectRepository(context, req.cookies, req.params.projectId, req.params.repositoryId))
+		})(async (req) =>
+		preflightSelectedProjectRepository(context, req.cookies, req.params.projectId, req.params.repositoryId),
+	)
 }
 
 function listSelectedProjectRepositories(
@@ -107,6 +111,7 @@ function preflightSelectedProjectRepository(
 }
 
 function repositoryPreflightEvidence(evidence: Domain.Evidence.ValidationEvidence): RepositoryPreflightEvidence {
-	if (evidence.operation.type !== 'repository-preflight') throw new Error('Repository preflight returned unexpected evidence')
+	if (evidence.operation.type !== 'repository-preflight')
+		throw new Error('Repository preflight returned unexpected evidence')
 	return { ...evidence, operation: evidence.operation }
 }

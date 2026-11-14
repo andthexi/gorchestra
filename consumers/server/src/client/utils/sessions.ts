@@ -38,7 +38,9 @@ export async function loadSessionWithRefresh(
 	refreshScope: SessionRefreshScope | null = getBrowserSessionRefreshScope(),
 	onRefreshed?: SessionRefreshedHandler,
 ): Promise<Session> {
-	const session = await queryCache.read<Session | null>(queryCache.queryKeys.session(), null, () => fetchSession(serverApi))
+	const session = await queryCache.read<Session | null>(queryCache.queryKeys.session(), null, () =>
+		fetchSession(serverApi),
+	)
 	if (session === null) throw new Error('Session loader did not resolve a Session')
 	const current = await refreshSessionIfRecommended(session, serverApi, queryCache, refreshScope)
 	if (
@@ -51,8 +53,13 @@ export async function loadSessionWithRefresh(
 	return current
 }
 
-export async function loadSelection(serverApi: SelectionServerApi, queryCache: SelectionQueryCache): Promise<Selection> {
-	const selection = await queryCache.read<Selection | null>(queryCache.queryKeys.selection(), null, () => fetchSelection(serverApi))
+export async function loadSelection(
+	serverApi: SelectionServerApi,
+	queryCache: SelectionQueryCache,
+): Promise<Selection> {
+	const selection = await queryCache.read<Selection | null>(queryCache.queryKeys.selection(), null, () =>
+		fetchSelection(serverApi),
+	)
 	if (selection === null) throw new Error('Selection loader did not resolve a Selection')
 	return selection
 }
@@ -124,7 +131,10 @@ function clearSessionRefresh(refreshScope: SessionRefreshScope, refresh: Promise
 	if (refreshScope.inFlight === refresh) refreshScope.inFlight = null
 }
 
-async function refreshSession(serverApi: Pick<ServerApi, 'refreshSession'>, queryCache: SessionCacheWriter): Promise<Session> {
+async function refreshSession(
+	serverApi: Pick<ServerApi, 'refreshSession'>,
+	queryCache: SessionCacheWriter,
+): Promise<Session> {
 	const session = authenticatedSessionFromRefresh(await serverApi.refreshSession())
 	queryCache.set(queryCache.queryKeys.session(), session)
 	return session
@@ -171,7 +181,9 @@ if (import.meta.vitest) {
 
 			await loadSessionWithRefresh(serverApi, queryCache, createSessionRefreshScope(), onRefreshed)
 
-			expect(onRefreshed).toHaveBeenCalledWith(authenticatedSession({ session: refreshed, refreshRecommended: false }))
+			expect(onRefreshed).toHaveBeenCalledWith(
+				authenticatedSession({ session: refreshed, refreshRecommended: false }),
+			)
 		})
 
 		it('does not refresh without a browser refresh scope', async () => {
@@ -188,7 +200,9 @@ if (import.meta.vitest) {
 			const serverApi = testServerApi({ session })
 			const queryCache = testQueryCache({ session })
 
-			await expect(loadSessionWithRefresh(serverApi, queryCache, createSessionRefreshScope())).resolves.toEqual(session)
+			await expect(loadSessionWithRefresh(serverApi, queryCache, createSessionRefreshScope())).resolves.toEqual(
+				session,
+			)
 			expect(serverApi.refreshSessionCalls).toBe(0)
 		})
 

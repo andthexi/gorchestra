@@ -1,5 +1,6 @@
 import { Router } from 'equipped/server'
 
+import type { ServerApiContext } from '../../context'
 import { createAgentRunProfilesApiRouter } from './agent-run-profiles'
 import { createAgentRunsApiRouter } from './agent-runs'
 import { createDeliveriesApiRouter } from './deliveries'
@@ -9,7 +10,6 @@ import { createPlansApiRouter } from './plans'
 import { createProjectsApiRouter } from './projects'
 import { createRepositoriesApiRouter } from './repositories'
 import { createSecretsApiRouter } from './secrets'
-import type { ServerApiContext } from '../../context'
 
 const buildPortfolioApiRouter = (context: ServerApiContext) =>
 	new Router({ path: '/portfolio' })

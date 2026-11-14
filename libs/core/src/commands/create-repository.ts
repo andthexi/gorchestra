@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { idPipe } from '../domain/commons'
 import { repositoryConfigPipe, type Repository } from '../domain/repository'
 import type {
@@ -15,6 +14,7 @@ import { buildCommandHandler } from '../utils/command-handler'
 import { auditStamp, createRecordValue, getRequired, listRecords, nextId } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const createRepositoryInputPipe = v.object({ projectId: idPipe, config: repositoryConfigPipe })
 export type Input = PipeOutput<typeof createRepositoryInputPipe>
@@ -65,7 +65,10 @@ export function createCreateRepositoryCommand(runtime: CoreRuntime): Operation {
 			}
 			const latestArchivePeriod = secret.archivePeriods.at(-1)
 			if (latestArchivePeriod !== undefined && latestArchivePeriod.unarchived === null) {
-				return { ok: false, error: { type: 'resource-archived', resource: 'secret', id: input.config.secretId } }
+				return {
+					ok: false,
+					error: { type: 'resource-archived', resource: 'secret', id: input.config.secretId },
+				}
 			}
 
 			const repositoriesResult = await listRecords('repository', storage, {
@@ -220,7 +223,10 @@ if (import.meta.vitest) {
 			})
 			const command = createCreateRepositoryCommand(createTestCoreRuntime(options))
 
-			const result = await command({ ...input, config: { ...input.config, owner: ' OcTo ', name: ' REPO ' } }, context)
+			const result = await command(
+				{ ...input, config: { ...input.config, owner: ' OcTo ', name: ' REPO ' } },
+				context,
+			)
 
 			expect(result).toEqual({
 				ok: false,

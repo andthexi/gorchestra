@@ -2,19 +2,25 @@ import { v, type PipeOutput } from 'valleyed'
 
 import { idPipe } from '../domain/commons'
 import { listedModelProviderPipe } from '../domain/model-provider'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
-import { listedModelProviders } from './model-provider-read-model'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { buildQueryHandler } from '../utils/query-handler'
 import { getRequired, listRecords } from '../utils/storage/helpers'
 import type { CoreTransactions } from '../utils/transactions'
 import type { Result as CoreResult } from '../utils/types'
+import { listedModelProviders } from './model-provider-read-model'
 
 export const inputPipe = v.object({ modelProviderId: idPipe })
 export type Input = PipeOutput<typeof inputPipe>
 
 export const resultPipe = listedModelProviderPipe
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createGetModelProviderQuery(transactions: CoreTransactions): Operation {
@@ -86,7 +92,9 @@ if (import.meta.vitest) {
 			if (!result.ok) return
 			expect(result.value.id).toBe('01k00000000000000000000032')
 			expect(result.value.archived).toBe(false)
-			expect(result.value.models).toEqual([expect.objectContaining({ id: '01k00000000000000000000024', archived: false })])
+			expect(result.value.models).toEqual([
+				expect.objectContaining({ id: '01k00000000000000000000024', archived: false }),
+			])
 		})
 
 		it('returns storage errors when nested Models cannot be listed', async () => {
@@ -94,7 +102,9 @@ if (import.meta.vitest) {
 			seedModelProvider(options.tx, '01k00000000000000000000032')
 			options.tx.models.fail.list = true
 
-			const result = await createGetModelProviderQuery(options.transactions)({ modelProviderId: '01k00000000000000000000032' })
+			const result = await createGetModelProviderQuery(options.transactions)({
+				modelProviderId: '01k00000000000000000000032',
+			})
 
 			expect(result).toEqual({
 				ok: false,

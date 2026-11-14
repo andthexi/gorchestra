@@ -1,9 +1,3 @@
-import { resolveAgentRunSourceSetup } from './agent-run-source-resolvers'
-import { agentRunProfileSnapshot } from './command-storage'
-import type { NotificationEmitter } from './notification-emitter'
-import { validateRuntimeRequirementSecretReferences, type RuntimeRequirementSecretReferenceError } from './runtime-requirement-secrets'
-import { nextId, runtimeRecord, type CoreRuntimeValues } from './runtime-values'
-import type { Result } from './types'
 import { requestAgentRunPreparation, requestAgentRunSandboxRelease } from '../dispatch/accept'
 import { appendBoundedDispatchAttemptHistory } from '../dispatch/history'
 import type { AgentRun, AgentRunProfileSnapshot, AgentRunPurpose, AgentRunToolSet } from '../domain/agent-run'
@@ -20,17 +14,23 @@ import type {
 	StorageOperationFailedError,
 } from '../errors'
 import type { CoreStorage } from '../services'
+import { resolveAgentRunSourceSetup } from './agent-run-source-resolvers'
+import { agentRunProfileSnapshot } from './command-storage'
+import type { NotificationEmitter } from './notification-emitter'
 import { instructionForProjectAndAgentRunPurpose } from './runtime/agent-runs/instructions'
+import {
+	validateRuntimeRequirementSecretReferences,
+	type RuntimeRequirementSecretReferenceError,
+} from './runtime-requirement-secrets'
+import { nextId, runtimeRecord, type CoreRuntimeValues } from './runtime-values'
 import { createRecord, getRequired, listRecords, updateRecord } from './storage/helpers'
 import type { CoreTransactionDispatch } from './transactions'
+import type { Result } from './types'
 
 export type AgentRunLookupError = InvalidCoreServiceOutputError | StorageOperationFailedError | InvariantViolationError
 export type AgentRunCompletionError = AgentRunLookupError | ResourceNotFoundError
 export type AgentRunByIdCompletionError =
-	| InvalidCoreServiceOutputError
-	| StorageOperationFailedError
-	| ResourceNotFoundError
-	| InvariantViolationError
+	InvalidCoreServiceOutputError | StorageOperationFailedError | ResourceNotFoundError | InvariantViolationError
 export type AgentRunIdleError = InvalidCoreServiceOutputError | StorageOperationFailedError | AgentRunTurnActiveError
 
 export function agentRunSandboxPrepared(agentRun: AgentRun): boolean {
@@ -43,7 +43,10 @@ export function agentRunSandboxPrepared(agentRun: AgentRun): boolean {
 	)
 }
 
-export async function requireAgentRunIdle(storage: CoreStorage, agentRunId: Id): Promise<Result<void, AgentRunIdleError>> {
+export async function requireAgentRunIdle(
+	storage: CoreStorage,
+	agentRunId: Id,
+): Promise<Result<void, AgentRunIdleError>> {
 	const events = await listRecords('agent-run-event', storage, {
 		where: (filter, fields) => filter.eq(fields.agentRunId, agentRunId),
 		orderBy: [{ field: 'id', direction: 'asc' }],
@@ -56,7 +59,8 @@ function activeTurn(events: AgentRunEvent[]): Result<void, AgentRunTurnActiveErr
 	if (started === undefined || started.body.type !== 'turn-started') return { ok: true, value: undefined }
 
 	const ended = events.some(
-		(event) => event.id > started.id && event.body.type === 'turn-ended' && event.body.turnStartedEventId === started.id,
+		(event) =>
+			event.id > started.id && event.body.type === 'turn-ended' && event.body.turnStartedEventId === started.id,
 	)
 	return ended ? { ok: true, value: undefined } : agentRunTurnActive(started.agentRunId, started.id)
 }
@@ -75,10 +79,7 @@ type ModelAgentRunWithPurpose<TPurpose extends AgentRunPurpose> = Omit<AgentRun,
 }
 
 export type AppendAgentRunEventError =
-	| InvalidCoreServiceOutputError
-	| StorageOperationFailedError
-	| ResourceNotFoundError
-	| InvariantViolationError
+	InvalidCoreServiceOutputError | StorageOperationFailedError | ResourceNotFoundError | InvariantViolationError
 
 export type CreateModelAgentRunError = AppendAgentRunEventError | RuntimeRequirementSecretReferenceError
 
@@ -104,7 +105,10 @@ export async function createModelAgentRunAndRequestPreparation<TPurpose extends 
 	const sourceSetup = await resolveAgentRunSourceSetup(storage, input.purpose)
 	if (!sourceSetup.ok) return sourceSetup
 
-	const sourceSecretValidation = await validateRuntimeRequirementSecretReferences(storage, sourceSetup.value.runtimeRequirements)
+	const sourceSecretValidation = await validateRuntimeRequirementSecretReferences(
+		storage,
+		sourceSetup.value.runtimeRequirements,
+	)
 	if (!sourceSecretValidation.ok) return sourceSecretValidation
 
 	const agentRun = modelAgentRun({
@@ -120,7 +124,9 @@ export async function createModelAgentRunAndRequestPreparation<TPurpose extends 
 	const instructionEvent = await appendAgentRunEvent(context, storage, agentRun.id, instruction)
 	if (!instructionEvent.ok) return instructionEvent
 
-	const preparationRequested = await requestAgentRunPreparation(context.dispatch, agentRun.id, { type: 'agent-run-created' })
+	const preparationRequested = await requestAgentRunPreparation(context.dispatch, agentRun.id, {
+		type: 'agent-run-created',
+	})
 	if (!preparationRequested.ok) return preparationRequested
 
 	return { ok: true, value: { agentRun, instructionEvent: instructionEvent.value } }
@@ -134,7 +140,10 @@ function modelAgentRun<TPurpose extends AgentRunPurpose>(input: {
 	sourceRuntimeRequirements: AgentRunRuntimeRequirement[]
 	toolSet: AgentRunToolSet
 }): ModelAgentRunWithPurpose<TPurpose> {
-	const desiredRuntimeRequirements = appendUniqueRuntimeRequirements(input.sourceRuntimeRequirements, input.profile.runtimeRequirements)
+	const desiredRuntimeRequirements = appendUniqueRuntimeRequirements(
+		input.sourceRuntimeRequirements,
+		input.profile.runtimeRequirements,
+	)
 	return {
 		id: input.agentRunId,
 		agent: { type: 'model' },
@@ -240,7 +249,9 @@ export async function completeAgentRunByIdAndRequestSandboxRelease(
 		if (
 			request.payload.type !== 'agent-run-model-turn' ||
 			request.payload.agentRunId !== agentRun.id ||
-			(request.lifecycle.type !== 'waiting' && request.lifecycle.type !== 'pending' && request.lifecycle.type !== 'leased')
+			(request.lifecycle.type !== 'waiting' &&
+				request.lifecycle.type !== 'pending' &&
+				request.lifecycle.type !== 'leased')
 		) {
 			continue
 		}
@@ -295,7 +306,9 @@ if (import.meta.vitest) {
 				closed: null,
 			})
 
-			const runtime = createTestCoreRuntime(options, { notifications: { emit: (data) => notifications.push(data) } })
+			const runtime = createTestCoreRuntime(options, {
+				notifications: { emit: (data) => notifications.push(data) },
+			})
 			const result = await runtime.transactions.run((tx) =>
 				createModelAgentRunAndRequestPreparation(
 					{ values: options.values, dispatch: tx.dispatch, notifications: tx.notifications },
@@ -348,7 +361,10 @@ if (import.meta.vitest) {
 						id: '01k00000000000000000010001',
 						agentRunId: '01k00000000000000000000002',
 						occurred: { at: '2026-06-10T12:00:00.000Z' },
-						body: instructionForProjectAndAgentRunPurpose({ type: 'planning', planId: '01k00000000000000000000028' }, project),
+						body: instructionForProjectAndAgentRunPurpose(
+							{ type: 'planning', planId: '01k00000000000000000000028' },
+							project,
+						),
 					},
 				},
 			})
@@ -374,9 +390,14 @@ if (import.meta.vitest) {
 			options.tx.agentRuns.records.set(agentRun.id, agentRun)
 			const notifications: unknown[] = []
 
-			const updated = await updateAgentRunRecord(options.storage, { emit: (data) => notifications.push(data) }, agentRun.id, {
-				blocked: null,
-			})
+			const updated = await updateAgentRunRecord(
+				options.storage,
+				{ emit: (data) => notifications.push(data) },
+				agentRun.id,
+				{
+					blocked: null,
+				},
+			)
 
 			expect(updated).toMatchObject({ ok: true, value: { id: agentRun.id, blocked: null } })
 			expect(notifications).toEqual([{ type: 'agent-run-updated', agentRun: updated.ok ? updated.value : null }])
@@ -391,7 +412,9 @@ if (import.meta.vitest) {
 			const emitter = { emit: (data: unknown) => notifications.push(data) }
 
 			const duplicate = await createAgentRunRecord(options.storage, emitter, agentRun)
-			const missingUpdate = await updateAgentRunRecord(options.storage, emitter, '01k00000000000000000000099', { blocked: null })
+			const missingUpdate = await updateAgentRunRecord(options.storage, emitter, '01k00000000000000000000099', {
+				blocked: null,
+			})
 			const missingAppend = await appendAgentRunEvent(
 				{ values: options.values, notifications: emitter },
 				options.storage,
@@ -408,7 +431,10 @@ if (import.meta.vitest) {
 		it('publishes only the newly completed Agent Run snapshot', async () => {
 			const options = createTestCoreServices()
 			const active = testModelAgentRun()
-			const completed = testModelAgentRun({ id: '01k00000000000000000000003', completed: { at: '2026-06-09T12:00:00.000Z' } })
+			const completed = testModelAgentRun({
+				id: '01k00000000000000000000003',
+				completed: { at: '2026-06-09T12:00:00.000Z' },
+			})
 			options.tx.agentRuns.records.set(active.id, active)
 			options.tx.agentRuns.records.set(completed.id, completed)
 			const waiting = seedDispatchRequest(options.tx, testId(90), {
@@ -445,7 +471,9 @@ if (import.meta.vitest) {
 				lifecycle: { type: 'leased', attempt: activeAttempt },
 			})
 			const notifications: unknown[] = []
-			const runtime = createTestCoreRuntime(options, { notifications: { emit: (data) => notifications.push(data) } })
+			const runtime = createTestCoreRuntime(options, {
+				notifications: { emit: (data) => notifications.push(data) },
+			})
 
 			const first = await runtime.transactions.run((tx) =>
 				completeAgentRunByIdAndRequestSandboxRelease(tx.storage, tx.dispatch, tx.notifications, active.id, {
@@ -458,7 +486,10 @@ if (import.meta.vitest) {
 				}),
 			)
 
-			expect(first).toMatchObject({ ok: true, value: { id: active.id, completed: { at: '2026-06-10T12:00:00.000Z' } } })
+			expect(first).toMatchObject({
+				ok: true,
+				value: { id: active.id, completed: { at: '2026-06-10T12:00:00.000Z' } },
+			})
 			expect(second).toEqual({ ok: true, value: completed })
 			expect(notifications).toEqual([{ type: 'agent-run-updated', agentRun: first.ok ? first.value : null }])
 			for (const request of [waiting, pending, leased]) {
@@ -478,7 +509,10 @@ if (import.meta.vitest) {
 		it('appends Agent Run Events with monotonic cursors', async () => {
 			const options = createTestCoreServices()
 			const notifications: unknown[] = []
-			const context = { values: options.values, notifications: { emit: (data: unknown) => notifications.push(data) } }
+			const context = {
+				values: options.values,
+				notifications: { emit: (data: unknown) => notifications.push(data) },
+			}
 			options.tx.agentRuns.records.set('01k00000000000000000000002', {
 				id: '01k00000000000000000000002',
 				agent: { type: 'model' },
@@ -514,8 +548,12 @@ if (import.meta.vitest) {
 
 			expect(first).toMatchObject({ ok: true, value: { id: '01k00000000000000000010001' } })
 			expect(second).toMatchObject({ ok: true, value: { id: '01k00000000000000000010002' } })
-			expect(options.tx.agentRunEvents.records.get('01k00000000000000000010001')).toMatchObject({ id: '01k00000000000000000010001' })
-			expect(options.tx.agentRunEvents.records.get('01k00000000000000000010002')).toMatchObject({ id: '01k00000000000000000010002' })
+			expect(options.tx.agentRunEvents.records.get('01k00000000000000000010001')).toMatchObject({
+				id: '01k00000000000000000010001',
+			})
+			expect(options.tx.agentRunEvents.records.get('01k00000000000000000010002')).toMatchObject({
+				id: '01k00000000000000000010002',
+			})
 			expect(notifications).toEqual([
 				{ type: 'agent-run-event-created', event: first.ok ? first.value : null },
 				{ type: 'agent-run-event-created', event: second.ok ? second.value : null },

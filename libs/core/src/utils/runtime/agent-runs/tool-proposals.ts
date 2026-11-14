@@ -1,8 +1,8 @@
-import { toolOutput } from './tools'
-import type { ModelAgentRunRuntime } from './types'
 import type { AgentRunToolOutput } from '../../../domain/agent-run-event'
 import type { Id } from '../../../domain/commons'
 import { appendAgentRunEvent } from '../../agent-runs'
+import { toolOutput } from './tools'
+import type { ModelAgentRunRuntime } from './types'
 
 export async function recordToolProposal(
 	runtime: ModelAgentRunRuntime,

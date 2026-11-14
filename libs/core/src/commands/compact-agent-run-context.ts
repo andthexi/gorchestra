@@ -11,13 +11,13 @@ import type {
 	ResourceNotFoundError,
 	StorageOperationFailedError,
 } from '../errors'
-import type { CommandContext } from './types'
 import { requireInteractiveAgentRunOpen } from '../utils/agent-run-targets'
 import { appendAgentRunEvent } from '../utils/agent-runs'
 import { buildCommandHandler } from '../utils/command-handler'
 import { auditStamp, getRequired } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const compactAgentRunContextInputPipe = v.object({
 	agentRunId: idPipe,
@@ -43,29 +43,31 @@ export function createCompactAgentRunContextCommand(runtime: CoreRuntime): Opera
 		const stamp = auditStamp(runtime.values, context)
 		if (!stamp.ok) return stamp
 
-		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(async ({ storage, notifications }) => {
-			const agentRun = await requireInteractiveAgentRunOpen(storage, input.agentRunId)
-			if (!agentRun.ok) return agentRun
+		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(
+			async ({ storage, notifications }) => {
+				const agentRun = await requireInteractiveAgentRunOpen(storage, input.agentRunId)
+				if (!agentRun.ok) return agentRun
 
-			const compactedThrough = await getRequired('agent-run-event', storage, input.compactedThroughEventId)
-			if (!compactedThrough.ok) return compactedThrough
-			if (compactedThrough.value.agentRunId !== input.agentRunId) {
-				return {
-					ok: false,
-					error: {
-						type: 'invariant-violation',
-						message: `Agent Run Event ${compactedThrough.value.id} is outside Agent Run ${input.agentRunId}.`,
-					},
+				const compactedThrough = await getRequired('agent-run-event', storage, input.compactedThroughEventId)
+				if (!compactedThrough.ok) return compactedThrough
+				if (compactedThrough.value.agentRunId !== input.agentRunId) {
+					return {
+						ok: false,
+						error: {
+							type: 'invariant-violation',
+							message: `Agent Run Event ${compactedThrough.value.id} is outside Agent Run ${input.agentRunId}.`,
+						},
+					}
 				}
-			}
 
-			return appendAgentRunEvent({ values: runtime.values, notifications }, storage, input.agentRunId, {
-				type: 'context-compacted',
-				source: { type: 'operator', authorized: stamp.value },
-				compactedThroughEventId: compactedThrough.value.id,
-				replacementParts: input.replacementParts,
-			})
-		})
+				return appendAgentRunEvent({ values: runtime.values, notifications }, storage, input.agentRunId, {
+					type: 'context-compacted',
+					source: { type: 'operator', authorized: stamp.value },
+					compactedThroughEventId: compactedThrough.value.id,
+					replacementParts: input.replacementParts,
+				})
+			},
+		)
 	})
 }
 
@@ -80,7 +82,10 @@ if (import.meta.vitest) {
 	describe('compactAgentRunContext command', () => {
 		it('appends an operator context compaction for an active Planning Agent Run', async () => {
 			const options = planningAgentRunFixture()
-			options.tx.agentRunEvents.records.set(existingEventId, inputEvent(existingEventId, '01k00000000000000000000002', 0))
+			options.tx.agentRunEvents.records.set(
+				existingEventId,
+				inputEvent(existingEventId, '01k00000000000000000000002', 0),
+			)
 			const command = createCompactAgentRunContextCommand(createTestCoreRuntime(options))
 
 			const result = await command(
@@ -110,8 +115,13 @@ if (import.meta.vitest) {
 
 		it('rejects inactive targets', async () => {
 			const options = planningAgentRunFixture()
-			options.tx.agentRuns.records.get('01k00000000000000000000002')!.completed = { at: '2026-06-10T12:05:00.000Z' }
-			options.tx.agentRunEvents.records.set(existingEventId, inputEvent(existingEventId, '01k00000000000000000000002', 0))
+			options.tx.agentRuns.records.get('01k00000000000000000000002')!.completed = {
+				at: '2026-06-10T12:05:00.000Z',
+			}
+			options.tx.agentRunEvents.records.set(
+				existingEventId,
+				inputEvent(existingEventId, '01k00000000000000000000002', 0),
+			)
 			const command = createCompactAgentRunContextCommand(createTestCoreRuntime(options))
 
 			const result = await command(
@@ -123,12 +133,18 @@ if (import.meta.vitest) {
 				context,
 			)
 
-			expect(result).toEqual({ ok: false, error: { type: 'agent-run-not-active', agentRunId: '01k00000000000000000000002' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'agent-run-not-active', agentRunId: '01k00000000000000000000002' },
+			})
 		})
 
 		it('rejects first kept events outside the Agent Run', async () => {
 			const outsideEventOptions = planningAgentRunFixture()
-			outsideEventOptions.tx.agentRunEvents.records.set(outsideEventId, inputEvent(outsideEventId, outsideAgentRunId, 1))
+			outsideEventOptions.tx.agentRunEvents.records.set(
+				outsideEventId,
+				inputEvent(outsideEventId, outsideAgentRunId, 1),
+			)
 			await expect(
 				createCompactAgentRunContextCommand(createTestCoreRuntime(outsideEventOptions))(
 					{

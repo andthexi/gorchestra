@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import type { AgentRunEvent } from '../domain/agent-run-event'
 import { idPipe } from '../domain/commons'
 import type { ReviewSurface } from '../domain/review-surface'
@@ -21,12 +20,24 @@ import type {
 	StorageOperationFailedError,
 } from '../errors'
 import type { CoreStorage } from '../services'
-import { appendAgentRunEvent, completeAgentRunByIdAndRequestSandboxRelease, requireAgentRunIdle } from '../utils/agent-runs'
+import {
+	appendAgentRunEvent,
+	completeAgentRunByIdAndRequestSandboxRelease,
+	requireAgentRunIdle,
+} from '../utils/agent-runs'
 import { buildCommandHandler } from '../utils/command-handler'
-import { auditStamp, createRecordValue, getRequired, listRecords, nextId, updateRecordValue } from '../utils/command-storage'
+import {
+	auditStamp,
+	createRecordValue,
+	getRequired,
+	listRecords,
+	nextId,
+	updateRecordValue,
+} from '../utils/command-storage'
 import { getPendingProposalForAgentRunPurpose, proposalAcceptedProjectedParts } from '../utils/proposals'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const acceptRevisionOutputInputPipe = v.object({ proposalEventId: idPipe })
 export type Input = PipeOutput<typeof acceptRevisionOutputInputPipe>
@@ -61,81 +72,90 @@ export function createAcceptRevisionOutputCommand(runtime: CoreRuntime): Operati
 		const revisionId = nextId(runtime.values)
 		if (!revisionId.ok) return revisionId
 
-		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(async ({ storage, notifications, dispatch }) => {
-			const proposal = await getPendingProposalForAgentRunPurpose(
-				storage,
-				input.proposalEventId,
-				'proposed-revision-output',
-				'revision-planning',
-			)
-			if (!proposal.ok) return proposal
+		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(
+			async ({ storage, notifications, dispatch }) => {
+				const proposal = await getPendingProposalForAgentRunPurpose(
+					storage,
+					input.proposalEventId,
+					'proposed-revision-output',
+					'revision-planning',
+				)
+				if (!proposal.ok) return proposal
 
-			const gate = await getRequired('revision-gate', storage, proposal.value.agentRun.purpose.revisionGateId)
-			if (!gate.ok) return gate
-			if (gate.value.closed !== null) {
-				return { ok: false, error: { type: 'revision-gate-closed', revisionGateId: gate.value.id } }
-			}
-
-			const idle = await requireAgentRunIdle(storage, gate.value.agentRunId)
-			if (!idle.ok) return idle
-
-			const revisions = await listRecords('revision', storage, {
-				where: (filter, fields) => filter.eq(fields.revisionGateId, gate.value.id),
-			})
-			if (!revisions.ok) return revisions
-			if (revisions.value.length > 0) {
-				return {
-					ok: false,
-					error: { type: 'invariant-violation', message: `Revision Gate ${gate.value.id} already has a Revision.` },
+				const gate = await getRequired('revision-gate', storage, proposal.value.agentRun.purpose.revisionGateId)
+				if (!gate.ok) return gate
+				if (gate.value.closed !== null) {
+					return { ok: false, error: { type: 'revision-gate-closed', revisionGateId: gate.value.id } }
 				}
-			}
 
-			const scopeValidation = await validateRevisionGateScope(storage, gate.value)
-			if (!scopeValidation.ok) return scopeValidation
+				const idle = await requireAgentRunIdle(storage, gate.value.agentRunId)
+				if (!idle.ok) return idle
 
-			const revision = await createRecordValue('revision', storage, {
-				id: revisionId.value,
-				revisionGateId: gate.value.id,
-				scope: gate.value.scope,
-				instruction: proposal.value.proposal.body.output.instruction,
-				disposition: proposal.value.proposal.body.output.disposition,
-				accepted: stamp.value,
-			})
-			if (!revision.ok) return revision
-
-			const revisionGate = await updateRecordValue('revision-gate', storage, gate.value.id, {
-				closed: { type: 'consumed-by-revision', consumed: stamp.value, revisionId: revision.value.id },
-			})
-			if (!revisionGate.ok) return revisionGate
-
-			const agentRun = await completeAgentRunByIdAndRequestSandboxRelease(
-				storage,
-				dispatch,
-				notifications,
-				revisionGate.value.agentRunId,
-				{ at: stamp.value.at },
-			)
-			if (!agentRun.ok) return agentRun
-
-			const acceptedEvent = await appendAgentRunEvent(
-				{ values: runtime.values, notifications },
-				storage,
-				proposal.value.proposal.agentRunId,
-				{
-					type: 'proposal-accepted',
-					proposalEventId: proposal.value.proposal.id,
-					authorized: stamp.value,
-					materialized: { type: 'revision-output', revisionId: revision.value.id },
-					projectedParts: proposalAcceptedProjectedParts(proposal.value.proposal.id),
-				},
-			)
-			return acceptedEvent.ok
-				? {
-						ok: true,
-						value: { revision: revision.value, revisionGate: revisionGate.value, acceptedEvent: acceptedEvent.value },
+				const revisions = await listRecords('revision', storage, {
+					where: (filter, fields) => filter.eq(fields.revisionGateId, gate.value.id),
+				})
+				if (!revisions.ok) return revisions
+				if (revisions.value.length > 0) {
+					return {
+						ok: false,
+						error: {
+							type: 'invariant-violation',
+							message: `Revision Gate ${gate.value.id} already has a Revision.`,
+						},
 					}
-				: acceptedEvent
-		})
+				}
+
+				const scopeValidation = await validateRevisionGateScope(storage, gate.value)
+				if (!scopeValidation.ok) return scopeValidation
+
+				const revision = await createRecordValue('revision', storage, {
+					id: revisionId.value,
+					revisionGateId: gate.value.id,
+					scope: gate.value.scope,
+					instruction: proposal.value.proposal.body.output.instruction,
+					disposition: proposal.value.proposal.body.output.disposition,
+					accepted: stamp.value,
+				})
+				if (!revision.ok) return revision
+
+				const revisionGate = await updateRecordValue('revision-gate', storage, gate.value.id, {
+					closed: { type: 'consumed-by-revision', consumed: stamp.value, revisionId: revision.value.id },
+				})
+				if (!revisionGate.ok) return revisionGate
+
+				const agentRun = await completeAgentRunByIdAndRequestSandboxRelease(
+					storage,
+					dispatch,
+					notifications,
+					revisionGate.value.agentRunId,
+					{ at: stamp.value.at },
+				)
+				if (!agentRun.ok) return agentRun
+
+				const acceptedEvent = await appendAgentRunEvent(
+					{ values: runtime.values, notifications },
+					storage,
+					proposal.value.proposal.agentRunId,
+					{
+						type: 'proposal-accepted',
+						proposalEventId: proposal.value.proposal.id,
+						authorized: stamp.value,
+						materialized: { type: 'revision-output', revisionId: revision.value.id },
+						projectedParts: proposalAcceptedProjectedParts(proposal.value.proposal.id),
+					},
+				)
+				return acceptedEvent.ok
+					? {
+							ok: true,
+							value: {
+								revision: revision.value,
+								revisionGate: revisionGate.value,
+								acceptedEvent: acceptedEvent.value,
+							},
+						}
+					: acceptedEvent
+			},
+		)
 	})
 }
 
@@ -192,7 +212,10 @@ async function validateDeliveryRevisionGateScope(
 	}
 	return delivery.value.closed === null
 		? { ok: true, value: undefined }
-		: { ok: false, error: { type: 'delivery-closed', deliveryId: delivery.value.id, outcome: delivery.value.closed.type } }
+		: {
+				ok: false,
+				error: { type: 'delivery-closed', deliveryId: delivery.value.id, outcome: delivery.value.closed.type },
+			}
 }
 
 async function validateSliceRevisionGateScope(
@@ -207,7 +230,10 @@ async function validateSliceRevisionGateScope(
 	if (artifact.value.sliceId !== slice.value.id) {
 		return {
 			ok: false,
-			error: { type: 'invariant-violation', message: `Slice Artifact ${artifact.value.id} is outside Slice ${slice.value.id}.` },
+			error: {
+				type: 'invariant-violation',
+				message: `Slice Artifact ${artifact.value.id} is outside Slice ${slice.value.id}.`,
+			},
 		}
 	}
 
@@ -215,7 +241,10 @@ async function validateSliceRevisionGateScope(
 	if (!delivery.ok) return delivery
 	return delivery.value.closed === null
 		? { ok: true, value: undefined }
-		: { ok: false, error: { type: 'delivery-closed', deliveryId: delivery.value.id, outcome: delivery.value.closed.type } }
+		: {
+				ok: false,
+				error: { type: 'delivery-closed', deliveryId: delivery.value.id, outcome: delivery.value.closed.type },
+			}
 }
 
 if (import.meta.vitest) {
@@ -267,12 +296,16 @@ if (import.meta.vitest) {
 				ok: true,
 				value: {
 					revision: expectedRevision,
-					revisionGate: { closed: { type: 'consumed-by-revision', revisionId: '01k00000000000000000010001' } },
+					revisionGate: {
+						closed: { type: 'consumed-by-revision', revisionId: '01k00000000000000000010001' },
+					},
 					acceptedEvent: { body: { type: 'proposal-accepted', proposalEventId } },
 				},
 			})
 			expect(options.tx.revisions.records.get('01k00000000000000000010001')).toEqual(expectedRevision)
-			expect(options.tx.agentRuns.records.get('01k00000000000000000000002')?.completed).toEqual({ at: localStamp().at })
+			expect(options.tx.agentRuns.records.get('01k00000000000000000000002')?.completed).toEqual({
+				at: localStamp().at,
+			})
 		})
 
 		it('consumes the Revision Gate without overwriting an already completed Agent Run', async () => {
@@ -283,8 +316,13 @@ if (import.meta.vitest) {
 
 			const result = await command({ proposalEventId: proposalEventId }, context)
 
-			expect(result).toMatchObject({ ok: true, value: { revisionGate: { closed: { type: 'consumed-by-revision' } } } })
-			expect(options.tx.agentRuns.records.get('01k00000000000000000000002')?.completed).toEqual(previousCompletion)
+			expect(result).toMatchObject({
+				ok: true,
+				value: { revisionGate: { closed: { type: 'consumed-by-revision' } } },
+			})
+			expect(options.tx.agentRuns.records.get('01k00000000000000000000002')?.completed).toEqual(
+				previousCompletion,
+			)
 		})
 
 		it('creates a Slice-scoped Revision through the Slice parent Delivery', async () => {
@@ -317,7 +355,11 @@ if (import.meta.vitest) {
 
 			expect(result).toEqual({
 				ok: false,
-				error: { type: 'agent-run-turn-active', agentRunId: '01k00000000000000000000002', turnStartedEventId: 'turn-started' },
+				error: {
+					type: 'agent-run-turn-active',
+					agentRunId: '01k00000000000000000000002',
+					turnStartedEventId: 'turn-started',
+				},
 			})
 			expect(options.tx.revisions.records.size).toBe(0)
 			expect(options.tx.revisionGates.records.get('01k00000000000000000000039')?.closed).toBeNull()
@@ -338,7 +380,10 @@ if (import.meta.vitest) {
 				},
 			})
 			await expect(
-				createAcceptRevisionOutputCommand(createTestCoreRuntime(reviewed))({ proposalEventId: proposalEventId }, context),
+				createAcceptRevisionOutputCommand(createTestCoreRuntime(reviewed))(
+					{ proposalEventId: proposalEventId },
+					context,
+				),
 			).resolves.toEqual({
 				ok: false,
 				error: { type: 'proposal-already-reviewed', proposalEventId: proposalEventId },
@@ -346,7 +391,10 @@ if (import.meta.vitest) {
 
 			const wrongType = deliveryRevisionFixture('proposed-plan-output')
 			await expect(
-				createAcceptRevisionOutputCommand(createTestCoreRuntime(wrongType))({ proposalEventId: proposalEventId }, context),
+				createAcceptRevisionOutputCommand(createTestCoreRuntime(wrongType))(
+					{ proposalEventId: proposalEventId },
+					context,
+				),
 			).resolves.toEqual({
 				ok: false,
 				error: {
@@ -363,7 +411,10 @@ if (import.meta.vitest) {
 				closed: localStamp(),
 			}
 			await expect(
-				createAcceptRevisionOutputCommand(createTestCoreRuntime(closed))({ proposalEventId: proposalEventId }, context),
+				createAcceptRevisionOutputCommand(createTestCoreRuntime(closed))(
+					{ proposalEventId: proposalEventId },
+					context,
+				),
 			).resolves.toEqual({
 				ok: false,
 				error: { type: 'revision-gate-closed', revisionGateId: '01k00000000000000000000039' },
@@ -371,7 +422,9 @@ if (import.meta.vitest) {
 		})
 	})
 
-	function deliveryRevisionFixture(type: 'proposed-revision-output' | 'proposed-plan-output' = 'proposed-revision-output') {
+	function deliveryRevisionFixture(
+		type: 'proposed-revision-output' | 'proposed-plan-output' = 'proposed-revision-output',
+	) {
 		const options = createTestCoreServices()
 		seedDelivery(options.tx, '01k00000000000000000000008')
 		seedDeliveryArtifact(options.tx)
@@ -407,7 +460,11 @@ if (import.meta.vitest) {
 		options.tx.revisionGates.records.set('01k00000000000000000000039', {
 			id: '01k00000000000000000000039',
 			agentRunId: '01k00000000000000000000002',
-			scope: { type: 'slice-artifact', sliceId: '01k00000000000000000000042', sliceArtifactId: '01k00000000000000000000045' },
+			scope: {
+				type: 'slice-artifact',
+				sliceId: '01k00000000000000000000042',
+				sliceArtifactId: '01k00000000000000000000045',
+			},
 			reviewSurfaceId: '01k00000000000000000000037',
 			opened: stamp,
 			closed: null,
@@ -436,7 +493,9 @@ if (import.meta.vitest) {
 							toolCallId: 'call-1',
 							output: {
 								proposedDeliveries: {},
-								proposedMemoryCreations: { memory: { parentId: null, title: 'Memory', body: '', children: {} } },
+								proposedMemoryCreations: {
+									memory: { parentId: null, title: 'Memory', body: '', children: {} },
+								},
 								proposedMemoryRevisions: {},
 							},
 						},
@@ -483,7 +542,11 @@ if (import.meta.vitest) {
 	function deliveryReviewSurface(): ReviewSurface {
 		return {
 			id: '01k00000000000000000000037',
-			scope: { type: 'delivery', deliveryId: '01k00000000000000000000008', deliveryArtifactId: '01k00000000000000000000010' },
+			scope: {
+				type: 'delivery',
+				deliveryId: '01k00000000000000000000008',
+				deliveryArtifactId: '01k00000000000000000000010',
+			},
 			config: {
 				provider: 'github',
 				pullRequestNumber: 1,
@@ -500,7 +563,11 @@ if (import.meta.vitest) {
 	function sliceReviewSurface(): ReviewSurface {
 		return {
 			id: '01k00000000000000000000037',
-			scope: { type: 'slice', sliceId: '01k00000000000000000000042', sliceArtifactId: '01k00000000000000000000045' },
+			scope: {
+				type: 'slice',
+				sliceId: '01k00000000000000000000042',
+				sliceArtifactId: '01k00000000000000000000045',
+			},
 			config: {
 				provider: 'github',
 				pullRequestNumber: 1,

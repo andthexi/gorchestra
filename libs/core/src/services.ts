@@ -1,8 +1,25 @@
-import { Repo, type AnySchema, type AnyUpdateOp, type FilterGroup, type OrmAdapterLike, type QueryOptions } from 'equipped/orm'
+import {
+	Repo,
+	type AnySchema,
+	type AnyUpdateOp,
+	type FilterGroup,
+	type OrmAdapterLike,
+	type QueryOptions,
+} from 'equipped/orm'
 import { v, type PipeOutput } from 'valleyed'
 
-import type { AgentRunSandboxConfig, AgentRunSandboxSourceConfig, ConsumerManagedSandboxSourceConfig } from './domain/agent-run-runtime'
-import { freeFormStringPipe, idPipe, nonEmptyTrimmedStringPipe, nonNegativeIntegerPipe, type Id } from './domain/commons'
+import type {
+	AgentRunSandboxConfig,
+	AgentRunSandboxSourceConfig,
+	ConsumerManagedSandboxSourceConfig,
+} from './domain/agent-run-runtime'
+import {
+	freeFormStringPipe,
+	idPipe,
+	nonEmptyTrimmedStringPipe,
+	nonNegativeIntegerPipe,
+	type Id,
+} from './domain/commons'
 import type { Notification } from './domain/notifications'
 import type { UndefinedToOptional } from './utils/types'
 
@@ -22,14 +39,30 @@ export interface CorePreflightChecks {
 	secrets: CorePreflightCheck
 }
 
-export type CorePreflightCheck = { ok: true } | { ok: false; reason: 'not-ready' | 'probe-failed'; message: string | null }
+export type CorePreflightCheck =
+	{ ok: true } | { ok: false; reason: 'not-ready' | 'probe-failed'; message: string | null }
 
 export type CoreStorageAdapter = OrmAdapterLike<{ table: string }> & {
 	findByPk(schema: AnySchema, config: unknown, pk: unknown): Promise<Record<string, unknown> | null>
 	createMany(schema: AnySchema, config: unknown, data: Record<string, unknown>[]): Promise<Record<string, unknown>[]>
-	updateByPk(schema: AnySchema, config: unknown, pk: unknown, ops: AnyUpdateOp[]): Promise<Record<string, unknown> | null>
-	findMany(schema: AnySchema, config: unknown, group: FilterGroup, options?: QueryOptions): Promise<Record<string, unknown>[]>
-	updateMany(schema: AnySchema, config: unknown, group: FilterGroup, data: Record<string, unknown>): Promise<Record<string, unknown>[]>
+	updateByPk(
+		schema: AnySchema,
+		config: unknown,
+		pk: unknown,
+		ops: AnyUpdateOp[],
+	): Promise<Record<string, unknown> | null>
+	findMany(
+		schema: AnySchema,
+		config: unknown,
+		group: FilterGroup,
+		options?: QueryOptions,
+	): Promise<Record<string, unknown>[]>
+	updateMany(
+		schema: AnySchema,
+		config: unknown,
+		group: FilterGroup,
+		data: Record<string, unknown>,
+	): Promise<Record<string, unknown>[]>
 	deleteMany(schema: AnySchema, config: unknown, group: FilterGroup): Promise<Record<string, unknown>[]>
 	session<T>(fn: () => Promise<T>): Promise<T>
 }
@@ -110,7 +143,10 @@ export interface RawSandbox {
 	release(): Promise<SandboxReleaseOutput>
 }
 
-export type AgentRunSandboxConfigForSource<SourceConfig extends AgentRunSandboxSourceConfig> = Omit<AgentRunSandboxConfig, 'source'> & {
+export type AgentRunSandboxConfigForSource<SourceConfig extends AgentRunSandboxSourceConfig> = Omit<
+	AgentRunSandboxConfig,
+	'source'
+> & {
 	source: SourceConfig
 }
 
@@ -141,7 +177,8 @@ export type CoreStorage = CoreStorageService
 export const coreSecretsServicePipe = v.object({
 	preflight: typedFunctionDependencyPipe<PreflightFn>(),
 	resolveSecrets: typedFunctionDependencyPipe<(input: ResolveSecretsInput) => Promise<ResolvedSecret[]>>(),
-	resolveSecretValues: typedFunctionDependencyPipe<(input: ResolveSecretValuesInput) => Promise<ResolvedSecretValues>>(),
+	resolveSecretValues:
+		typedFunctionDependencyPipe<(input: ResolveSecretValuesInput) => Promise<ResolvedSecretValues>>(),
 })
 export type CoreSecretsService = PipeOutput<typeof coreSecretsServicePipe>
 

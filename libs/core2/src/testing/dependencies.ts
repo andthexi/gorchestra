@@ -29,7 +29,9 @@ export function createTestDependencies() {
 			},
 			decode: ({ secrets }: { secrets: { secretId: string; valueRef: string }[] }) =>
 				Promise.resolve(
-					Object.fromEntries(secrets.map(({ secretId, valueRef }) => [secretId, protectedValues.get(valueRef) ?? null])),
+					Object.fromEntries(
+						secrets.map(({ secretId, valueRef }) => [secretId, protectedValues.get(valueRef) ?? null]),
+					),
 				),
 		},
 	}

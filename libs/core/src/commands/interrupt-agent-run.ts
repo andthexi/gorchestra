@@ -11,13 +11,13 @@ import type {
 	ResourceNotFoundError,
 	StorageOperationFailedError,
 } from '../errors'
-import type { CommandContext } from './types'
 import { requireInteractiveAgentRunOpen } from '../utils/agent-run-targets'
 import { appendAgentRunEvent } from '../utils/agent-runs'
 import { buildCommandHandler } from '../utils/command-handler'
 import { auditStamp, getRequired } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const interruptAgentRunInputPipe = v.object({ agentRunId: idPipe, reason: v.nullable(freeFormStringPipe) })
 export type Input = PipeOutput<typeof interruptAgentRunInputPipe>
@@ -39,23 +39,25 @@ export function createInterruptAgentRunCommand(runtime: CoreRuntime): Operation 
 		const stamp = auditStamp(runtime.values, context)
 		if (!stamp.ok) return stamp
 
-		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(async ({ storage, notifications }) => {
-			const agentRun = await getRequired('agent-run', storage, input.agentRunId)
-			if (!agentRun.ok) return agentRun
-			if (agentRun.value.completed !== null) {
-				return { ok: false, error: { type: 'agent-run-not-active', agentRunId: agentRun.value.id } }
-			}
-			if (agentRun.value.purpose.type === 'planning' || agentRun.value.purpose.type === 'revision-planning') {
-				const interactiveAgentRun = await requireInteractiveAgentRunOpen(storage, agentRun.value.id)
-				if (!interactiveAgentRun.ok) return interactiveAgentRun
-			}
+		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(
+			async ({ storage, notifications }) => {
+				const agentRun = await getRequired('agent-run', storage, input.agentRunId)
+				if (!agentRun.ok) return agentRun
+				if (agentRun.value.completed !== null) {
+					return { ok: false, error: { type: 'agent-run-not-active', agentRunId: agentRun.value.id } }
+				}
+				if (agentRun.value.purpose.type === 'planning' || agentRun.value.purpose.type === 'revision-planning') {
+					const interactiveAgentRun = await requireInteractiveAgentRunOpen(storage, agentRun.value.id)
+					if (!interactiveAgentRun.ok) return interactiveAgentRun
+				}
 
-			return appendAgentRunEvent({ values: runtime.values, notifications }, storage, input.agentRunId, {
-				type: 'interrupt-requested',
-				source: { type: 'operator', authorized: stamp.value },
-				reason: input.reason,
-			})
-		})
+				return appendAgentRunEvent({ values: runtime.values, notifications }, storage, input.agentRunId, {
+					type: 'interrupt-requested',
+					source: { type: 'operator', authorized: stamp.value },
+					reason: input.reason,
+				})
+			},
+		)
 	})
 }
 
@@ -92,7 +94,10 @@ if (import.meta.vitest) {
 
 			const result = await command({ agentRunId: '01k00000000000000000000002', reason: null }, context)
 
-			expect(result).toEqual({ ok: false, error: { type: 'agent-run-not-active', agentRunId: '01k00000000000000000000002' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'agent-run-not-active', agentRunId: '01k00000000000000000000002' },
+			})
 		})
 	})
 }

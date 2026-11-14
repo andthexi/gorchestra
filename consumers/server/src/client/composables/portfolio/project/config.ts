@@ -39,9 +39,15 @@ export function useProjectConfig(projectId: Ref<string>) {
 		toast.success({ title: 'Project Config saved.', body: saved.title })
 		return saved
 	})
-	const isLoadingProjectConfig = computed(() => projectState.isLoadingProject.value || profileState.isLoadingAgentRunProfiles.value)
-	const projectConfigError = computed(() => projectState.projectError.value || profileState.agentRunProfilesError.value)
-	const hasLoadedProjectConfig = computed(() => projectState.hasLoadedProject.value && profileState.hasLoadedAgentRunProfiles.value)
+	const isLoadingProjectConfig = computed(
+		() => projectState.isLoadingProject.value || profileState.isLoadingAgentRunProfiles.value,
+	)
+	const projectConfigError = computed(
+		() => projectState.projectError.value || profileState.agentRunProfilesError.value,
+	)
+	const hasLoadedProjectConfig = computed(
+		() => projectState.hasLoadedProject.value && profileState.hasLoadedAgentRunProfiles.value,
+	)
 
 	return {
 		projectConfigForm,

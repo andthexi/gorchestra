@@ -1,15 +1,20 @@
 <template>
-	<NuxtLayout name="project" :project-id="projectId">
+	<NuxtLayout name="project" :projectId="projectId">
 		<section>
-			<div v-if="isLoadingPlan && !hasLoadedPlan" class="border-b border-dimmer px-3 py-4 text-dim">Loading Plan…</div>
-			<p v-if="isRefreshingPlan" class="m-0 border-b border-dimmer px-3 py-2 text-sz-helper text-dim">Refreshing Plan…</p>
+			<div v-if="isLoadingPlan && !hasLoadedPlan" class="border-b border-dimmer px-3 py-4 text-dim">
+				Loading Plan…
+			</div>
+			<p v-if="isRefreshingPlan" class="m-0 border-b border-dimmer px-3 py-2 text-sz-helper text-dim">
+				Refreshing Plan…
+			</p>
 			<div v-else-if="planError" class="border-b border-dimmer px-3 py-4 text-error">{{ planError }}</div>
 			<div v-else-if="plan" class="grid gap-0">
 				<AgentRunSurface
 					:key="plan.agentRunId"
-					:agent-run-id="plan.agentRunId"
+					:agentRunId="plan.agentRunId"
 					:disabled="isClosingPlan || isPlanningClosed"
-					@message-sending-change="setAgentRunMessageSending" />
+					@messageSendingChange="setAgentRunMessageSending"
+				/>
 			</div>
 		</section>
 
@@ -25,7 +30,8 @@
 							<span class="text-dim">Created</span><span>{{ formatDate(plan.created.at) }}</span>
 						</div>
 						<div class="flex justify-between gap-3 border-t border-dimmer px-3 py-2">
-							<span class="text-dim">State</span><span>{{ plan.closed === null ? 'Planning' : 'Closed' }}</span>
+							<span class="text-dim">State</span
+							><span>{{ plan.closed === null ? 'Planning' : 'Closed' }}</span>
 						</div>
 					</div>
 				</section>
@@ -34,8 +40,8 @@
 					<h2 class="m-0 text-sz-helper font-semibold">Planning status</h2>
 					<strong class="mt-2 block font-semibold">{{ planningRunTitle }}</strong>
 					<p class="m-0 mt-1 text-sz-helper leading-5 text-dim">
-						The Planning Agent Run transcript loads automatically through the Agent Run surface. Closing Planning stops further
-						Planning input and model turns without deleting this Plan.
+						The Planning Agent Run transcript loads automatically through the Agent Run surface. Closing
+						Planning stops further Planning input and model turns without deleting this Plan.
 					</p>
 					<div class="mt-3 grid gap-2">
 						<UiButton
@@ -44,7 +50,8 @@
 							tone="danger"
 							:loading="isClosingPlan"
 							:disabled="!canClosePlan"
-							@click="confirmAndClosePlan()">
+							@click="confirmAndClosePlan()"
+						>
 							Close Planning
 						</UiButton>
 						<UiText v-if="closePlanError" class="block" tone="error" size="helper">

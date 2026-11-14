@@ -1,16 +1,22 @@
 import { createGroq } from '@ai-sdk/groq'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 
+import type { ModelProvider } from '../../../domain/model-provider'
 import { resolveProviderOptions } from './options'
 import type { AISDKLanguageModelResolution, ModelProviderProtocolAccess, ModelProviderProtocolProvider } from './types'
-import type { ModelProvider } from '../../../domain/model-provider'
 
-export type OpenAIChatCompletionsModelProviderProtocolProvider = ModelProviderProtocolProvider<'openai-chat-completions'>
+export type OpenAIChatCompletionsModelProviderProtocolProvider =
+	ModelProviderProtocolProvider<'openai-chat-completions'>
 
 const customHostedOpenAICompatibleProviderName = 'gorchestraCustomHosted'
 
-type OpenAIChatCompletionsInput = Parameters<OpenAIChatCompletionsModelProviderProtocolProvider['resolveLanguageModel']>[0]
-type ChatCompletionsProviderFactory = (input: { modelProvider: ModelProvider; access: ModelProviderProtocolAccess }) => {
+type OpenAIChatCompletionsInput = Parameters<
+	OpenAIChatCompletionsModelProviderProtocolProvider['resolveLanguageModel']
+>[0]
+type ChatCompletionsProviderFactory = (input: {
+	modelProvider: ModelProvider
+	access: ModelProviderProtocolAccess
+}) => {
 	languageModel(modelId: string): AISDKLanguageModelResolution['languageModel']
 	namespace: string
 }
@@ -47,7 +53,10 @@ function createChatCompletionsProvider(input: { modelProvider: ModelProvider; ac
 				baseURL: input.modelProvider.source.baseUrl,
 				headers: headers(input.access),
 			})
-			return { languageModel: (modelId: string) => provider(modelId), namespace: customHostedOpenAICompatibleProviderName }
+			return {
+				languageModel: (modelId: string) => provider(modelId),
+				namespace: customHostedOpenAICompatibleProviderName,
+			}
 		}
 		case 'openai-responses':
 		case 'anthropic':
@@ -99,7 +108,11 @@ if (import.meta.vitest) {
 				...input(),
 				modelProvider: {
 					...input().modelProvider,
-					source: { type: 'custom-hosted', protocol: 'openai-chat-completions', baseUrl: 'https://api.example.com/v1' },
+					source: {
+						type: 'custom-hosted',
+						protocol: 'openai-chat-completions',
+						baseUrl: 'https://api.example.com/v1',
+					},
 					providerOptions: { user: 'user-1' },
 				},
 			})

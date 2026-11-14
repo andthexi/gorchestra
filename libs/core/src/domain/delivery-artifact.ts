@@ -1,7 +1,7 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import { idPipe, nonEmptyTrimmedStringPipe, runtimeRecordPipe } from './commons'
 import { coreSchema, schemaToPipe } from '../utils/storage/schema'
+import { idPipe, nonEmptyTrimmedStringPipe, runtimeRecordPipe } from './commons'
 
 export const deliveryArtifactConfigPipe = v.discriminate((value) => value.type, {
 	'source-control': v.object({ type: v.eq('source-control'), deliveryBranch: nonEmptyTrimmedStringPipe }),

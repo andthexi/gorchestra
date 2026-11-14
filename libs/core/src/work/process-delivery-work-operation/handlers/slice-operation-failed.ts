@@ -1,5 +1,5 @@
-import { notImplemented } from './result'
 import type { DeliveryWorkHandlerResult } from '../../delivery-work/types'
+import { notImplemented } from './result'
 
 export function handleSliceOperationFailed(): DeliveryWorkHandlerResult {
 	return notImplemented('scheduleDeliveryWork.slice.slice-operation-failed')

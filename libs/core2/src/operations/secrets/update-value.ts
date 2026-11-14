@@ -10,7 +10,8 @@ const resource = 'secret' as const
 
 export const updateValue = defineOperation({
 	title: 'Replace Secret value',
-	description: 'Protect a new value under an existing Secret identity, preserving its title and creation attribution.',
+	description:
+		'Protect a new value under an existing Secret identity, preserving its title and creation attribution.',
 	input: v.object({ secretId: secretSchema.fields.id.pipe, value: protectedStringPipe }),
 	output: publicSecretPipe,
 	error: v.or([v.merge(notFoundPipe, v.object({ resource: v.eq(resource) })), secretEncodingFailedPipe]),

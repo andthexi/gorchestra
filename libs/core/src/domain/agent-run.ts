@@ -1,9 +1,9 @@
 import { v, type PipeOutput } from 'valleyed'
 
+import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 import { agentRunBlockedPipe, agentRunRuntimeRequirementsPipe, agentRunSandboxConfigPipe } from './agent-run-runtime'
 import { auditStampPipe, idPipe, nonEmptyTrimmedStringPipe, positiveIntegerPipe, runtimeRecordPipe } from './commons'
 import { modelUseConfigPipe } from './config'
-import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 
 export const agentPipe = v.discriminate((value) => value.type, {
 	model: v.object({ type: v.eq('model') }),
@@ -37,13 +37,19 @@ export const agentRunProfileSnapshotPipe = v.object({
 })
 export type AgentRunProfileSnapshot = PipeOutput<typeof agentRunProfileSnapshotPipe>
 
-export const agentRunToolSetEntryPipe = v.object({ name: nonEmptyTrimmedStringPipe, contractVersion: positiveIntegerPipe })
+export const agentRunToolSetEntryPipe = v.object({
+	name: nonEmptyTrimmedStringPipe,
+	contractVersion: positiveIntegerPipe,
+})
 export type AgentRunToolSetEntry = PipeOutput<typeof agentRunToolSetEntryPipe>
 
 export const agentRunToolSetPipe = v
 	.array(agentRunToolSetEntryPipe)
 	.pipe(
-		v.custom((entries) => entries.length === new Set(entries.map((entry) => entry.name)).size, 'Expected unique Agent Run Tool names.'),
+		v.custom(
+			(entries) => entries.length === new Set(entries.map((entry) => entry.name)).size,
+			'Expected unique Agent Run Tool names.',
+		),
 	)
 export type AgentRunToolSet = PipeOutput<typeof agentRunToolSetPipe>
 

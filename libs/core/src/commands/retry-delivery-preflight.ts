@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { exclusiveDeliverySchedulerClaim } from '../dispatch/claims'
 import type { Action } from '../domain/action'
 import { idPipe, type Id } from '../domain/commons'
@@ -26,6 +25,7 @@ import {
 import type { CoreRuntime } from '../utils/runtime'
 import { runTwoPhase } from '../utils/two-phase'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const retryDeliveryPreflightInputPipe = v.object({ deliveryId: idPipe })
 export type Input = PipeOutput<typeof retryDeliveryPreflightInputPipe>
@@ -62,17 +62,26 @@ export function createRetryDeliveryPreflightCommand(runtime: CoreRuntime): Opera
 				if (!deliveryContext.ok) return deliveryContext
 
 				const plan = await readProviderBackedDeliveryPreflightPlan(storage, deliveryContext.value)
-				return plan.ok ? { ok: true, value: { deliveryContext: deliveryContext.value, plan: plan.value } } : plan
+				return plan.ok
+					? { ok: true, value: { deliveryContext: deliveryContext.value, plan: plan.value } }
+					: plan
 			},
 			run: (claim) => runProviderBackedDeliveryPreflightChecks(runtime, claim.plan),
 			write: async ({ storage, dispatch }, claim, checks) => {
 				const deliveryContext = await requirePreflightFailedDelivery(storage, input.deliveryId)
 				if (!deliveryContext.ok) return deliveryContext
 
-				const freshness = await providerBackedDeliveryPreflightInputsStillCurrent(storage, deliveryContext.value, claim.plan)
+				const freshness = await providerBackedDeliveryPreflightInputsStillCurrent(
+					storage,
+					deliveryContext.value,
+					claim.plan,
+				)
 				if (!freshness.ok) return freshness
 				if (!freshness.value) {
-					return { ok: false, error: { type: 'delivery-preflight-claim-conflict', deliveryId: input.deliveryId } }
+					return {
+						ok: false,
+						error: { type: 'delivery-preflight-claim-conflict', deliveryId: input.deliveryId },
+					}
 				}
 
 				const action: Action = {
@@ -270,7 +279,9 @@ if (import.meta.vitest) {
 		it('records failed evidence when the selected execution Agent Run Profile is archived', async () => {
 			const options = preflightFailedFixture()
 			seedProject(options.tx, '01k00000000000000000000030')
-			seedAgentRunProfile(options.tx, '01k00000000000000000000006', '01k00000000000000000000024', { archived: true })
+			seedAgentRunProfile(options.tx, '01k00000000000000000000006', '01k00000000000000000000024', {
+				archived: true,
+			})
 
 			expectRetrySummary(await retry(options), 'Selected Delivery execution Agent Run Profile is archived.')
 		})
@@ -284,7 +295,10 @@ if (import.meta.vitest) {
 			const providers = passingProviderBackedPreflightProviders()
 			providers.modelProviderProtocols.preflightModel = () => {
 				profile.modelUse = { modelId: '01k00000000000000000000026', thinkingLevel: 'none' }
-				return Promise.resolve({ ok: true, value: { type: 'passed', summary: 'Anthropic Messages model preflight passed.' } })
+				return Promise.resolve({
+					ok: true,
+					value: { type: 'passed', summary: 'Anthropic Messages model preflight passed.' },
+				})
 			}
 			const command = createRetryDeliveryPreflightCommand(createTestCoreRuntime(options, { providers }))
 
@@ -300,7 +314,9 @@ if (import.meta.vitest) {
 		it('returns a preflight claim conflict when local retry inputs become stale', async () => {
 			const options = preflightFailedFixture()
 			seedProject(options.tx, '01k00000000000000000000030')
-			seedAgentRunProfile(options.tx, '01k00000000000000000000006', '01k00000000000000000000024', { archived: true })
+			seedAgentRunProfile(options.tx, '01k00000000000000000000006', '01k00000000000000000000024', {
+				archived: true,
+			})
 			seedRepository(options)
 			staleLocalPreflightOnSecondTransaction(options, () => {
 				options.tx.agentRunProfiles.records.get('01k00000000000000000000006')!.archivePeriods = []
@@ -355,7 +371,10 @@ if (import.meta.vitest) {
 			deliveryId: '01k00000000000000000000008',
 			performed: { at: '2026-06-10T00:01:00.000Z' },
 			authorized: localStamp(),
-			result: { type: 'validate-preflight', checks: [validationEvidence('delivery-preflight', false, 'Missing config.')] },
+			result: {
+				type: 'validate-preflight',
+				checks: [validationEvidence('delivery-preflight', false, 'Missing config.')],
+			},
 		})
 
 		return options
@@ -367,7 +386,10 @@ if (import.meta.vitest) {
 		)({ deliveryId: '01k00000000000000000000008' }, context)
 	}
 
-	function staleLocalPreflightOnSecondTransaction(options: ReturnType<typeof createTestCoreServices>, stale: () => void) {
+	function staleLocalPreflightOnSecondTransaction(
+		options: ReturnType<typeof createTestCoreServices>,
+		stale: () => void,
+	) {
 		const session = options.storage.session.bind(options.storage)
 		let calls = 0
 		options.storage.session = async (fn) => {
@@ -392,7 +414,10 @@ if (import.meta.vitest) {
 	}
 
 	function expectRetrySummary(result: CoreResult<Result, Error>, summary: string) {
-		expect(result).toMatchObject({ ok: true, value: { action: expectedPreflightAction('01k00000000000000000010001', false, summary) } })
+		expect(result).toMatchObject({
+			ok: true,
+			value: { action: expectedPreflightAction('01k00000000000000000010001', false, summary) },
+		})
 	}
 
 	function expectedPassingProviderPreflightAction(id: string): Action {

@@ -1,4 +1,3 @@
-import type { AgentRunRuntimeError, ModelAgentRunRuntime } from './types'
 import { requestAgentRunSandboxRelease } from '../../../dispatch/accept'
 import { registerDispatchTerminalFinalizer } from '../../../dispatch/attempt-context'
 import { exclusiveDeliverySchedulerClaim } from '../../../dispatch/claims'
@@ -7,6 +6,7 @@ import { updateAgentRunRecord } from '../../agent-runs'
 import { runtimeRecord } from '../../runtime-values'
 import type { CoreTransaction } from '../../transactions'
 import type { Result } from '../../types'
+import type { AgentRunRuntimeError, ModelAgentRunRuntime } from './types'
 
 export function completeAutonomousRunIfNeeded(
 	runtime: ModelAgentRunRuntime,
@@ -17,10 +17,15 @@ export function completeAutonomousRunIfNeeded(
 		: { ok: true, value: undefined }
 }
 
-async function completeAgentRun(runtime: ModelAgentRunRuntime, agentRun: AgentRun): Promise<Result<void, AgentRunRuntimeError>> {
+async function completeAgentRun(
+	runtime: ModelAgentRunRuntime,
+	agentRun: AgentRun,
+): Promise<Result<void, AgentRunRuntimeError>> {
 	const completed = runtimeRecord(runtime.values)
 	if (!completed.ok) return completed
-	if (registerDispatchTerminalFinalizer((tx) => completeAgentRunInTransaction(runtime, tx, agentRun, completed.value))) {
+	if (
+		registerDispatchTerminalFinalizer((tx) => completeAgentRunInTransaction(runtime, tx, agentRun, completed.value))
+	) {
 		return { ok: true, value: undefined }
 	}
 	return runtime.transactions.run<void, AgentRunRuntimeError>((tx) =>

@@ -1,19 +1,21 @@
 import type { ActiveDispatchAttempt, DispatchAttemptHistory, DispatchRequest } from '../domain/dispatch-request'
-import type { DispatchFenceLostError, InvalidCoreServiceOutputError, InvariantViolationError, StorageOperationFailedError } from '../errors'
-import { touchDispatchFence } from './fence'
-import { appendBoundedDispatchAttemptHistory } from './history'
+import type {
+	DispatchFenceLostError,
+	InvalidCoreServiceOutputError,
+	InvariantViolationError,
+	StorageOperationFailedError,
+} from '../errors'
 import type { CoreRuntime } from '../utils/runtime'
 import { runtimeRecord } from '../utils/runtime-values'
 import { updateRecord } from '../utils/storage/helpers'
 import type { Result } from '../utils/types'
+import { touchDispatchFence } from './fence'
+import { appendBoundedDispatchAttemptHistory } from './history'
 
 export type IntentionalDispatchInterruptionReason = 'processor-shutdown' | 'snapshot-restored'
 
 export type DispatchAttemptMaintenanceError =
-	| DispatchFenceLostError
-	| InvalidCoreServiceOutputError
-	| StorageOperationFailedError
-	| InvariantViolationError
+	DispatchFenceLostError | InvalidCoreServiceOutputError | StorageOperationFailedError | InvariantViolationError
 
 export interface LostDispatchAttempt {
 	requestId: string
@@ -80,7 +82,10 @@ export function interruptDispatchAttempt(
 		})
 		if (updated.ok) return { ok: true, value: undefined }
 		if (updated.error.type === 'not-found') {
-			return { ok: false, error: { type: 'dispatch-fence-lost', requestId: request.id, attemptNumber: attempt.number } }
+			return {
+				ok: false,
+				error: { type: 'dispatch-fence-lost', requestId: request.id, attemptNumber: attempt.number },
+			}
 		}
 		return { ok: false, error: updated.error }
 	})
@@ -88,7 +93,8 @@ export function interruptDispatchAttempt(
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { createTestCoreRuntime, createTestCoreServices, seedDispatchRequest, testId } = await import('../utils/test-helpers')
+	const { createTestCoreRuntime, createTestCoreServices, seedDispatchRequest, testId } =
+		await import('../utils/test-helpers')
 
 	describe('Dispatch attempt maintenance', () => {
 		it('records intentional interruption without consuming the lease-expiry budget', async () => {
@@ -107,7 +113,12 @@ if (import.meta.vitest) {
 				lifecycle: { type: 'leased', attempt },
 			})
 
-			const result = await interruptDispatchAttempt(createTestCoreRuntime(options), request, attempt, 'processor-shutdown')
+			const result = await interruptDispatchAttempt(
+				createTestCoreRuntime(options),
+				request,
+				attempt,
+				'processor-shutdown',
+			)
 
 			expect(result).toEqual({ ok: true, value: undefined })
 			expect(options.tx.dispatchRequests.records.get(request.id)).toMatchObject({

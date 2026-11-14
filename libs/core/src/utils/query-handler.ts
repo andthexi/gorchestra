@@ -1,8 +1,8 @@
 import { v, type Pipe, type PipeInput, type PipeOutput } from 'valleyed'
 
 import type { InvalidInputError } from '../errors'
-import type { Result } from './types'
 import { validateCoreInput } from '../validation'
+import type { Result } from './types'
 
 export const buildQueryHandler =
 	<TPipe extends Pipe<unknown, unknown>, TValue, TError>(

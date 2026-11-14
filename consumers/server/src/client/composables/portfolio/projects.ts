@@ -32,7 +32,15 @@ export function useProjectsList() {
 	})
 	const isRefreshingProjects = computed(() => isLoadingProjects.value && hasLoadedProjects.value)
 
-	return { projects, isLoadingProjects, projectsError, hasLoadedProjects, isRefreshingProjects, fetchNextProjects, hasNextProjects }
+	return {
+		projects,
+		isLoadingProjects,
+		projectsError,
+		hasLoadedProjects,
+		isRefreshingProjects,
+		fetchNextProjects,
+		hasNextProjects,
+	}
 }
 
 export function useProjectDetail(projectId: Ref<string>) {
@@ -52,7 +60,15 @@ export function useProjectDetail(projectId: Ref<string>) {
 	})
 	const isRefreshingProject = computed(() => isLoadingProject.value && hasLoadedProject.value)
 
-	return { project, isLoadingProject, projectError, hasLoadedProject, isRefreshingProject, refreshProject, resetProject }
+	return {
+		project,
+		isLoadingProject,
+		projectError,
+		hasLoadedProject,
+		isRefreshingProject,
+		refreshProject,
+		resetProject,
+	}
 }
 
 export function useProjectsCreate(options: ProjectsCreateOptions = {}) {

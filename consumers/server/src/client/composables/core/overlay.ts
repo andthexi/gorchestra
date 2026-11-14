@@ -303,7 +303,9 @@ function normalizeButton(input: OverlayButtonInput | undefined, defaults: Overla
 }
 
 function normalizePromptInput(input: OverlayPromptInputConfig | undefined): NormalizedPromptInputConfig {
-	return input !== undefined && input.type === 'textarea' ? normalizeTextareaPromptInput(input) : normalizeTextPromptInput(input)
+	return input !== undefined && input.type === 'textarea'
+		? normalizeTextareaPromptInput(input)
+		: normalizeTextPromptInput(input)
 }
 
 function normalizeTextPromptInput(input: OverlayPromptTextInput | undefined): NormalizedPromptTextInput {
@@ -345,7 +347,10 @@ if (import.meta.vitest) {
 
 		it('resolves prompts with submitted strings', async () => {
 			const runtime = createOverlayRuntime()
-			const submitted = requestPrompt(runtime, { title: 'Feedback', input: { type: 'textarea', rows: 6, trim: true } })
+			const submitted = requestPrompt(runtime, {
+				title: 'Feedback',
+				input: { type: 'textarea', rows: 6, trim: true },
+			})
 			const request = firstRequest(runtime)
 
 			expect(request).toMatchObject({ type: 'prompt', input: { type: 'textarea', rows: 6, trim: true } })

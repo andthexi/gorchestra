@@ -4,7 +4,12 @@ import { idPipe } from '../domain/commons'
 import { deliveryReadModelPipe, type Delivery } from '../domain/delivery'
 import type { Repository } from '../domain/repository'
 import type { Slice } from '../domain/slice'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { deliveryReadModel } from '../utils/delivery-read-model'
 import { buildQueryHandler } from '../utils/query-handler'
 import { getRequired, listRecords, notFound } from '../utils/storage/helpers'
@@ -16,7 +21,8 @@ export type Input = PipeOutput<typeof inputPipe>
 
 export const resultPipe = deliveryReadModelPipe
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createGetDeliveryQuery(transactions: CoreTransactions): Operation {
@@ -37,7 +43,9 @@ export function createGetDeliveryQuery(transactions: CoreTransactions): Operatio
 				where: (filter, fields) => filter.eq(fields.deliveryId, delivery.value.id),
 				orderBy: [{ field: 'id', direction: 'desc' }],
 			})
-			return slices.ok ? deliveryReadModel(delivery.value, new Map([[repository.value.id, repository.value]]), slices.value) : slices
+			return slices.ok
+				? deliveryReadModel(delivery.value, new Map([[repository.value.id, repository.value]]), slices.value)
+				: slices
 		}),
 	)
 }
@@ -80,15 +88,28 @@ if (import.meta.vitest) {
 			options.tx.deliveries.records.set(storedDelivery.id, storedDelivery)
 			options.tx.slices.records.set(
 				'01k00000000000000000100039',
-				slice({ id: '01k00000000000000000100039', deliveryId: '01k00000000000000000000008', order: 1, title: 'Route' }),
+				slice({
+					id: '01k00000000000000000100039',
+					deliveryId: '01k00000000000000000000008',
+					order: 1,
+					title: 'Route',
+				}),
 			)
 			options.tx.slices.records.set(
 				'01k00000000000000000100038',
-				slice({ id: '01k00000000000000000100038', deliveryId: '01k00000000000000000000008', order: 0, title: 'Schema' }),
+				slice({
+					id: '01k00000000000000000100038',
+					deliveryId: '01k00000000000000000000008',
+					order: 0,
+					title: 'Schema',
+				}),
 			)
 			const query = createGetDeliveryQuery(options.transactions)
 
-			const result = await query({ projectId: '01k00000000000000000000030', deliveryId: '01k00000000000000000000008' })
+			const result = await query({
+				projectId: '01k00000000000000000000030',
+				deliveryId: '01k00000000000000000000008',
+			})
 
 			expect(result).toEqual({
 				ok: true,
@@ -96,8 +117,18 @@ if (import.meta.vitest) {
 					...storedDelivery,
 					target: { type: 'source-control', repository: storedRepository, targetBranch: 'main' },
 					slices: [
-						slice({ id: '01k00000000000000000100039', deliveryId: '01k00000000000000000000008', order: 1, title: 'Route' }),
-						slice({ id: '01k00000000000000000100038', deliveryId: '01k00000000000000000000008', order: 0, title: 'Schema' }),
+						slice({
+							id: '01k00000000000000000100039',
+							deliveryId: '01k00000000000000000000008',
+							order: 1,
+							title: 'Route',
+						}),
+						slice({
+							id: '01k00000000000000000100038',
+							deliveryId: '01k00000000000000000000008',
+							order: 0,
+							title: 'Schema',
+						}),
 					],
 				},
 			})
@@ -116,9 +147,15 @@ if (import.meta.vitest) {
 			)
 			const query = createGetDeliveryQuery(options.transactions)
 
-			const result = await query({ projectId: '01k00000000000000000000030', deliveryId: '01k00000000000000000000008' })
+			const result = await query({
+				projectId: '01k00000000000000000000030',
+				deliveryId: '01k00000000000000000000008',
+			})
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'project', id: '01k00000000000000000000030' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'project', id: '01k00000000000000000000030' },
+			})
 		})
 
 		it('returns not-found when the Delivery does not belong to the Project', async () => {
@@ -135,9 +172,15 @@ if (import.meta.vitest) {
 			)
 			const query = createGetDeliveryQuery(options.transactions)
 
-			const result = await query({ projectId: '01k00000000000000000000030', deliveryId: '01k00000000000000000000008' })
+			const result = await query({
+				projectId: '01k00000000000000000000030',
+				deliveryId: '01k00000000000000000000008',
+			})
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'delivery', id: '01k00000000000000000000008' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'delivery', id: '01k00000000000000000000008' },
+			})
 		})
 	})
 
@@ -145,7 +188,12 @@ if (import.meta.vitest) {
 		return {
 			id: input.id,
 			projectId: input.projectId,
-			config: { provider: 'github', owner: input.owner, name: input.name, secretId: '01k00000000000000000000040' },
+			config: {
+				provider: 'github',
+				owner: input.owner,
+				name: input.name,
+				secretId: '01k00000000000000000000040',
+			},
 			created: { origin: 'imported', at: '2026-06-01T00:00:00.000Z' },
 		}
 	}

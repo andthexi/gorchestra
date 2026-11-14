@@ -1,5 +1,6 @@
 import { v, type PipeOutput } from 'valleyed'
 
+import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 import {
 	archivePeriodPipe,
 	auditStampPipe,
@@ -9,7 +10,6 @@ import {
 	nonNegativeIntegerPipe,
 	positiveIntegerPipe,
 } from './commons'
-import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 
 export const positiveModelThinkingLevelPipe = v.in(['minimal', 'low', 'medium', 'high', 'xhigh'])
 export type PositiveModelThinkingLevel = PipeOutput<typeof positiveModelThinkingLevelPipe>
@@ -23,13 +23,18 @@ export const positiveModelThinkingLevels = [
 
 export const modelThinkingLevelPipe = v.in(['none', 'minimal', 'low', 'medium', 'high', 'xhigh'])
 export type ModelThinkingLevel = PipeOutput<typeof modelThinkingLevelPipe>
-export const modelThinkingLevels = ['none', ...positiveModelThinkingLevels] as const satisfies readonly ModelThinkingLevel[]
+export const modelThinkingLevels = [
+	'none',
+	...positiveModelThinkingLevels,
+] as const satisfies readonly ModelThinkingLevel[]
 
 type RawModelThinkingCapability = { supportedLevels: PositiveModelThinkingLevel[] }
 
 export const modelThinkingCapabilityPipe = v
 	.object({ supportedLevels: v.array(positiveModelThinkingLevelPipe).pipe(v.asSet()).pipe(v.min(1)) })
-	.pipe((capability: RawModelThinkingCapability) => ({ supportedLevels: sortedPositiveThinkingLevels(capability.supportedLevels) }))
+	.pipe((capability: RawModelThinkingCapability) => ({
+		supportedLevels: sortedPositiveThinkingLevels(capability.supportedLevels),
+	}))
 export type ModelThinkingCapability = PipeOutput<typeof modelThinkingCapabilityPipe>
 
 export const modelInputPipe = v.in(['text'])
@@ -116,7 +121,9 @@ export const modelReferencePipe = v.discriminate((value) => value.type, {
 })
 export type ModelReference = PipeOutput<typeof modelReferencePipe>
 
-export function modelConfiguredThinkingLevels(capabilities: Pick<ModelCapabilities, 'thinking'>): PositiveModelThinkingLevel[] {
+export function modelConfiguredThinkingLevels(
+	capabilities: Pick<ModelCapabilities, 'thinking'>,
+): PositiveModelThinkingLevel[] {
 	return capabilities.thinking?.supportedLevels ?? []
 }
 
@@ -158,10 +165,20 @@ if (import.meta.vitest) {
 				}).valid,
 			).toBe(false)
 			expect(
-				v.validate(modelCapabilitiesPipe, { inputs: [], contextWindowTokens: 1, maxOutputTokens: 1, thinking: null }).valid,
+				v.validate(modelCapabilitiesPipe, {
+					inputs: [],
+					contextWindowTokens: 1,
+					maxOutputTokens: 1,
+					thinking: null,
+				}).valid,
 			).toBe(false)
 			expect(
-				v.validate(modelCapabilitiesPipe, { inputs: ['text'], contextWindowTokens: 1, maxOutputTokens: 2, thinking: null }).valid,
+				v.validate(modelCapabilitiesPipe, {
+					inputs: ['text'],
+					contextWindowTokens: 1,
+					maxOutputTokens: 2,
+					thinking: null,
+				}).valid,
 			).toBe(false)
 		})
 	})

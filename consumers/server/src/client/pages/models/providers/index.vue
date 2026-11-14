@@ -4,11 +4,14 @@
 			<div class="flex flex-wrap items-start justify-between gap-3">
 				<div>
 					<h1 class="m-0 text-sz-section font-semibold tracking-[-0.01em]">Models</h1>
-					<p class="m-0 mt-1 text-sz-helper text-dim">Configure Model Providers and their selectable Models.</p>
+					<p class="m-0 mt-1 text-sz-helper text-dim">
+						Configure Model Providers and their selectable Models.
+					</p>
 				</div>
 				<NuxtLink
 					class="border border-primary bg-primary px-3 py-1.5 text-sz-helper font-semibold text-primary-contrast hover:brightness-110"
-					to="/models/providers/new">
+					to="/models/providers/new"
+				>
 					New Provider
 				</NuxtLink>
 			</div>
@@ -18,10 +21,14 @@
 			<div v-if="isLoadingProviders && !hasLoadedProviders" class="border-b border-dimmer px-3 py-4 text-dim">
 				Loading Model Providers…
 			</div>
-			<div v-else-if="providersError" class="border-b border-dimmer px-3 py-4 text-error">{{ providersError }}</div>
+			<div v-else-if="providersError" class="border-b border-dimmer px-3 py-4 text-error">
+				{{ providersError }}
+			</div>
 			<div v-else-if="providers.length === 0" class="border-b border-dimmer px-3 py-5">
 				<h2 class="m-0 text-sz-subsection font-semibold">No Model Providers yet.</h2>
-				<p class="m-0 mt-1 text-sz-helper text-dim">Create one, then add Models under it from the provider detail page.</p>
+				<p class="m-0 mt-1 text-sz-helper text-dim">
+					Create one, then add Models under it from the provider detail page.
+				</p>
 			</div>
 			<nav v-else class="border-t border-dimmer" aria-label="Model Providers">
 				<NuxtLink
@@ -29,11 +36,13 @@
 					:key="provider.id"
 					:to="`/models/providers/${provider.id}`"
 					class="grid min-h-[58px] grid-cols-[minmax(0,1fr)] gap-3 border-b border-dimmer px-3 py-3 text-body hover:bg-card focus-visible:bg-secondary"
-					:class="provider.archived ? 'opacity-50' : ''">
+					:class="provider.archived ? 'opacity-50' : ''"
+				>
 					<span class="min-w-0">
 						<strong class="block truncate font-semibold">{{ provider.name }}</strong>
 						<span class="mt-1 block truncate text-sz-helper text-dim">
-							<span class="font-mono">{{ provider.protocol }}</span> · {{ modelProviderSourceLabel(provider.source) }}
+							<span class="font-mono">{{ provider.protocol }}</span> ·
+							{{ modelProviderSourceLabel(provider.source) }}
 						</span>
 					</span>
 				</NuxtLink>
@@ -64,7 +73,8 @@
 					</p>
 					<NuxtLink
 						class="mt-2 inline-flex text-sz-helper font-semibold text-primary hover:brightness-110"
-						to="/agent-run-profiles">
+						to="/agent-run-profiles"
+					>
 						Open Agent Run Profiles
 					</NuxtLink>
 				</section>
@@ -79,7 +89,8 @@ import { useModelProvidersList } from '../../../composables/portfolio/models/pro
 
 definePageMeta({ middleware: ['has-selection'] })
 
-const { providers, isLoadingProviders, providersError, hasLoadedProviders, isRefreshingProviders } = useModelProvidersList()
+const { providers, isLoadingProviders, providersError, hasLoadedProviders, isRefreshingProviders } =
+	useModelProvidersList()
 
 function modelProviderSourceLabel(source: ModelProviderSource): string {
 	switch (source.type) {

@@ -50,7 +50,10 @@ export function createCoreTransactions(input: {
 						notifications: {
 							emit: (data) => {
 								ensureOpen()
-								effects.push({ effectType: 'notification-publish', run: () => input.notifications.emit(data) })
+								effects.push({
+									effectType: 'notification-publish',
+									run: () => input.notifications.emit(data),
+								})
 							},
 						},
 						dispatch: {
@@ -66,7 +69,11 @@ export function createCoreTransactions(input: {
 										request,
 									)
 									ensureOpen()
-									if (accepted.ok && accepted.value.wakeNeeded && input.services.dispatchWake !== undefined) {
+									if (
+										accepted.ok &&
+										accepted.value.wakeNeeded &&
+										input.services.dispatchWake !== undefined
+									) {
 										dispatchWakeEffect.run = () => input.services.dispatchWake?.publish()
 									}
 									return accepted
@@ -86,7 +93,9 @@ export function createCoreTransactions(input: {
 					effect.run()
 				} catch {
 					try {
-						input.services.logger?.error('Core post-commit effect failed.', { effectType: effect.effectType })
+						input.services.logger?.error('Core post-commit effect failed.', {
+							effectType: effect.effectType,
+						})
 					} catch {
 						// Best-effort logging cannot interrupt later post-commit effects.
 					}
@@ -96,7 +105,10 @@ export function createCoreTransactions(input: {
 		} catch (error) {
 			return error instanceof TransactionResultRollback
 				? { ok: false, error: error.resultError as TError }
-				: { ok: false, error: { type: 'storage-operation-failed', operation: { type: 'transaction', cause: error } } }
+				: {
+						ok: false,
+						error: { type: 'storage-operation-failed', operation: { type: 'transaction', cause: error } },
+					}
 		}
 	}
 
@@ -234,7 +246,11 @@ if (import.meta.vitest) {
 			const storage = testCoreStorage()
 			await seedCoordination(storage)
 			const publish = vi.fn()
-			const transactions = testCoreTransactions(storage, { emit: () => {} }, { publish, subscribe: () => () => {} })
+			const transactions = testCoreTransactions(
+				storage,
+				{ emit: () => {} },
+				{ publish, subscribe: () => () => {} },
+			)
 
 			const result = await transactions.run(async ({ dispatch }) => {
 				const first = await dispatch.request(durableDispatchInput())
@@ -256,13 +272,19 @@ if (import.meta.vitest) {
 			const storage = testCoreStorage()
 			await seedCoordination(storage)
 			const publish = vi.fn()
-			const transactions = testCoreTransactions(storage, { emit: () => {} }, { publish, subscribe: () => () => {} })
+			const transactions = testCoreTransactions(
+				storage,
+				{ emit: () => {} },
+				{ publish, subscribe: () => () => {} },
+			)
 
-			const result = await transactions.run<void, DispatchAcceptanceError | { type: 'expected-failure' }>(async ({ dispatch }) => {
-				const requested = await dispatch.request(durableDispatchInput())
-				if (!requested.ok) return requested
-				return { ok: false, error: { type: 'expected-failure' } }
-			})
+			const result = await transactions.run<void, DispatchAcceptanceError | { type: 'expected-failure' }>(
+				async ({ dispatch }) => {
+					const requested = await dispatch.request(durableDispatchInput())
+					if (!requested.ok) return requested
+					return { ok: false, error: { type: 'expected-failure' } }
+				},
+			)
 
 			expect(result).toEqual({ ok: false, error: { type: 'expected-failure' } })
 			expect(publish).not.toHaveBeenCalled()
@@ -335,8 +357,12 @@ if (import.meta.vitest) {
 			const closedTransaction = captured[0]
 			if (closedTransaction === undefined) throw new Error('Expected a captured transaction.')
 
-			expect(() => closedTransaction.notifications.emit(testNotificationData())).toThrow('Core transaction context is closed.')
-			expect(() => closedTransaction.dispatch.request(durableDispatchInput())).toThrow('Core transaction context is closed.')
+			expect(() => closedTransaction.notifications.emit(testNotificationData())).toThrow(
+				'Core transaction context is closed.',
+			)
+			expect(() => closedTransaction.dispatch.request(durableDispatchInput())).toThrow(
+				'Core transaction context is closed.',
+			)
 		})
 
 		it('isolates effect queues across concurrent top-level transactions', async () => {
@@ -443,7 +469,9 @@ if (import.meta.vitest) {
 	}
 
 	function createProjectRecord(storage: CoreStorage) {
-		return withExplicitCoreStorageId('01k00000000000000000000030', () => storage.on(projectSchema).one().create(projectRecord()))
+		return withExplicitCoreStorageId('01k00000000000000000000030', () =>
+			storage.on(projectSchema).one().create(projectRecord()),
+		)
 	}
 
 	function findProject(storage: CoreStorage) {

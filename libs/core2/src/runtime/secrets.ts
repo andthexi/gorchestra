@@ -4,16 +4,23 @@ import type { RuntimeDependencies } from '../dependencies'
 import { idPipe, protectedStringPipe, type Id } from '../domain/commons'
 import { type Result, type secretEncodingFailedPipe, type internalSecretDecodingFailedPipe } from '../errors'
 
-const decodedValuesPipe = v.record(idPipe, v.nullable(v.custom<string>((value) => typeof value === 'string', 'Expected decoded text.')))
+const decodedValuesPipe = v.record(
+	idPipe,
+	v.nullable(v.custom<string>((value) => typeof value === 'string', 'Expected decoded text.')),
+)
 type DecodedResult = Result<string, PipeOutput<typeof internalSecretDecodingFailedPipe>>
 
 export function createSecretHelpers(callbacks: RuntimeDependencies['secrets']) {
 	return {
-		async decode(this: void, input: Parameters<RuntimeDependencies['secrets']['decode']>[0]): Promise<Record<Id, DecodedResult>> {
+		async decode(
+			this: void,
+			input: Parameters<RuntimeDependencies['secrets']['decode']>[0],
+		): Promise<Record<Id, DecodedResult>> {
 			// Callers supply identities/references from already validated records.
 			const references = new Map<Id, string>()
 			for (const { secretId, valueRef } of input.secrets) {
-				if (references.has(secretId) && references.get(secretId) !== valueRef) throw new Error('Conflicting Secret references.')
+				if (references.has(secretId) && references.get(secretId) !== valueRef)
+					throw new Error('Conflicting Secret references.')
 				references.set(secretId, valueRef)
 			}
 			if (references.size === 0) return {}
@@ -36,7 +43,9 @@ export function createSecretHelpers(callbacks: RuntimeDependencies['secrets']) {
 						return Object.fromEntries(
 							Object.entries(values).map(([secretId, value]) => {
 								const result: DecodedResult =
-									value === null ? { ok: false, error: { type: 'secret-decoding-failed' } } : { ok: true, value }
+									value === null
+										? { ok: false, error: { type: 'secret-decoding-failed' } }
+										: { ok: true, value }
 								return [secretId, result]
 							}),
 						)
@@ -44,7 +53,9 @@ export function createSecretHelpers(callbacks: RuntimeDependencies['secrets']) {
 			} catch {
 				// Callback diagnostics are deliberately never inspected.
 			}
-			return Object.fromEntries(captured.map(({ secretId }) => [secretId, { ok: false, error: { type: 'secret-decoding-failed' } }]))
+			return Object.fromEntries(
+				captured.map(({ secretId }) => [secretId, { ok: false, error: { type: 'secret-decoding-failed' } }]),
+			)
 		},
 		async encode(
 			this: void,
@@ -69,21 +80,26 @@ if (import.meta.vitest) {
 	const b = '01k00000000000000000000002'
 	const c = '01k00000000000000000000003'
 
-	it.each(nonStringValues.filter(({ value }) => value !== null))('fails the whole decoded batch for a $name value', async ({ value }) => {
-		const dependencies = createTestDependencies()
-		Object.defineProperty(dependencies.secrets, 'decode', { value: () => Promise.resolve({ [a]: 'valid', [b]: value }) })
-		expect(
-			await createSecretHelpers(dependencies.secrets).decode({
-				secrets: [
-					{ secretId: a, valueRef: 'ref' },
-					{ secretId: b, valueRef: 'ref' },
-				],
-			}),
-		).toEqual({
-			[a]: { ok: false, error: { type: 'secret-decoding-failed' } },
-			[b]: { ok: false, error: { type: 'secret-decoding-failed' } },
-		})
-	})
+	it.each(nonStringValues.filter(({ value }) => value !== null))(
+		'fails the whole decoded batch for a $name value',
+		async ({ value }) => {
+			const dependencies = createTestDependencies()
+			Object.defineProperty(dependencies.secrets, 'decode', {
+				value: () => Promise.resolve({ [a]: 'valid', [b]: value }),
+			})
+			expect(
+				await createSecretHelpers(dependencies.secrets).decode({
+					secrets: [
+						{ secretId: a, valueRef: 'ref' },
+						{ secretId: b, valueRef: 'ref' },
+					],
+				}),
+			).toEqual({
+				[a]: { ok: false, error: { type: 'secret-decoding-failed' } },
+				[b]: { ok: false, error: { type: 'secret-decoding-failed' } },
+			})
+		},
+	)
 
 	it.each(['null', 'array', 'string', 'throw', 'reject', 'getter', 'ownKeys', 'extra-getter'] as const)(
 		'safely rejects malformed decoder response: %s',
@@ -241,84 +257,92 @@ if (import.meta.vitest) {
 			},
 		})
 		dependencies.secrets.decode = () => Promise.resolve(response)
-		expect(await createSecretHelpers(dependencies.secrets).decode({ secrets: [{ secretId: a, valueRef: 'ref' }] })).toEqual({
+		expect(
+			await createSecretHelpers(dependencies.secrets).decode({ secrets: [{ secretId: a, valueRef: 'ref' }] }),
+		).toEqual({
 			[a]: { ok: true, value: '' },
 		})
 	})
 
-	it.each(['empty', 'identical', 'conflicting'] as const)('captures decoder identities once before callback: %s', async (mode) => {
-		const dependencies = createTestDependencies()
-		const calls: unknown[] = []
-		dependencies.secrets.decode = (input) => {
-			calls.push(input)
-			return Promise.resolve({ [a]: 'resolved' })
-		}
-		const helpers = createSecretHelpers(dependencies.secrets)
-		switch (mode) {
-			case 'empty':
-				expect(await helpers.decode({ secrets: [] })).toEqual({})
-				expect(calls).toEqual([])
-				break
-			case 'identical':
-				expect(
-					await helpers.decode({
-						secrets: [
-							{ secretId: a, valueRef: 'ref' },
-							{ secretId: a, valueRef: 'ref' },
-						],
-					}),
-				).toEqual({ [a]: { ok: true, value: 'resolved' } })
-				expect(calls).toEqual([{ secrets: [{ secretId: a, valueRef: 'ref' }] }])
-				break
-			case 'conflicting':
-				await expect(
-					helpers.decode({
-						secrets: [
-							{ secretId: a, valueRef: 'ref' },
-							{ secretId: a, valueRef: 'different' },
-						],
-					}),
-				).rejects.toThrow('Conflicting Secret references.')
-				expect(calls).toEqual([])
-				break
-			default:
-				throw new Error('Unexpected test mode')
-		}
-	})
+	it.each(['empty', 'identical', 'conflicting'] as const)(
+		'captures decoder identities once before callback: %s',
+		async (mode) => {
+			const dependencies = createTestDependencies()
+			const calls: unknown[] = []
+			dependencies.secrets.decode = (input) => {
+				calls.push(input)
+				return Promise.resolve({ [a]: 'resolved' })
+			}
+			const helpers = createSecretHelpers(dependencies.secrets)
+			switch (mode) {
+				case 'empty':
+					expect(await helpers.decode({ secrets: [] })).toEqual({})
+					expect(calls).toEqual([])
+					break
+				case 'identical':
+					expect(
+						await helpers.decode({
+							secrets: [
+								{ secretId: a, valueRef: 'ref' },
+								{ secretId: a, valueRef: 'ref' },
+							],
+						}),
+					).toEqual({ [a]: { ok: true, value: 'resolved' } })
+					expect(calls).toEqual([{ secrets: [{ secretId: a, valueRef: 'ref' }] }])
+					break
+				case 'conflicting':
+					await expect(
+						helpers.decode({
+							secrets: [
+								{ secretId: a, valueRef: 'ref' },
+								{ secretId: a, valueRef: 'different' },
+							],
+						}),
+					).rejects.toThrow('Conflicting Secret references.')
+					expect(calls).toEqual([])
+					break
+				default:
+					throw new Error('Unexpected test mode')
+			}
+		},
+	)
 
-	it.each(['missing', 'extra', 'wrong-case', 'inherited'] as const)('fails the whole decode batch for %s response keys', async (mode) => {
-		const dependencies = createTestDependencies()
-		let response: Record<string, string | null>
-		switch (mode) {
-			case 'missing':
-				response = { [a]: 'synthetic-raw' }
-				break
-			case 'extra':
-				response = { [a]: 'synthetic-raw', [b]: null, [c]: 'unexpected' }
-				break
-			case 'wrong-case':
-				response = { [a.toUpperCase()]: 'synthetic-raw', [b]: null }
-				break
-			case 'inherited':
-				response = { [b]: null }
-				Object.setPrototypeOf(response, { [a]: 'synthetic-raw' })
-				break
-			default:
-				throw new Error('Unexpected test mode')
-		}
-		dependencies.secrets.decode = () => Promise.resolve(response)
-		expect(
-			await createSecretHelpers(dependencies.secrets).decode({
-				secrets: [
-					{ secretId: a, valueRef: 'ref' },
-					{ secretId: b, valueRef: 'ref' },
-				],
-			}),
-		).toEqual({
-			[a]: { ok: false, error: { type: 'secret-decoding-failed' } },
-			[b]: { ok: false, error: { type: 'secret-decoding-failed' } },
-		})
-	})
+	it.each(['missing', 'extra', 'wrong-case', 'inherited'] as const)(
+		'fails the whole decode batch for %s response keys',
+		async (mode) => {
+			const dependencies = createTestDependencies()
+			let response: Record<string, string | null>
+			switch (mode) {
+				case 'missing':
+					response = { [a]: 'synthetic-raw' }
+					break
+				case 'extra':
+					response = { [a]: 'synthetic-raw', [b]: null, [c]: 'unexpected' }
+					break
+				case 'wrong-case':
+					response = { [a.toUpperCase()]: 'synthetic-raw', [b]: null }
+					break
+				case 'inherited':
+					response = { [b]: null }
+					Object.setPrototypeOf(response, { [a]: 'synthetic-raw' })
+					break
+				default:
+					throw new Error('Unexpected test mode')
+			}
+			dependencies.secrets.decode = () => Promise.resolve(response)
+			expect(
+				await createSecretHelpers(dependencies.secrets).decode({
+					secrets: [
+						{ secretId: a, valueRef: 'ref' },
+						{ secretId: b, valueRef: 'ref' },
+					],
+				}),
+			).toEqual({
+				[a]: { ok: false, error: { type: 'secret-decoding-failed' } },
+				[b]: { ok: false, error: { type: 'secret-decoding-failed' } },
+			})
+		},
+	)
 
 	it('decodes one ID-keyed batch with exact shared references and mixed empty-string/null results', async () => {
 		const dependencies = createTestDependencies()

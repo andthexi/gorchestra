@@ -1,6 +1,11 @@
 import { v, type PipeInput, type PipeOutput } from 'valleyed'
 
-import { mapPaginatedQueryEnvelope, paginatedQueryEnvelopePipe, paginatedQueryInputPipe, idPipe } from '../domain/commons'
+import {
+	mapPaginatedQueryEnvelope,
+	paginatedQueryEnvelopePipe,
+	paginatedQueryInputPipe,
+	idPipe,
+} from '../domain/commons'
 import { repositoryPipe, type Repository } from '../domain/repository'
 import type {
 	InvalidCoreServiceOutputError,
@@ -78,7 +83,10 @@ if (import.meta.vitest) {
 
 			const result = await query({ projectId: '01k00000000000000000000030' })
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'project', id: '01k00000000000000000000030' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'project', id: '01k00000000000000000000030' },
+			})
 		})
 
 		it('lists Repositories for one Project in id-desc order', async () => {
@@ -152,11 +160,22 @@ if (import.meta.vitest) {
 		}
 	}
 
-	function repository(input: { id: string; projectId: string; owner: string; name: string; createdAt?: string }): Repository {
+	function repository(input: {
+		id: string
+		projectId: string
+		owner: string
+		name: string
+		createdAt?: string
+	}): Repository {
 		return {
 			id: input.id,
 			projectId: input.projectId,
-			config: { provider: 'github', owner: input.owner, name: input.name, secretId: '01k00000000000000000000040' },
+			config: {
+				provider: 'github',
+				owner: input.owner,
+				name: input.name,
+				secretId: '01k00000000000000000000040',
+			},
 			created: { origin: 'imported', at: input.createdAt ?? '2026-06-10T00:00:00.000Z' },
 		}
 	}

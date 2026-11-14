@@ -1,32 +1,5 @@
 import { streamText } from 'ai'
 
-import {
-	createAnthropicMessagesModelProviderProtocolProvider,
-	type AnthropicMessagesModelProviderProtocolProvider,
-} from './anthropic-messages'
-import {
-	createGoogleGenerativeAIModelProviderProtocolProvider,
-	type GoogleGenerativeAIModelProviderProtocolProvider,
-} from './google-generative-ai'
-import {
-	createOpenAIChatCompletionsModelProviderProtocolProvider,
-	type OpenAIChatCompletionsModelProviderProtocolProvider,
-} from './openai-chat-completions'
-import { createOpenAIResponsesModelProviderProtocolProvider, type OpenAIResponsesModelProviderProtocolProvider } from './openai-responses'
-import { providerFailureReason } from './provider-failures'
-import type {
-	AISDKLanguageModelResolution,
-	AISDKLanguageModelResolutionInput,
-	ModelAgentTurnAccessError,
-	ModelProviderProtocolAccess,
-	ModelProviderProtocolPreflight,
-	ModelProviderProtocolPreflightError,
-	ModelProviderProtocolPreflightFailureReason,
-	ModelProviderProtocolPreflightModelInput,
-	ModelProviderProtocolProviderResolveInput,
-	ModelProviderProtocolProviders,
-	ResolveAISDKLanguageModelError,
-} from './types'
 import type { TurnErrorReason } from '../../../domain/agent-run-event'
 import type { ArchivePeriod, Id } from '../../../domain/commons'
 import {
@@ -43,6 +16,36 @@ import type { CoreServices, CoreStorage, ResolvableSecretValue } from '../../../
 import { resolveSecretValueRefs } from '../../secrets'
 import type { CoreTransactions } from '../../transactions'
 import type { Result } from '../../types'
+import {
+	createAnthropicMessagesModelProviderProtocolProvider,
+	type AnthropicMessagesModelProviderProtocolProvider,
+} from './anthropic-messages'
+import {
+	createGoogleGenerativeAIModelProviderProtocolProvider,
+	type GoogleGenerativeAIModelProviderProtocolProvider,
+} from './google-generative-ai'
+import {
+	createOpenAIChatCompletionsModelProviderProtocolProvider,
+	type OpenAIChatCompletionsModelProviderProtocolProvider,
+} from './openai-chat-completions'
+import {
+	createOpenAIResponsesModelProviderProtocolProvider,
+	type OpenAIResponsesModelProviderProtocolProvider,
+} from './openai-responses'
+import { providerFailureReason } from './provider-failures'
+import type {
+	AISDKLanguageModelResolution,
+	AISDKLanguageModelResolutionInput,
+	ModelAgentTurnAccessError,
+	ModelProviderProtocolAccess,
+	ModelProviderProtocolPreflight,
+	ModelProviderProtocolPreflightError,
+	ModelProviderProtocolPreflightFailureReason,
+	ModelProviderProtocolPreflightModelInput,
+	ModelProviderProtocolProviderResolveInput,
+	ModelProviderProtocolProviders,
+	ResolveAISDKLanguageModelError,
+} from './types'
 
 export interface ModelProviderProtocolProviderImplementations {
 	anthropicMessages?: AnthropicMessagesModelProviderProtocolProvider
@@ -130,7 +133,9 @@ async function resolveLanguageModelWithConcreteProviders(
 	transactions: CoreTransactions,
 	concrete: Required<ModelProviderProtocolProviderImplementations>,
 	input: Omit<Extract<AISDKLanguageModelResolutionInput, { mode: 'agent-run' }>, 'access'>,
-): Promise<Result<AISDKLanguageModelResolution | TurnErrorReason, ResolveAISDKLanguageModelError | ModelAgentTurnAccessError>> {
+): Promise<
+	Result<AISDKLanguageModelResolution | TurnErrorReason, ResolveAISDKLanguageModelError | ModelAgentTurnAccessError>
+> {
 	const access = await resolveModelProviderProtocolAccessFromStorage(services, transactions, input.modelProvider)
 	if (!access.ok) return access
 	if (!isProtocolAccess(access.value)) return { ok: true, value: modelAccessFailureOutcome(access.value) }
@@ -168,12 +173,15 @@ export function modelProviderProtocolPreflight(
 ): ModelProviderProtocolPreflight {
 	return preflight.type === 'passed'
 		? { type: 'passed', summary: `${protocolDisplayName(protocol)} model preflight passed.` }
-		: { type: 'failed', reason: preflight.reason, summary: modelProviderProtocolFailureSummary(protocol, preflight.reason) }
+		: {
+				type: 'failed',
+				reason: preflight.reason,
+				summary: modelProviderProtocolFailureSummary(protocol, preflight.reason),
+			}
 }
 
 type ModelProviderSecretReadiness =
-	| { type: 'passed'; secrets: ResolvableSecretValue[] }
-	| { type: 'failed'; preflight: ModelProviderProtocolPreflight }
+	{ type: 'passed'; secrets: ResolvableSecretValue[] } | { type: 'failed'; preflight: ModelProviderProtocolPreflight }
 
 type ModelProviderSecretReadinessError = ModelAgentTurnAccessError
 
@@ -182,7 +190,9 @@ async function resolveModelProviderProtocolAccessFromStorage(
 	transactions: CoreTransactions,
 	modelProvider: ModelProvider,
 ): Promise<Result<ModelProviderProtocolAccess | ModelProviderProtocolPreflight, ModelAgentTurnAccessError>> {
-	const secrets = await transactions.run(({ storage }) => readModelProviderSecretReadinessFromStorage(storage, modelProvider))
+	const secrets = await transactions.run(({ storage }) =>
+		readModelProviderSecretReadinessFromStorage(storage, modelProvider),
+	)
 	if (!secrets.ok) return secrets
 	return secrets.value.type === 'failed'
 		? { ok: true, value: secrets.value.preflight }
@@ -206,8 +216,14 @@ function readAuthSecretReadiness(
 	return modelProvider.auth === null
 		? Promise.resolve({ ok: true, value: { type: 'passed', secrets: [] } })
 		: readSecretReadiness(storage, modelProvider, secretIdFromAccessValue(modelProvider.auth.value), {
-				missing: { type: 'model-provider-auth-secret-missing', secretId: secretIdFromAccessValue(modelProvider.auth.value) },
-				inactive: { type: 'model-provider-auth-secret-inactive', secretId: secretIdFromAccessValue(modelProvider.auth.value) },
+				missing: {
+					type: 'model-provider-auth-secret-missing',
+					secretId: secretIdFromAccessValue(modelProvider.auth.value),
+				},
+				inactive: {
+					type: 'model-provider-auth-secret-inactive',
+					secretId: secretIdFromAccessValue(modelProvider.auth.value),
+				},
 			})
 }
 
@@ -250,7 +266,10 @@ async function readSecretReadiness(
 		: ok({ type: 'passed', secrets: [{ secretId: secret.value.id, valueRef: secret.value.valueRef }] })
 }
 
-async function findSecret(storage: CoreStorage, secretId: Id): Promise<Result<Secret | null, ModelProviderSecretReadinessError>> {
+async function findSecret(
+	storage: CoreStorage,
+	secretId: Id,
+): Promise<Result<Secret | null, ModelProviderSecretReadinessError>> {
 	try {
 		const secret = await storage.on(secretSchema).one().id(secretId).find()
 		return ok(secret)
@@ -264,10 +283,16 @@ type SecretFailureReasons = {
 	inactive: ModelProviderProtocolPreflightFailureReason
 }
 
-function secretFailure(modelProvider: ModelProvider, reason: ModelProviderProtocolPreflightFailureReason): ModelProviderSecretReadiness {
+function secretFailure(
+	modelProvider: ModelProvider,
+	reason: ModelProviderProtocolPreflightFailureReason,
+): ModelProviderSecretReadiness {
 	return {
 		type: 'failed',
-		preflight: modelProviderProtocolPreflight(modelProviderProtocolForSource(modelProvider.source), { type: 'failed', reason }),
+		preflight: modelProviderProtocolPreflight(modelProviderProtocolForSource(modelProvider.source), {
+			type: 'failed',
+			reason,
+		}),
 	}
 }
 
@@ -307,7 +332,8 @@ async function resolveModelProviderProtocolAccess(
 	const secretValues = secretValuesForIds(secretIds, secrets)
 	const missingSecret = secretValues.find(isMissingSecretValueRef)
 	const protocol = modelProviderProtocolForSource(modelProvider.source)
-	if (missingSecret !== undefined) return { ok: true, value: unresolvedSecretPreflight(protocol, missingSecret.secretId) }
+	if (missingSecret !== undefined)
+		return { ok: true, value: unresolvedSecretPreflight(protocol, missingSecret.secretId) }
 
 	const resolution = await resolveSecretValueRefs(services, secretValues.filter(isResolvableSecretValue))
 	if (!resolution.ok) return resolution
@@ -381,12 +407,17 @@ function isMissingSecretValueRef(
 	return secret.valueRef === null
 }
 
-function isResolvableSecretValue(secret: ResolvableSecretValue | { secretId: Id; valueRef: null }): secret is ResolvableSecretValue {
+function isResolvableSecretValue(
+	secret: ResolvableSecretValue | { secretId: Id; valueRef: null },
+): secret is ResolvableSecretValue {
 	return secret.valueRef !== null
 }
 
 function unresolvedSecretPreflight(protocol: ModelProviderProtocol, secretId: Id): ModelProviderProtocolPreflight {
-	return modelProviderProtocolPreflight(protocol, { type: 'failed', reason: { type: 'model-provider-secret-unresolved', secretId } })
+	return modelProviderProtocolPreflight(protocol, {
+		type: 'failed',
+		reason: { type: 'model-provider-secret-unresolved', secretId },
+	})
 }
 
 function protocolProviderInput<Protocol extends ModelProviderProtocol>(
@@ -396,7 +427,9 @@ function protocolProviderInput<Protocol extends ModelProviderProtocol>(
 	return { ...input, protocol }
 }
 
-function isProtocolAccess(value: ModelProviderProtocolAccess | ModelProviderProtocolPreflight): value is ModelProviderProtocolAccess {
+function isProtocolAccess(
+	value: ModelProviderProtocolAccess | ModelProviderProtocolPreflight,
+): value is ModelProviderProtocolAccess {
 	return 'auth' in value
 }
 
@@ -437,7 +470,9 @@ export function modelProviderProtocolFailureSummary(
 		case 'provider-generation-failed':
 			return `${name} model preflight generation failed.`
 		default:
-			throw new Error(`Unexpected Model Provider Protocol preflight failure reason: ${String(reason satisfies never)}`)
+			throw new Error(
+				`Unexpected Model Provider Protocol preflight failure reason: ${String(reason satisfies never)}`,
+			)
 	}
 }
 
@@ -480,6 +515,25 @@ if (import.meta.vitest) {
 
 	describe('Model Provider Protocol family', () => {
 		it('resolves OpenAI Responses access Secrets and dispatches to the concrete provider', async () => {
+			const { MockLanguageModelV4, convertArrayToReadableStream } = await import('ai/test')
+			const languageModel = new MockLanguageModelV4({
+				doStream: {
+					stream: convertArrayToReadableStream([
+						{ type: 'stream-start', warnings: [] },
+						{ type: 'text-start', id: 'preflight' },
+						{ type: 'text-delta', id: 'preflight', delta: 'OK' },
+						{ type: 'text-end', id: 'preflight' },
+						{
+							type: 'finish',
+							finishReason: { unified: 'stop', raw: undefined },
+							usage: {
+								inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+								outputTokens: { total: 1, text: 1, reasoning: 0 },
+							},
+						},
+					]),
+				},
+			})
 			const services = coreServices(() =>
 				Promise.resolve({ '01k00000000000000000000040': 'token', '01k00000000000000000000041': 'org-1' }),
 			)
@@ -488,14 +542,21 @@ if (import.meta.vitest) {
 				openAIResponses: {
 					resolveLanguageModel(input) {
 						observedAccess = input.access
-						return { ok: true, value: { languageModel: 'language-model', providerOptions: undefined } }
+						return { ok: true, value: { languageModel, providerOptions: undefined } }
 					},
 				},
 			})
 
 			const result = await providers.preflightModel(openAIResponsesPreflightInput())
 
-			expect(result).toMatchObject({ ok: true })
+			expect(result).toEqual({
+				ok: true,
+				value: { type: 'passed', summary: 'OpenAI Responses model preflight passed.' },
+			})
+			expect(languageModel.doStreamCalls).toHaveLength(1)
+			expect(languageModel.doStreamCalls[0]).toMatchObject({
+				prompt: [{ role: 'user', content: [{ type: 'text', text: 'Reply with OK.' }] }],
+			})
 			expect(observedAccess).toEqual({
 				auth: { type: 'apiKey', plaintext: 'token' },
 				headers: [{ name: 'OpenAI-Organization', plaintext: 'org-1' }],
@@ -522,9 +583,14 @@ if (import.meta.vitest) {
 
 		it('loads active Model Provider Secrets for model Agent turns', async () => {
 			const services = coreServicesWithSecrets(
-				[secretRecord('01k00000000000000000000040', 'auth-ref'), secretRecord('01k00000000000000000000041', 'org-ref')],
+				[
+					secretRecord('01k00000000000000000000040', 'auth-ref'),
+					secretRecord('01k00000000000000000000041', 'org-ref'),
+				],
 				({ secrets }) =>
-					Promise.resolve(Object.fromEntries(secrets.map((secret) => [secret.secretId, `${secret.valueRef}-plaintext`]))),
+					Promise.resolve(
+						Object.fromEntries(secrets.map((secret) => [secret.secretId, `${secret.valueRef}-plaintext`])),
+					),
 			)
 			let observedAccess: ModelProviderProtocolAccess | null = null
 			const providers = createModelProviderProtocolProviders(services, transactionsFor(services), {
@@ -565,7 +631,10 @@ if (import.meta.vitest) {
 		}
 	}
 
-	function openAIResponsesResolutionInput(): Omit<Extract<AISDKLanguageModelResolutionInput, { mode: 'agent-run' }>, 'access'> {
+	function openAIResponsesResolutionInput(): Omit<
+		Extract<AISDKLanguageModelResolutionInput, { mode: 'agent-run' }>,
+		'access'
+	> {
 		return {
 			mode: 'agent-run',
 			model: openAIResponsesModel(),
@@ -595,7 +664,9 @@ if (import.meta.vitest) {
 			name: 'OpenAI',
 			source: { type: 'openai-responses' },
 			auth: { value: { type: 'secret', secretId: '01k00000000000000000000040' } },
-			headers: [{ name: 'OpenAI-Organization', value: { type: 'secret', secretId: '01k00000000000000000000041' } }],
+			headers: [
+				{ name: 'OpenAI-Organization', value: { type: 'secret', secretId: '01k00000000000000000000041' } },
+			],
 			providerOptions: null,
 			created: { origin: 'imported', at: '2026-06-01T00:00:00.000Z' },
 			updated: null,
@@ -645,10 +716,16 @@ if (import.meta.vitest) {
 		valueRef = 'protected-ref',
 		archived = false,
 	): { id: Id; valueRef: string; archivePeriods: ArchivePeriod[] } {
-		return { id, valueRef, archivePeriods: archived ? [{ archived: openAIResponsesModel().created, unarchived: null }] : [] }
+		return {
+			id,
+			valueRef,
+			archivePeriods: archived ? [{ archived: openAIResponsesModel().created, unarchived: null }] : [],
+		}
 	}
 
-	function secretStorageService(secrets: Array<{ id: Id; valueRef: string; archivePeriods: ArchivePeriod[] }>): CoreServices['storage'] {
+	function secretStorageService(
+		secrets: Array<{ id: Id; valueRef: string; archivePeriods: ArchivePeriod[] }>,
+	): CoreServices['storage'] {
 		const byId = new Map(secrets.map((secret) => [secret.id, secret]))
 		return {
 			on: () => ({ one: () => ({ id: (id: Id) => ({ find: () => Promise.resolve(byId.get(id) ?? null) }) }) }),
@@ -667,7 +744,9 @@ if (import.meta.vitest) {
 		} as never
 	}
 
-	function secretService(resolveSecretValues: CoreServices['secrets']['resolveSecretValues']): CoreServices['secrets'] {
+	function secretService(
+		resolveSecretValues: CoreServices['secrets']['resolveSecretValues'],
+	): CoreServices['secrets'] {
 		return {
 			preflight: () => Promise.resolve({ ok: true }),
 			resolveSecrets: () => Promise.resolve([]),

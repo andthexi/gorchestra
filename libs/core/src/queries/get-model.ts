@@ -3,19 +3,25 @@ import { v, type PipeOutput } from 'valleyed'
 import { idPipe } from '../domain/commons'
 import { defaultModelCapabilities } from '../domain/model'
 import { modelDetailsPipe } from '../domain/model-provider'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
-import { listedModel, modelProviderSummary } from './model-provider-read-model'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { buildQueryHandler } from '../utils/query-handler'
 import { getRequired } from '../utils/storage/helpers'
 import type { CoreTransactions } from '../utils/transactions'
 import type { Result as CoreResult } from '../utils/types'
+import { listedModel, modelProviderSummary } from './model-provider-read-model'
 
 export const inputPipe = v.object({ modelId: idPipe })
 export type Input = PipeOutput<typeof inputPipe>
 
 export const resultPipe = modelDetailsPipe
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createGetModelQuery(transactions: CoreTransactions): Operation {
@@ -26,7 +32,13 @@ export function createGetModelQuery(transactions: CoreTransactions): Operation {
 
 			const provider = await getRequired('model-provider', storage, model.value.providerId)
 			return provider.ok
-				? { ok: true, value: { ...listedModel(model.value, provider.value), provider: modelProviderSummary(provider.value) } }
+				? {
+						ok: true,
+						value: {
+							...listedModel(model.value, provider.value),
+							provider: modelProviderSummary(provider.value),
+						},
+					}
 				: provider
 		}),
 	)
@@ -34,7 +46,8 @@ export function createGetModelQuery(transactions: CoreTransactions): Operation {
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { createTestCoreServices, seedModelProvider, seedSelectableModel, stamp } = await import('../utils/test-helpers')
+	const { createTestCoreServices, seedModelProvider, seedSelectableModel, stamp } =
+		await import('../utils/test-helpers')
 
 	describe('getModel query', () => {
 		it('validates input before reading storage', async () => {
@@ -52,9 +65,14 @@ if (import.meta.vitest) {
 		})
 
 		it('returns not-found when the target Model does not exist', async () => {
-			const result = await createGetModelQuery(createTestCoreServices().transactions)({ modelId: '01k00000000000000000000024' })
+			const result = await createGetModelQuery(createTestCoreServices().transactions)({
+				modelId: '01k00000000000000000000024',
+			})
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'model', id: '01k00000000000000000000024' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'model', id: '01k00000000000000000000024' },
+			})
 		})
 
 		it('returns not-found when the Model Provider does not exist', async () => {

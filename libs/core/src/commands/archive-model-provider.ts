@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { idPipe } from '../domain/commons'
 import { type ModelProvider } from '../domain/model-provider'
 import type {
@@ -15,6 +14,7 @@ import { buildCommandHandler } from '../utils/command-handler'
 import { archiveStoredRecordWithAudit } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const archiveModelProviderInputPipe = v.object({ modelProviderId: idPipe })
 export type Input = PipeOutput<typeof archiveModelProviderInputPipe>
@@ -39,7 +39,8 @@ export function createArchiveModelProviderCommand(runtime: CoreRuntime): Operati
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { context, createTestCoreRuntime, createTestCoreServices, localStamp, seedModelProvider } = await import('../utils/test-helpers')
+	const { context, createTestCoreRuntime, createTestCoreServices, localStamp, seedModelProvider } =
+		await import('../utils/test-helpers')
 
 	describe('archiveModelProvider command', () => {
 		it('archives Model Providers while preserving Archive Period history', async () => {
@@ -49,7 +50,10 @@ if (import.meta.vitest) {
 
 			const result = await command({ modelProviderId: '01k00000000000000000000032' }, context)
 
-			expect(result).toMatchObject({ ok: true, value: { archivePeriods: [{ archived: localStamp(), unarchived: null }] } })
+			expect(result).toMatchObject({
+				ok: true,
+				value: { archivePeriods: [{ archived: localStamp(), unarchived: null }] },
+			})
 		})
 	})
 }

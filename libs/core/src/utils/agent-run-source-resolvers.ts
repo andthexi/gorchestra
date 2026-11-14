@@ -1,10 +1,3 @@
-import {
-	ensureGitRequirement,
-	globalRuntimeRequirements,
-	sandboxPathFromSegments,
-	type AgentRunRunCommandRuntimeRequirement,
-} from './agent-run-runtime-requirements'
-import type { Result } from './types'
 import type { AgentRunPurpose, AgentRunToolSet } from '../domain/agent-run'
 import {
 	firstDuplicateRuntimeRequirement,
@@ -21,12 +14,29 @@ import type { Revision, RevisionScope } from '../domain/revision'
 import type { RevisionGate } from '../domain/revision-gate'
 import type { Slice } from '../domain/slice'
 import type { SliceArtifact } from '../domain/slice-artifact'
-import type { InvalidCoreServiceOutputError, InvariantViolationError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvariantViolationError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import type { CoreStorage } from '../services'
-import { agentRunToolSetFromNames, readOnlyWorkspaceToolNames, writeCapableWorkspaceToolNames } from './runtime/agent-runs/tools'
+import {
+	ensureGitRequirement,
+	globalRuntimeRequirements,
+	sandboxPathFromSegments,
+	type AgentRunRunCommandRuntimeRequirement,
+} from './agent-run-runtime-requirements'
+import {
+	agentRunToolSetFromNames,
+	readOnlyWorkspaceToolNames,
+	writeCapableWorkspaceToolNames,
+} from './runtime/agent-runs/tools'
 import { getRequired, listRecords } from './storage/helpers'
+import type { Result } from './types'
 
-type AgentRunSourceRuntimeContextError = InvalidCoreServiceOutputError | StorageOperationFailedError | ResourceNotFoundError
+type AgentRunSourceRuntimeContextError =
+	InvalidCoreServiceOutputError | StorageOperationFailedError | ResourceNotFoundError
 
 export type ResolveAgentRunSourceSetupError = AgentRunSourceRuntimeContextError | InvariantViolationError
 
@@ -97,8 +107,13 @@ export async function resolveAgentRunSourceSetup(
 	])
 	if (!runtimeRequirements.ok) return runtimeRequirements
 
-	const toolSet = agentRunToolSetFromNames([...baseToolNamesForPurpose(context.value.purpose), ...sourceSpecific.value.domainToolNames])
-	return toolSet.ok ? { ok: true, value: { runtimeRequirements: runtimeRequirements.value, toolSet: toolSet.value } } : toolSet
+	const toolSet = agentRunToolSetFromNames([
+		...baseToolNamesForPurpose(context.value.purpose),
+		...sourceSpecific.value.domainToolNames,
+	])
+	return toolSet.ok
+		? { ok: true, value: { runtimeRequirements: runtimeRequirements.value, toolSet: toolSet.value } }
+		: toolSet
 }
 
 async function sourceRuntimeContextForAgentRunPurpose(
@@ -147,7 +162,9 @@ async function sourceControlPlanningContext(
 		where: (filter, fields) => filter.eq(fields.projectId, project.id),
 		orderBy: [{ field: 'id', direction: 'asc' }],
 	})
-	return repositories.ok ? { ok: true, value: { purpose, plan, project, repositories: repositories.value } } : repositories
+	return repositories.ok
+		? { ok: true, value: { purpose, plan, project, repositories: repositories.value } }
+		: repositories
 }
 
 async function sourceRuntimeContextForExecution(
@@ -179,7 +196,9 @@ async function sourceControlExecutionContext(
 	project: Project,
 ): Promise<Result<ExecutionSourceRuntimeContext, AgentRunSourceRuntimeContextError>> {
 	const repository = await repositoryForSourceControlDelivery(storage, delivery)
-	return repository.ok ? { ok: true, value: { purpose, slice, delivery, project, repository: repository.value } } : repository
+	return repository.ok
+		? { ok: true, value: { purpose, slice, delivery, project, repository: repository.value } }
+		: repository
 }
 
 async function sourceRuntimeContextForRevisionGate(
@@ -336,7 +355,9 @@ function sourceControlPurposeSpecificSetup(
 	}
 }
 
-function sourceControlPlanningSetup(context: PlanningSourceRuntimeContext): Result<SourceSpecificAgentRunSetup, InvariantViolationError> {
+function sourceControlPlanningSetup(
+	context: PlanningSourceRuntimeContext,
+): Result<SourceSpecificAgentRunSetup, InvariantViolationError> {
 	const requirements: AgentRunRuntimeRequirement[] = []
 	for (const repository of context.repositories) {
 		const requirement = planningCheckoutRequirementForRepository(repository)
@@ -359,7 +380,9 @@ function baseToolNamesForPurpose(purpose: AgentRunPurpose): readonly string[] {
 	}
 }
 
-function isPlanningSourceRuntimeContext(context: AgentRunSourceRuntimeContext): context is PlanningSourceRuntimeContext {
+function isPlanningSourceRuntimeContext(
+	context: AgentRunSourceRuntimeContext,
+): context is PlanningSourceRuntimeContext {
 	return context.purpose.type === 'planning'
 }
 
@@ -435,7 +458,8 @@ function invariant(message: string): Result<never, InvariantViolationError> {
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { createTestCoreServices, localStamp, seedDelivery, seedProject, seedSlice, stamp } = await import('./test-helpers')
+	const { createTestCoreServices, localStamp, seedDelivery, seedProject, seedSlice, stamp } =
+		await import('./test-helpers')
 
 	describe('resolveAgentRunSourceSetup', () => {
 		it('resolves source-control planning source requirements through Plan to Project', async () => {
@@ -478,7 +502,12 @@ if (import.meta.vitest) {
 			options.tx.repositories.records.set('01k00000000000000000000035', {
 				id: '01k00000000000000000000035',
 				projectId: '01k00000000000000000000030',
-				config: { provider: 'github', owner: 'Beta Owner', name: 'Second Repo', secretId: '01k00000000000000000000041' },
+				config: {
+					provider: 'github',
+					owner: 'Beta Owner',
+					name: 'Second Repo',
+					secretId: '01k00000000000000000000041',
+				},
 				created: stamp,
 			})
 			options.tx.repositories.records.set('01k00000000000000000000034', {
@@ -514,9 +543,15 @@ if (import.meta.vitest) {
 			})
 			expect(checkout.command.args[1]).toContain("repo_owner='Octo'")
 			expect(checkout.command.args[1]).toContain("repo_name='Repo'")
-			expect(checkout.command.args[1]).toContain("checkout_path='/workspace/Octo-Repo-01k00000000000000000000034'")
-			expect(checkout.command.args[1]).toContain('git -c credential.helper= clone --depth 1 "$repo_url" "$checkout_path"')
-			expect(checkout.command.args[1]).toContain('remote set-url origin "https://github.com/${repo_owner}/${repo_name}.git"')
+			expect(checkout.command.args[1]).toContain(
+				"checkout_path='/workspace/Octo-Repo-01k00000000000000000000034'",
+			)
+			expect(checkout.command.args[1]).toContain(
+				'git -c credential.helper= clone --depth 1 "$repo_url" "$checkout_path"',
+			)
+			expect(checkout.command.args[1]).toContain(
+				'remote set-url origin "https://github.com/${repo_owner}/${repo_name}.git"',
+			)
 			expect(checkout.command.args[1]).toContain('test -d "$checkout_path/.git"')
 		})
 

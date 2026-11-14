@@ -1,15 +1,17 @@
 import type { AgentRunRuntimeRequirement } from '../domain/agent-run-runtime'
 import type { Id } from '../domain/commons'
-import type { InvalidCoreServiceOutputError, ResourceNotFoundError, ResourceArchivedError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	ResourceNotFoundError,
+	ResourceArchivedError,
+	StorageOperationFailedError,
+} from '../errors'
 import type { CoreStorage } from '../services'
 import { validateActiveSecretReferences } from './secrets'
 import type { Result } from './types'
 
 export type RuntimeRequirementSecretReferenceError =
-	| InvalidCoreServiceOutputError
-	| StorageOperationFailedError
-	| ResourceNotFoundError
-	| ResourceArchivedError
+	InvalidCoreServiceOutputError | StorageOperationFailedError | ResourceNotFoundError | ResourceArchivedError
 
 export function validateRuntimeRequirementSecretReferences(
 	storage: CoreStorage,

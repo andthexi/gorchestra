@@ -2,13 +2,13 @@ import { TextDecoder } from 'node:util'
 
 import { v, type Pipe } from 'valleyed'
 
+import { nonEmptyTrimmedStringPipe } from '../../../../domain/commons'
+import type { ManagedSandbox } from '../../sandboxes/managed'
+import type { CoreAgentRunToolContext } from '../types'
 import { readRequiredWorkspaceFile } from './file-contents'
 import { resolveWorkspaceToolPath } from './path-policy'
 import type { CoreAgentRunToolDefinition } from './registry'
 import { failInvalidInput, failSandboxError, sandboxErrorSummary, toolOutput } from './results'
-import { nonEmptyTrimmedStringPipe } from '../../../../domain/commons'
-import type { ManagedSandbox } from '../../sandboxes/managed'
-import type { CoreAgentRunToolContext } from '../types'
 
 type EditReplacement = { oldText: string; newText: string }
 type EditInput = { path: string; edits: EditReplacement[] }
@@ -27,7 +27,8 @@ export function editTool(): CoreAgentRunToolDefinition<EditInput> {
 		description:
 			'Edit a single UTF-8 text file using exact text replacement. Every oldText must match a unique, non-overlapping region of the original file. The operation is atomic: if any edit is invalid, no write occurs.',
 		inputPipe: editInputPipe,
-		promptSnippet: 'Make precise file edits with exact text replacement, including multiple disjoint edits in one call',
+		promptSnippet:
+			'Make precise file edits with exact text replacement, including multiple disjoint edits in one call',
 		promptGuidelines: [
 			'Use edit for precise changes; oldText must match exactly after normalizing line endings.',
 			'When changing multiple separate locations in one file, use one edit call with multiple entries instead of multiple edit calls.',
@@ -35,7 +36,8 @@ export function editTool(): CoreAgentRunToolDefinition<EditInput> {
 			'Keep oldText as small as possible while still being unique.',
 		],
 		workspaceMutationKind: 'file-mutator',
-		workspaceMutationKey: (input) => resolveWorkspaceToolPath(input.path, { defaultPath: '/workspace', allowWorkspaceRoot: false }),
+		workspaceMutationKey: (input) =>
+			resolveWorkspaceToolPath(input.path, { defaultPath: '/workspace', allowWorkspaceRoot: false }),
 		execute: (input, context) => editWorkspaceFile(input, context),
 	}
 }
@@ -49,13 +51,21 @@ async function editWorkspaceFile(input: EditInput, context: CoreAgentRunToolCont
 	const normalized = normalizeToLF(text)
 	const next = applyExactEdits(normalized, input.edits, path)
 	const finalText = `${bom}${restoreLineEndings(next, lineEnding)}`
-	const write = await context.sandbox.writeFile({ path, contentsBase64: Buffer.from(finalText, 'utf8').toString('base64') })
+	const write = await context.sandbox.writeFile({
+		path,
+		contentsBase64: Buffer.from(finalText, 'utf8').toString('base64'),
+	})
 	if (!write.ok) failSandboxError(sandboxErrorSummary(write.error))
 
 	const diff = await redactOrFail(context, simpleDiff(path, normalized, next))
 	const patch = await redactOrFail(context, simplePatch(path, normalized, next))
 	return {
-		output: { type: 'diff' as const, summary: `Successfully replaced ${input.edits.length} block(s) in ${path}.`, diff, patch },
+		output: {
+			type: 'diff' as const,
+			summary: `Successfully replaced ${input.edits.length} block(s) in ${path}.`,
+			diff,
+			patch,
+		},
 		truncation: null,
 	}
 }
@@ -75,7 +85,10 @@ function decodeUtf8OrFail(bytes: Buffer, path: string): string {
 }
 
 function applyExactEdits(content: string, edits: EditReplacement[], path: string): string {
-	const normalizedEdits = edits.map((edit) => ({ oldText: normalizeToLF(edit.oldText), newText: normalizeToLF(edit.newText) }))
+	const normalizedEdits = edits.map((edit) => ({
+		oldText: normalizeToLF(edit.oldText),
+		newText: normalizeToLF(edit.newText),
+	}))
 	validateEditInputs(normalizedEdits, path)
 	const matches = normalizedEdits.map((edit, index) => uniqueMatch(content, edit.oldText, index, path, edits.length))
 	assertNoOverlap(matches, path)
@@ -100,7 +113,11 @@ function validateEditInputs(edits: { oldText: string; newText: string }[], path:
 function uniqueMatch(content: string, oldText: string, index: number, path: string, totalEdits: number): MatchedEdit {
 	const starts = matchStarts(content, oldText)
 	if (starts.length === 0)
-		failInvalidInput(totalEdits === 1 ? `Could not find the exact text in ${path}.` : `Could not find edits[${index}] in ${path}.`)
+		failInvalidInput(
+			totalEdits === 1
+				? `Could not find the exact text in ${path}.`
+				: `Could not find edits[${index}] in ${path}.`,
+		)
 	if (starts.length > 1)
 		failInvalidInput(
 			totalEdits === 1
@@ -125,14 +142,18 @@ function assertNoOverlap(matches: MatchedEdit[], path: string): void {
 	for (let index = 1; index < sorted.length; index += 1) {
 		const previous = sorted[index - 1]!
 		const current = sorted[index]!
-		if (previous.end > current.start) failInvalidInput(`edits[${previous.index}] and edits[${current.index}] overlap in ${path}.`)
+		if (previous.end > current.start)
+			failInvalidInput(`edits[${previous.index}] and edits[${current.index}] overlap in ${path}.`)
 	}
 }
 
 function applyMatches(content: string, matches: MatchedEdit[]): string {
 	return [...matches]
 		.sort((left, right) => right.start - left.start)
-		.reduce((current, match) => `${current.slice(0, match.start)}${match.newText}${current.slice(match.end)}`, content)
+		.reduce(
+			(current, match) => `${current.slice(0, match.start)}${match.newText}${current.slice(match.end)}`,
+			content,
+		)
 }
 
 function stripBom(content: string): { bom: string; text: string } {
@@ -211,21 +232,30 @@ if (import.meta.vitest) {
 				fixture.context,
 			)
 			expect(fixture.files.get('/workspace/file.txt')).toBe('\uFEFFalpha\r\nBETA\r\ngamma\r\nsecret\r\n')
-			expect(output.output).toMatchObject({ type: 'diff', summary: 'Successfully replaced 1 block(s) in /workspace/file.txt.' })
+			expect(output.output).toMatchObject({
+				type: 'diff',
+				summary: 'Successfully replaced 1 block(s) in /workspace/file.txt.',
+			})
 			expect(output.output.type === 'diff' && output.output.diff.includes('REDACTED')).toBe(true)
 		})
 
 		it('rejects invalid edits without writing', async () => {
 			const fixture = toolFixture({ '/workspace/file.txt': 'alpha beta beta' })
 			await expect(
-				editTool().execute({ path: 'file.txt', edits: [{ oldText: 'beta', newText: 'BETA' }] }, fixture.context),
+				editTool().execute(
+					{ path: 'file.txt', edits: [{ oldText: 'beta', newText: 'BETA' }] },
+					fixture.context,
+				),
 			).rejects.toMatchObject({ reason: { type: 'invalid-input' } })
 			expect(fixture.files.get('/workspace/file.txt')).toBe('alpha beta beta')
 			await expect(
 				editTool().execute({ path: 'file.txt', edits: [{ oldText: '', newText: 'x' }] }, fixture.context),
 			).rejects.toMatchObject({ reason: { type: 'invalid-input' } })
 			await expect(
-				editTool().execute({ path: 'file.txt', edits: [{ oldText: 'alpha', newText: 'alpha' }] }, fixture.context),
+				editTool().execute(
+					{ path: 'file.txt', edits: [{ oldText: 'alpha', newText: 'alpha' }] },
+					fixture.context,
+				),
 			).rejects.toMatchObject({ reason: { type: 'invalid-input' } })
 		})
 
@@ -269,8 +299,10 @@ if (import.meta.vitest) {
 
 	function fakeSandbox(files: Map<string, string | Buffer>): ManagedSandbox {
 		return {
-			setEnv: () => Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
-			runCommand: () => Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
+			setEnv: () =>
+				Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
+			runCommand: () =>
+				Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
 			readFile: ({ path }) => Promise.resolve({ ok: true, value: fakeReadFile(files, path) }),
 			writeFile: ({ path, contentsBase64 }) => {
 				files.set(path, Buffer.from(contentsBase64, 'base64').toString('utf8'))

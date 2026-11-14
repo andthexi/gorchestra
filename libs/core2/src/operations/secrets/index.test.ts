@@ -14,11 +14,16 @@ describe('secrets', () => {
 		await withReadyPortfolio(async (portfolio) => {
 			const { project, other } = await createProjectPair(portfolio)
 			const secret = requireSuccess(await portfolio.secrets.create({ title: 'Access', value: 'synthetic-pat' }))
-			const unused = requireSuccess(await portfolio.secrets.create({ title: 'Other access', value: 'synthetic-other' }))
+			const unused = requireSuccess(
+				await portfolio.secrets.create({ title: 'Other access', value: 'synthetic-other' }),
+			)
 			const asset = requireSuccess(
 				await portfolio.projects.assets.create({
 					projectId: project.id,
-					spec: { type: 'repository', source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: secret.id } },
+					spec: {
+						type: 'repository',
+						source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: secret.id },
+					},
 				}),
 			)
 			const expected = Array.from({ length: 125 }, (_, index) => ({
@@ -28,9 +33,10 @@ describe('secrets', () => {
 			}))
 			adapter.stores.get('assets')!.clear()
 			for (const row of [...expected].reverse()) adapter.stores.get('assets')!.set(row.id, row)
-			adapter.stores
-				.get('assets')!
-				.set(asset.id, { ...asset, spec: { ...asset.spec, source: { ...asset.spec.source, secretId: unused.id } } })
+			adapter.stores.get('assets')!.set(asset.id, {
+				...asset,
+				spec: { ...asset.spec, source: { ...asset.spec.source, secretId: unused.id } },
+			})
 			adapter.stores.get('assets')!.set(unused.id, {
 				...asset,
 				id: unused.id,
@@ -126,27 +132,39 @@ describe('secrets', () => {
 					requireSuccess(
 						await portfolio.projects.assets.create({
 							projectId,
-							spec: { type: 'repository', source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: secret.id } },
+							spec: {
+								type: 'repository',
+								source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: secret.id },
+							},
 						}),
 					),
 				)
 			for (const asset of assets) {
-				expect(requireSuccess(await portfolio.projects.assets.find({ projectId: asset.projectId, assetId: asset.id }))).toEqual(
+				expect(
+					requireSuccess(
+						await portfolio.projects.assets.find({ projectId: asset.projectId, assetId: asset.id }),
+					),
+				).toEqual(asset)
+				expect(requireSuccess(await portfolio.projects.assets.list({ projectId: asset.projectId }))).toEqual([
 					asset,
-				)
-				expect(requireSuccess(await portfolio.projects.assets.list({ projectId: asset.projectId }))).toEqual([asset])
+				])
 			}
 			expect(
 				await portfolio.projects.assets.create({
 					projectId: project.id,
-					spec: { type: 'repository', source: { provider: 'github', owner: 'owner', name: 'repo', secretId: unused.id } },
+					spec: {
+						type: 'repository',
+						source: { provider: 'github', owner: 'owner', name: 'repo', secretId: unused.id },
+					},
 				}),
 			).toEqual({ ok: false, error: { type: 'duplicate-asset-target', assetId: assets[0]!.id } })
 			assets.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
 			expect(requireSuccess(await usages({ secretId: secret.id }))).toEqual(assets)
 			expect(requireSuccess(await usages({ secretId: unused.id }))).toEqual([])
 			expect(codecCalls).toEqual(baseline)
-			const after = requireSuccess(await portfolio.secrets.updateValue({ secretId: secret.id, value: 'synthetic-replacement' }))
+			const after = requireSuccess(
+				await portfolio.secrets.updateValue({ secretId: secret.id, value: 'synthetic-replacement' }),
+			)
 			expect(after.id).toBe(secret.id)
 			const replacementBaseline = { ...codecCalls }
 			expect(codecCalls.encodes).toBe(baseline.encodes + 1)
@@ -174,7 +192,10 @@ describe('secrets', () => {
 							valueUpdated: { ...updated.value, ignored: 'synthetic-PROTECTED' },
 						}
 					})
-				const result = await portfolio.secrets.updateValue({ secretId: before.id, value: 'synthetic-PROTECTED' })
+				const result = await portfolio.secrets.updateValue({
+					secretId: before.id,
+					value: 'synthetic-PROTECTED',
+				})
 				const after = requireSuccess(result)
 				expect(Object.keys(result).sort()).toEqual(['ok', 'value'])
 				expect(Object.keys(after).sort()).toEqual(['created', 'id', 'title', 'valueUpdated'])
@@ -188,165 +209,190 @@ describe('secrets', () => {
 			}
 		}, dependencies)
 	})
-	it.each([false, true])('drains a pending replacement encoder inside its transaction before shutdown (failure: %s)', async (fail) => {
-		const dependencies = createTestDependencies()
-		const adapter = dependencies.storage.adapter
-		const session = adapter.session.bind(adapter)
-		const updateMany = adapter.updateMany.bind(adapter)
-		const entered = Promise.withResolvers<void>()
-		const gate = Promise.withResolvers<void>()
-		let encodes = 0
-		let decodes = 0
-		let active = false
-		let cleaned = 0
-		let writes = 0
-		let settled = false
-		const events: string[] = []
-		dependencies.secrets.encode = async () => {
-			if (++encodes === 1) return 'synthetic-old-reference'
-			entered.resolve()
-			await gate.promise
-			events.push('encoded')
-			if (fail) throw new Error('synthetic-PROTECTED')
-			return 'synthetic-new-reference'
-		}
-		dependencies.secrets.decode = () => {
-			decodes++
-			return Promise.resolve({})
-		}
-		const opened = requireSuccess(await PortfolioClient.new(dependencies))
-		try {
-			if (opened.state !== 'uninitialized') throw new Error('Expected setup')
-			const client = requireSuccess(await opened.setup())
-			const portfolio = requireSuccess(client.as({ by: 'replacement-author' }))
-			const before = requireSuccess(await portfolio.secrets.create({ title: 'Keep', value: 'synthetic-old' }))
-			adapter.session = async (work) => {
-				active = true
-				try {
-					return await session(work)
-				} finally {
-					active = false
-					events.push('session-settled')
-				}
-			}
-			adapter.updateMany = (...args) => {
-				writes++
-				return updateMany(...args)
-			}
-			adapter.disconnect = () => {
-				cleaned++
-				events.push('cleanup')
-				expect(active).toBe(false)
-				return Promise.resolve()
-			}
-			const pending = portfolio.secrets.updateValue({ secretId: before.id, value: 'synthetic-PROTECTED' }).then((result) => {
-				settled = true
-				return result
-			})
-			try {
-				await entered.promise
-				expect(active).toBe(true)
-				expect(settled).toBe(false)
-				expect(writes).toBe(0)
-				expect(adapter.stores.get('secrets')!.get(before.id)).toEqual({ ...before, valueRef: 'synthetic-old-reference' })
-				const shutdown = client.shutdown()
-				expect(opened.shutdown()).toBe(shutdown)
-				expect(await portfolio.secrets.updateValue({ secretId: before.id, value: 'too-late' })).toEqual({
-					ok: false,
-					error: { type: 'storage-operation-failed' },
-				})
-				expect(cleaned).toBe(0)
-				expect(encodes).toBe(2)
-				gate.resolve()
-				const result = await pending
-				if (fail) {
-					expect(result).toEqual({ ok: false, error: { type: 'secret-encoding-failed' } })
-					expect(adapter.stores.get('secrets')!.get(before.id)).toEqual({ ...before, valueRef: 'synthetic-old-reference' })
-				} else {
-					const after = requireSuccess(result)
-					expect(adapter.stores.get('secrets')!.get(before.id)).toEqual({ ...after, valueRef: 'synthetic-new-reference' })
-				}
-				requireSuccess(await shutdown)
-				expect(writes).toBe(fail ? 0 : 1)
-				expect(decodes).toBe(0)
-				expect(cleaned).toBe(1)
-				expect(events).toEqual(['encoded', 'session-settled', 'cleanup'])
-			} finally {
-				gate.resolve()
-				await pending
-			}
-		} finally {
-			gate.resolve()
-			await opened.shutdown()
-			adapter.session = session
-			adapter.updateMany = updateMany
-			delete adapter.disconnect
-		}
-	})
-	it.each(['commit', 'rollback'] as const)('waits for native %s before settling a replacement Result', async (mode) => {
-		const dependencies = createTestDependencies()
-		const adapter = dependencies.storage.adapter
-		const session = adapter.session.bind(adapter)
-		const updateMany = adapter.updateMany.bind(adapter)
-		const reached = Promise.withResolvers<void>()
-		const release = Promise.withResolvers<void>()
-		let encodes = 0
-		dependencies.secrets.encode = () => Promise.resolve(`synthetic-reference-${++encodes}`)
-		await withReadyPortfolio(async (portfolio) => {
-			const before = requireSuccess(await portfolio.secrets.create({ title: 'Keep', value: 'synthetic-old' }))
+	it.each([false, true])(
+		'drains a pending replacement encoder inside its transaction before shutdown (failure: %s)',
+		async (fail) => {
+			const dependencies = createTestDependencies()
+			const adapter = dependencies.storage.adapter
+			const session = adapter.session.bind(adapter)
+			const updateMany = adapter.updateMany.bind(adapter)
+			const entered = Promise.withResolvers<void>()
+			const gate = Promise.withResolvers<void>()
+			let encodes = 0
+			let decodes = 0
+			let active = false
+			let cleaned = 0
+			let writes = 0
 			let settled = false
-			let aborted = false
-			adapter.updateMany = async (...args) => {
-				const rows = await updateMany(...args)
-				return mode === 'rollback' ? rows.map((row) => ({ ...row, title: null })) : rows
+			const events: string[] = []
+			dependencies.secrets.encode = async () => {
+				if (++encodes === 1) return 'synthetic-old-reference'
+				entered.resolve()
+				await gate.promise
+				events.push('encoded')
+				if (fail) throw new Error('synthetic-PROTECTED')
+				return 'synthetic-new-reference'
 			}
-			adapter.session = (work) =>
-				session(async () => {
-					try {
-						const result = await work()
-						reached.resolve()
-						await release.promise
-						return result
-					} catch (error) {
-						aborted = true
-						reached.resolve()
-						await release.promise
-						throw error
-					}
-				})
-			const pending = portfolio.secrets.updateValue({ secretId: before.id, value: 'synthetic-PROTECTED' }).then((result) => {
-				settled = true
-				return result
-			})
+			dependencies.secrets.decode = () => {
+				decodes++
+				return Promise.resolve({})
+			}
+			const opened = requireSuccess(await PortfolioClient.new(dependencies))
 			try {
-				await reached.promise
-				expect(settled).toBe(false)
-				expect(aborted).toBe(mode === 'rollback')
-				expect(encodes).toBe(2)
-				release.resolve()
-				const result = await pending
-				switch (mode) {
-					case 'commit': {
-						const after = requireSuccess(result)
-						expect(after).toMatchObject({ id: before.id, title: before.title, created: before.created })
-						expect(adapter.stores.get('secrets')!.get(before.id)).toEqual({ ...after, valueRef: 'synthetic-reference-2' })
-						break
+				if (opened.state !== 'uninitialized') throw new Error('Expected setup')
+				const client = requireSuccess(await opened.setup())
+				const portfolio = requireSuccess(client.as({ by: 'replacement-author' }))
+				const before = requireSuccess(await portfolio.secrets.create({ title: 'Keep', value: 'synthetic-old' }))
+				adapter.session = async (work) => {
+					active = true
+					try {
+						return await session(work)
+					} finally {
+						active = false
+						events.push('session-settled')
 					}
-					case 'rollback':
-						expect(result).toEqual({ ok: false, error: { type: 'invalid-output' } })
-						expect(adapter.stores.get('secrets')!.get(before.id)).toEqual({ ...before, valueRef: 'synthetic-reference-1' })
-						break
-					default:
-						throw new Error('Unexpected session outcome')
+				}
+				adapter.updateMany = (...args) => {
+					writes++
+					return updateMany(...args)
+				}
+				adapter.disconnect = () => {
+					cleaned++
+					events.push('cleanup')
+					expect(active).toBe(false)
+					return Promise.resolve()
+				}
+				const pending = portfolio.secrets
+					.updateValue({ secretId: before.id, value: 'synthetic-PROTECTED' })
+					.then((result) => {
+						settled = true
+						return result
+					})
+				try {
+					await entered.promise
+					expect(active).toBe(true)
+					expect(settled).toBe(false)
+					expect(writes).toBe(0)
+					expect(adapter.stores.get('secrets')!.get(before.id)).toEqual({
+						...before,
+						valueRef: 'synthetic-old-reference',
+					})
+					const shutdown = client.shutdown()
+					expect(opened.shutdown()).toBe(shutdown)
+					expect(await portfolio.secrets.updateValue({ secretId: before.id, value: 'too-late' })).toEqual({
+						ok: false,
+						error: { type: 'storage-operation-failed' },
+					})
+					expect(cleaned).toBe(0)
+					expect(encodes).toBe(2)
+					gate.resolve()
+					const result = await pending
+					if (fail) {
+						expect(result).toEqual({ ok: false, error: { type: 'secret-encoding-failed' } })
+						expect(adapter.stores.get('secrets')!.get(before.id)).toEqual({
+							...before,
+							valueRef: 'synthetic-old-reference',
+						})
+					} else {
+						const after = requireSuccess(result)
+						expect(adapter.stores.get('secrets')!.get(before.id)).toEqual({
+							...after,
+							valueRef: 'synthetic-new-reference',
+						})
+					}
+					requireSuccess(await shutdown)
+					expect(writes).toBe(fail ? 0 : 1)
+					expect(decodes).toBe(0)
+					expect(cleaned).toBe(1)
+					expect(events).toEqual(['encoded', 'session-settled', 'cleanup'])
+				} finally {
+					gate.resolve()
+					await pending
 				}
 			} finally {
-				release.resolve()
-				await pending
+				gate.resolve()
+				await opened.shutdown()
 				adapter.session = session
 				adapter.updateMany = updateMany
+				delete adapter.disconnect
 			}
-		}, dependencies)
-	})
+		},
+	)
+	it.each(['commit', 'rollback'] as const)(
+		'waits for native %s before settling a replacement Result',
+		async (mode) => {
+			const dependencies = createTestDependencies()
+			const adapter = dependencies.storage.adapter
+			const session = adapter.session.bind(adapter)
+			const updateMany = adapter.updateMany.bind(adapter)
+			const reached = Promise.withResolvers<void>()
+			const release = Promise.withResolvers<void>()
+			let encodes = 0
+			dependencies.secrets.encode = () => Promise.resolve(`synthetic-reference-${++encodes}`)
+			await withReadyPortfolio(async (portfolio) => {
+				const before = requireSuccess(await portfolio.secrets.create({ title: 'Keep', value: 'synthetic-old' }))
+				let settled = false
+				let aborted = false
+				adapter.updateMany = async (...args) => {
+					const rows = await updateMany(...args)
+					return mode === 'rollback' ? rows.map((row) => ({ ...row, title: null })) : rows
+				}
+				adapter.session = (work) =>
+					session(async () => {
+						try {
+							const result = await work()
+							reached.resolve()
+							await release.promise
+							return result
+						} catch (error) {
+							aborted = true
+							reached.resolve()
+							await release.promise
+							throw error
+						}
+					})
+				const pending = portfolio.secrets
+					.updateValue({ secretId: before.id, value: 'synthetic-PROTECTED' })
+					.then((result) => {
+						settled = true
+						return result
+					})
+				try {
+					await reached.promise
+					expect(settled).toBe(false)
+					expect(aborted).toBe(mode === 'rollback')
+					expect(encodes).toBe(2)
+					release.resolve()
+					const result = await pending
+					switch (mode) {
+						case 'commit': {
+							const after = requireSuccess(result)
+							expect(after).toMatchObject({ id: before.id, title: before.title, created: before.created })
+							expect(adapter.stores.get('secrets')!.get(before.id)).toEqual({
+								...after,
+								valueRef: 'synthetic-reference-2',
+							})
+							break
+						}
+						case 'rollback':
+							expect(result).toEqual({ ok: false, error: { type: 'invalid-output' } })
+							expect(adapter.stores.get('secrets')!.get(before.id)).toEqual({
+								...before,
+								valueRef: 'synthetic-reference-1',
+							})
+							break
+						default:
+							throw new Error('Unexpected session outcome')
+					}
+				} finally {
+					release.resolve()
+					await pending
+					adapter.session = session
+					adapter.updateMany = updateMany
+				}
+			}, dependencies)
+		},
+	)
 	it.each(['read', 'before-write', 'after-write', 'empty-result', 'metadata', 'stamp', 'commit'] as const)(
 		'rolls back replacement failure at %s without hiding native failure',
 		async (mode) => {
@@ -378,7 +424,10 @@ describe('secrets', () => {
 							case 'metadata':
 								return rows.map((row) => ({ ...row, title: null }))
 							case 'stamp':
-								return rows.map((row) => ({ ...row, valueUpdated: { src: 'local', at: before.created.at, by: '' } }))
+								return rows.map((row) => ({
+									...row,
+									valueUpdated: { src: 'local', at: before.created.at, by: '' },
+								}))
 							case 'read':
 							case 'commit':
 								return rows
@@ -393,10 +442,14 @@ describe('secrets', () => {
 								await work()
 								throw new Error('synthetic-PROTECTED')
 							})
-					expect(await portfolio.secrets.updateValue({ secretId: before.id, value: 'synthetic-PROTECTED' })).toEqual({
+					expect(
+						await portfolio.secrets.updateValue({ secretId: before.id, value: 'synthetic-PROTECTED' }),
+					).toEqual({
 						ok: false,
 						error: {
-							type: ['empty-result', 'metadata', 'stamp'].includes(mode) ? 'invalid-output' : 'storage-operation-failed',
+							type: ['empty-result', 'metadata', 'stamp'].includes(mode)
+								? 'invalid-output'
+								: 'storage-operation-failed',
 						},
 					})
 				} finally {
@@ -407,10 +460,15 @@ describe('secrets', () => {
 				expect(writes).toBe(mode === 'read' ? 0 : 1)
 				expect(encodes).toBe(mode === 'read' ? 1 : 2)
 				expect(decodes).toBe(0)
-				expect(adapter.stores.get('secrets')!.get(before.id)).toEqual({ ...before, valueRef: 'synthetic-reference-1' })
+				expect(adapter.stores.get('secrets')!.get(before.id)).toEqual({
+					...before,
+					valueRef: 'synthetic-reference-1',
+				})
 				expect(requireSuccess(await portfolio.secrets.find({ secretId: before.id }))).toEqual(before)
 				// Only database state is rolled back; encoder effects are not compensated.
-				requireSuccess(await portfolio.secrets.updateValue({ secretId: before.id, value: 'explicit-resubmission' }))
+				requireSuccess(
+					await portfolio.secrets.updateValue({ secretId: before.id, value: 'explicit-resubmission' }),
+				)
 				expect(encodes).toBe(mode === 'read' ? 2 : 3)
 			}, dependencies)
 		},
@@ -444,7 +502,10 @@ describe('secrets', () => {
 			const asset = {
 				id: '01k00000000000000000000001',
 				projectId: '01k00000000000000000000002',
-				spec: { type: 'repository', source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: before.id } },
+				spec: {
+					type: 'repository',
+					source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: before.id },
+				},
 				created: before.created,
 			}
 			// Existing Asset references are arranged storage, not a future public operation.
@@ -476,7 +537,9 @@ describe('secrets', () => {
 				expect(requireSuccess(await creator.secrets.find({ secretId: before.id }))).toEqual(after)
 			}
 			expect(calls).toEqual(Array.from({ length: 3 }, () => ({ secretId: before.id, value: ' \t\n' })))
-			expect(writes).toEqual(Array.from({ length: 2 }, () => ({ table: 'secrets', fields: ['valueRef', 'valueUpdated'] })))
+			expect(writes).toEqual(
+				Array.from({ length: 2 }, () => ({ table: 'secrets', fields: ['valueRef', 'valueUpdated'] })),
+			)
 			expect(decodes).toBe(0)
 			expect(creates).toBe(0)
 			expect([...adapter.stores.get('assets')!.values()]).toEqual([asset])
@@ -558,7 +621,10 @@ describe('secrets', () => {
 					{},
 					{ secretId: secret.id },
 					{ value: 'synthetic-PROTECTED' },
-					...[...nonStringValues.map((entry) => entry.value), ''].map((value) => ({ secretId: secret.id, value })),
+					...[...nonStringValues.map((entry) => entry.value), ''].map((value) => ({
+						secretId: secret.id,
+						value,
+					})),
 					...[
 						...nonStringValues.map((entry) => entry.value),
 						'',
@@ -585,7 +651,10 @@ describe('secrets', () => {
 			} finally {
 				adapter.session = session
 			}
-			expect(adapter.stores.get('secrets')!.get(secret.id)).toEqual({ ...secret, valueRef: 'synthetic-reference' })
+			expect(adapter.stores.get('secrets')!.get(secret.id)).toEqual({
+				...secret,
+				valueRef: 'synthetic-reference',
+			})
 		}, dependencies)
 	})
 	it('validates the full stored Secret before encoding its replacement', async () => {
@@ -598,7 +667,9 @@ describe('secrets', () => {
 		const adapter = dependencies.storage.adapter
 		const findMany = adapter.findMany.bind(adapter)
 		await withReadyPortfolio(async (portfolio) => {
-			const secret = requireSuccess(await portfolio.secrets.create({ title: 'Unchanged', value: 'synthetic-raw' }))
+			const secret = requireSuccess(
+				await portfolio.secrets.create({ title: 'Unchanged', value: 'synthetic-raw' }),
+			)
 			const baseline = { ...secret, valueRef: 'synthetic-reference' }
 			const candidates: Record<string, unknown>[] = [
 				{ ...secret },
@@ -617,7 +688,9 @@ describe('secrets', () => {
 					// Fault after native cloning so hostile getters stay outside the snapshot.
 					adapter.findMany = async (...args) =>
 						(await findMany(...args)).map((stored) => (stored.id === secret.id ? row : stored))
-					expect(await portfolio.secrets.updateValue({ secretId: secret.id, value: 'synthetic-PROTECTED' })).toEqual({
+					expect(
+						await portfolio.secrets.updateValue({ secretId: secret.id, value: 'synthetic-PROTECTED' }),
+					).toEqual({
 						ok: false,
 						error: { type: 'invalid-storage-output' },
 					})
@@ -656,8 +729,12 @@ describe('secrets', () => {
 			return Promise.resolve(`synthetic-reference-${calls.length}`)
 		}
 		await withReadyPortfolio(async (portfolio) => {
-			const before = requireSuccess(await portfolio.secrets.create({ title: 'Keep title', value: 'first-synthetic-value' }))
-			const after = requireSuccess(await portfolio.secrets.updateValue({ secretId: before.id, value: ' second-synthetic-value\n' }))
+			const before = requireSuccess(
+				await portfolio.secrets.create({ title: 'Keep title', value: 'first-synthetic-value' }),
+			)
+			const after = requireSuccess(
+				await portfolio.secrets.updateValue({ secretId: before.id, value: ' second-synthetic-value\n' }),
+			)
 			expect(after.id).toBe(before.id)
 			expect(after.title).toBe(before.title)
 			expect(after.created).toEqual(before.created)
@@ -746,7 +823,10 @@ describe('secrets', () => {
 			const { create, find, list } = portfolio.secrets
 			const secret = requireSuccess(await create({ title: '  Keep\nÉ  ', value: '\n \t' }))
 			expect(calls).toEqual([{ secretId: secret.id, value: '\n \t' }])
-			expect(dependencies.storage.adapter.stores.get('secrets')!.get(secret.id)).toEqual({ ...secret, valueRef: ' \t\n' })
+			expect(dependencies.storage.adapter.stores.get('secrets')!.get(secret.id)).toEqual({
+				...secret,
+				valueRef: ' \t\n',
+			})
 			expect(requireSuccess(await find({ secretId: secret.id }))).toEqual(secret)
 			expect(requireSuccess(await list())).toEqual([secret])
 		}, dependencies)
@@ -769,7 +849,9 @@ describe('secrets', () => {
 			}
 			try {
 				for (const value of [...nonStringValues.map((entry) => entry.value), '']) {
-					const result: unknown = await Reflect.apply(portfolio.secrets.create, undefined, [{ title: 'Valid', value }])
+					const result: unknown = await Reflect.apply(portfolio.secrets.create, undefined, [
+						{ title: 'Valid', value },
+					])
 					expect(result).toMatchObject({ ok: false, error: { type: 'invalid-input' } })
 					expect(JSON.stringify(result)).not.toContain('synthetic-PROTECTED')
 				}
@@ -800,7 +882,10 @@ describe('secrets', () => {
 				]) {
 					expect(await portfolio.secrets.find({ secretId })).toEqual({
 						ok: false,
-						error: { type: 'invalid-input', issues: [{ path: 'secretId', message: 'Expected a Core id.' }] },
+						error: {
+							type: 'invalid-input',
+							issues: [{ path: 'secretId', message: 'Expected a Core id.' }],
+						},
 					})
 				}
 				expect(sessions).toBe(0)
@@ -811,49 +896,55 @@ describe('secrets', () => {
 		}, dependencies)
 	})
 
-	it.each(['before-insert', 'after-insert', 'metadata', 'commit'] as const)('does not commit a failed create at %s', async (mode) => {
-		const dependencies = createTestDependencies()
-		const adapter = dependencies.storage.adapter
-		const createMany = adapter.createMany.bind(adapter)
-		const session = adapter.session.bind(adapter)
-		await withReadyPortfolio(async (portfolio) => {
-			try {
-				switch (mode) {
-					case 'before-insert':
-						adapter.createMany = () => {
-							throw new Error('synthetic-PROTECTED')
-						}
-						break
-					case 'after-insert':
-						adapter.createMany = async (...args) => {
-							await createMany(...args)
-							throw new Error('synthetic-PROTECTED')
-						}
-						break
-					case 'metadata':
-						adapter.createMany = async (...args) => (await createMany(...args)).map((row) => ({ ...row, title: null }))
-						break
-					case 'commit':
-						adapter.session = (work) =>
-							session(async () => {
-								await work()
+	it.each(['before-insert', 'after-insert', 'metadata', 'commit'] as const)(
+		'does not commit a failed create at %s',
+		async (mode) => {
+			const dependencies = createTestDependencies()
+			const adapter = dependencies.storage.adapter
+			const createMany = adapter.createMany.bind(adapter)
+			const session = adapter.session.bind(adapter)
+			await withReadyPortfolio(async (portfolio) => {
+				try {
+					switch (mode) {
+						case 'before-insert':
+							adapter.createMany = () => {
 								throw new Error('synthetic-PROTECTED')
-							})
-						break
-					default:
-						throw new Error('Unexpected test mode')
+							}
+							break
+						case 'after-insert':
+							adapter.createMany = async (...args) => {
+								await createMany(...args)
+								throw new Error('synthetic-PROTECTED')
+							}
+							break
+						case 'metadata':
+							adapter.createMany = async (...args) =>
+								(await createMany(...args)).map((row) => ({ ...row, title: null }))
+							break
+						case 'commit':
+							adapter.session = (work) =>
+								session(async () => {
+									await work()
+									throw new Error('synthetic-PROTECTED')
+								})
+							break
+						default:
+							throw new Error('Unexpected test mode')
+					}
+					expect(
+						await portfolio.secrets.create({ title: 'Uncommitted', value: 'synthetic-PROTECTED' }),
+					).toEqual({
+						ok: false,
+						error: { type: mode === 'metadata' ? 'invalid-output' : 'storage-operation-failed' },
+					})
+				} finally {
+					adapter.createMany = createMany
+					adapter.session = session
 				}
-				expect(await portfolio.secrets.create({ title: 'Uncommitted', value: 'synthetic-PROTECTED' })).toEqual({
-					ok: false,
-					error: { type: mode === 'metadata' ? 'invalid-output' : 'storage-operation-failed' },
-				})
-			} finally {
-				adapter.createMany = createMany
-				adapter.session = session
-			}
-			expect(requireSuccess(await portfolio.secrets.list())).toEqual([])
-		}, dependencies)
-	})
+				expect(requireSuccess(await portfolio.secrets.list())).toEqual([])
+			}, dependencies)
+		},
+	)
 
 	it('validates every full stored field before safe find/list projection', async () => {
 		const dependencies = createTestDependencies()
@@ -868,7 +959,9 @@ describe('secrets', () => {
 			return Promise.resolve({})
 		}
 		await withReadyPortfolio(async (portfolio) => {
-			const secret = requireSuccess(await portfolio.secrets.create({ title: 'Corrupt', value: 'synthetic-PROTECTED' }))
+			const secret = requireSuccess(
+				await portfolio.secrets.create({ title: 'Corrupt', value: 'synthetic-PROTECTED' }),
+			)
 			requireSuccess(await portfolio.secrets.create({ title: 'Valid sibling', value: 'synthetic-raw' }))
 			const baseline = { ...secret, valueRef: 'synthetic-PROTECTED-ref' }
 			const candidates: Record<string, unknown>[] = [
@@ -895,7 +988,10 @@ describe('secrets', () => {
 						ok: false,
 						error: { type: 'invalid-storage-output' },
 					})
-					expect(await portfolio.secrets.list()).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
+					expect(await portfolio.secrets.list()).toEqual({
+						ok: false,
+						error: { type: 'invalid-storage-output' },
+					})
 				}
 			} finally {
 				adapter.findMany = original
@@ -922,7 +1018,9 @@ describe('secrets', () => {
 							valueUpdated: { ...stamp.value, ignored: 'synthetic-PROTECTED' },
 						}
 					})
-				const secret = requireSuccess(await portfolio.secrets.create({ title: 'Safe', value: 'synthetic-PROTECTED' }))
+				const secret = requireSuccess(
+					await portfolio.secrets.create({ title: 'Safe', value: 'synthetic-PROTECTED' }),
+				)
 				expect(Object.keys(secret).sort()).toEqual(['created', 'id', 'title', 'valueUpdated'])
 				expect(Object.keys(secret.created).sort()).toEqual(['at', 'by', 'cid', 'src'])
 				expect(Object.keys(secret.valueUpdated).sort()).toEqual(['at', 'by', 'cid', 'src'])
@@ -955,7 +1053,10 @@ describe('secrets', () => {
 					ok: false,
 					error: { type: 'storage-operation-failed' },
 				})
-				expect(await portfolio.secrets.list()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+				expect(await portfolio.secrets.list()).toEqual({
+					ok: false,
+					error: { type: 'storage-operation-failed' },
+				})
 			} finally {
 				adapter.findMany = original
 			}
@@ -982,7 +1083,10 @@ describe('secrets', () => {
 			const secret = requireSuccess(await portfolio.secrets.create({ title: 'Template', value: 'synthetic-raw' }))
 			const rows = dependencies.storage.adapter.stores.get('secrets')!
 			rows.clear()
-			const expected = Array.from({ length: 125 }, (_, index) => ({ ...secret, id: `01k${index.toString().padStart(23, '0')}` }))
+			const expected = Array.from({ length: 125 }, (_, index) => ({
+				...secret,
+				id: `01k${index.toString().padStart(23, '0')}`,
+			}))
 			for (const row of [...expected].reverse()) rows.set(row.id, { ...row, valueRef: 'synthetic-reference' })
 			expect(requireSuccess(await list())).toEqual(expected)
 			rows.set(secret.id, { ...secret })
@@ -1005,7 +1109,10 @@ describe('secrets', () => {
 			expect(requireSuccess(await find({ secretId: secret.id }))).toEqual(secret)
 			const rows = dependencies.storage.adapter.stores.get('secrets')!
 			rows.set(secret.id, { ...secret, valueRef: '' })
-			expect(await find({ secretId: secret.id })).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
+			expect(await find({ secretId: secret.id })).toEqual({
+				ok: false,
+				error: { type: 'invalid-storage-output' },
+			})
 		}, dependencies)
 	})
 	it('encodes the exact raw value with the one persisted identity and returns only safe metadata', async () => {

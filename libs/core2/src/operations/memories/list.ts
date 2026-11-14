@@ -4,6 +4,7 @@ import { memoryPipe, memorySchema } from '../../domain/memory'
 import { notFoundPipe } from '../../errors'
 import { defineOperation } from '../../runtime/define-operation'
 import { stored, storageCall } from '../../storage/read'
+import { requireMemory } from './require-memory'
 
 export const list = defineOperation({
 	title: 'List Memories',
@@ -13,11 +14,7 @@ export const list = defineOperation({
 	error: v.merge(notFoundPipe, v.object({ resource: v.eq('memory') })),
 	handler: async (input, context) => {
 		if (input.parentId !== null) {
-			const parentQuery = context.storage.on(memorySchema).one().id(input.parentId)
-			const read = await storageCall(() => parentQuery.find())
-			if (!read.ok) return read
-			if (read.value === null) return { ok: false, error: { type: 'not-found', resource: 'memory' as const, id: input.parentId } }
-			const parent = stored(memoryPipe, read.value)
+			const parent = await requireMemory(context.storage, input.parentId)
 			if (!parent.ok) return parent
 		}
 		const query = context.storage

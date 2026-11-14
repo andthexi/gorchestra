@@ -33,7 +33,11 @@ export function useApiAction<TArgs extends unknown[], TResult>(
 	async function execute(...args: TArgs): Promise<ActionExecutionResult<Awaited<TResult>>> {
 		const executionId = startExecution(state, executionController)
 		try {
-			const result = await runWithOptionalInFlightDedupe(inFlightExecutions, options.dedupeKey, async () => await action(...args))
+			const result = await runWithOptionalInFlightDedupe(
+				inFlightExecutions,
+				options.dedupeKey,
+				async () => await action(...args),
+			)
 			finishSuccess(state, executionController, executionId)
 			return { success: true, result }
 		} catch (error) {
@@ -45,7 +49,10 @@ export function useApiAction<TArgs extends unknown[], TResult>(
 	return { ...state, execute, reset: () => resetActionState(state, executionController) }
 }
 
-export function useFetchAction<TResult, TData = Awaited<TResult>>(action: () => Awaitable<TResult>, options: FetchActionOptions<TData>) {
+export function useFetchAction<TResult, TData = Awaited<TResult>>(
+	action: () => Awaitable<TResult>,
+	options: FetchActionOptions<TData>,
+) {
 	const state = createActionState()
 	const controller = useQueryCacheControllerForFetch()
 	const data = shallowRef(resolveInitialData(options.initialData)) as Ref<TData>
@@ -115,7 +122,12 @@ function finishSuccess(state: ActionState, executionController: ExecutionControl
 	state.isLoading.value = false
 }
 
-function finishLocalFailure(state: ActionState, executionController: ExecutionController, executionId: number, error: unknown): void {
+function finishLocalFailure(
+	state: ActionState,
+	executionController: ExecutionController,
+	executionId: number,
+	error: unknown,
+): void {
 	if (!executionController.isCurrent(executionId)) return
 	state.hasExecuted.value = true
 	state.error.value = getErrorMessage(error)

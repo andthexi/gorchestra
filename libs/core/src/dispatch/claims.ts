@@ -21,7 +21,11 @@ export function exclusiveDeliveryClaim(deliveryId: Id): DispatchCoordinationClai
 	return { scope: [{ type: 'delivery', id: deliveryId }], mode: { type: 'exclusive' } }
 }
 
-export function deliverySliceOperationClaims(deliveryId: Id, sliceId: Id, capacity: number): DispatchCoordinationClaim[] {
+export function deliverySliceOperationClaims(
+	deliveryId: Id,
+	sliceId: Id,
+	capacity: number,
+): DispatchCoordinationClaim[] {
 	return [
 		{
 			scope: [{ type: 'delivery', id: deliveryId }, { type: 'slice-pool' }],
@@ -56,7 +60,10 @@ export function admitDispatchCandidates<Candidate extends DispatchClaimCandidate
 	return admitted
 }
 
-export function canAcquireDispatchClaims(claims: readonly DispatchCoordinationClaim[], active: readonly DispatchClaimCandidate[]): boolean {
+export function canAcquireDispatchClaims(
+	claims: readonly DispatchCoordinationClaim[],
+	active: readonly DispatchClaimCandidate[],
+): boolean {
 	for (const claim of claims) {
 		for (const activeRequest of active) {
 			for (const activeClaim of activeRequest.coordinationClaims) {
@@ -69,7 +76,8 @@ export function canAcquireDispatchClaims(claims: readonly DispatchCoordinationCl
 			(count, activeRequest) =>
 				count +
 				activeRequest.coordinationClaims.filter(
-					(activeClaim) => activeClaim.mode.type === 'shared-capacity' && scopesEqual(claim.scope, activeClaim.scope),
+					(activeClaim) =>
+						activeClaim.mode.type === 'shared-capacity' && scopesEqual(claim.scope, activeClaim.scope),
 				).length,
 			0,
 		)
@@ -89,23 +97,32 @@ function compareCandidates(left: DispatchClaimCandidate, right: DispatchClaimCan
 }
 
 function broadestExclusiveScopeLength(candidate: DispatchClaimCandidate): number {
-	const lengths = candidate.coordinationClaims.filter((claim) => claim.mode.type === 'exclusive').map((claim) => claim.scope.length)
+	const lengths = candidate.coordinationClaims
+		.filter((claim) => claim.mode.type === 'exclusive')
+		.map((claim) => claim.scope.length)
 	return lengths.length === 0 ? Number.MAX_SAFE_INTEGER : Math.min(...lengths)
 }
 
-function hasBlockedBroaderExclusiveClaim(candidate: DispatchClaimCandidate, active: readonly DispatchClaimCandidate[]): boolean {
+function hasBlockedBroaderExclusiveClaim(
+	candidate: DispatchClaimCandidate,
+	active: readonly DispatchClaimCandidate[],
+): boolean {
 	return candidate.coordinationClaims.some(
 		(claim) =>
 			claim.mode.type === 'exclusive' &&
 			active.some((activeRequest) =>
 				activeRequest.coordinationClaims.some(
-					(activeClaim) => claim.scope.length < activeClaim.scope.length && scopeIsPrefix(claim.scope, activeClaim.scope),
+					(activeClaim) =>
+						claim.scope.length < activeClaim.scope.length && scopeIsPrefix(claim.scope, activeClaim.scope),
 				),
 			),
 	)
 }
 
-function conflictsWithReservation(candidate: DispatchClaimCandidate, reservations: readonly DispatchClaimCandidate[]): boolean {
+function conflictsWithReservation(
+	candidate: DispatchClaimCandidate,
+	reservations: readonly DispatchClaimCandidate[],
+): boolean {
 	return reservations.some(
 		(reservation) =>
 			reservation.id !== candidate.id &&
@@ -121,16 +138,25 @@ function conflictsWithReservation(candidate: DispatchClaimCandidate, reservation
 	)
 }
 
-function scopeIsPrefix(prefix: readonly DispatchCoordinationScopeSegment[], scope: readonly DispatchCoordinationScopeSegment[]): boolean {
+function scopeIsPrefix(
+	prefix: readonly DispatchCoordinationScopeSegment[],
+	scope: readonly DispatchCoordinationScopeSegment[],
+): boolean {
 	if (prefix.length > scope.length) return false
 	return prefix.every((segment, index) => segmentsEqual(segment, scope[index]))
 }
 
-function scopesEqual(left: readonly DispatchCoordinationScopeSegment[], right: readonly DispatchCoordinationScopeSegment[]): boolean {
+function scopesEqual(
+	left: readonly DispatchCoordinationScopeSegment[],
+	right: readonly DispatchCoordinationScopeSegment[],
+): boolean {
 	return left.length === right.length && scopeIsPrefix(left, right)
 }
 
-function segmentsEqual(left: DispatchCoordinationScopeSegment, right: DispatchCoordinationScopeSegment | undefined): boolean {
+function segmentsEqual(
+	left: DispatchCoordinationScopeSegment,
+	right: DispatchCoordinationScopeSegment | undefined,
+): boolean {
 	if (right === undefined || left.type !== right.type) return false
 	switch (left.type) {
 		case 'agent-run':
@@ -165,10 +191,10 @@ if (import.meta.vitest) {
 			expect(canAcquireDispatchClaims(sameSlice.coordinationClaims, [firstSlice])).toBe(false)
 			expect(canAcquireDispatchClaims(delivery.coordinationClaims, [firstSlice])).toBe(false)
 			expect(
-				canAcquireDispatchClaims(candidate(5, deliverySliceOperationClaims(deliveryId, id(22), 2)).coordinationClaims, [
-					firstSlice,
-					secondSlice,
-				]),
+				canAcquireDispatchClaims(
+					candidate(5, deliverySliceOperationClaims(deliveryId, id(22), 2)).coordinationClaims,
+					[firstSlice, secondSlice],
+				),
 			).toBe(false)
 		})
 

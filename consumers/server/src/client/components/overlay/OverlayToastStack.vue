@@ -4,13 +4,15 @@
 		tag="section"
 		class="pointer-events-none fixed top-4 right-4 z-50 grid w-[min(420px,calc(100vw-32px))] gap-3"
 		aria-live="polite"
-		aria-label="Notifications">
+		aria-label="Notifications"
+	>
 		<article
 			v-for="message in toastMessages"
 			:key="message.id"
 			class="pointer-events-auto rounded-card border bg-card p-4 text-card-contrast shadow-panel"
 			:class="kindClass(message.kind)"
-			:role="message.kind === 'error' ? 'alert' : 'status'">
+			:role="message.kind === 'error' ? 'alert' : 'status'"
+		>
 			<div class="flex items-start justify-between gap-3">
 				<div class="grid gap-1">
 					<UiHeading as="h2" size="subsection">{{ message.title }}</UiHeading>
@@ -21,7 +23,8 @@
 					variant="ghost"
 					size="icon"
 					:aria-label="`Dismiss notification: ${message.title}`"
-					@click="dismiss(message.id)">
+					@click="dismiss(message.id)"
+				>
 					×
 				</UiButton>
 			</div>

@@ -2,7 +2,12 @@ import { v, type PipeOutput } from 'valleyed'
 
 import { agentRunPipe } from '../domain/agent-run'
 import { idPipe } from '../domain/commons'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { buildQueryHandler } from '../utils/query-handler'
 import { getRequired } from '../utils/storage/helpers'
 import type { CoreTransactions } from '../utils/transactions'
@@ -13,7 +18,8 @@ export type Input = PipeOutput<typeof inputPipe>
 
 export const resultPipe = agentRunPipe
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createGetAgentRunQuery(transactions: CoreTransactions): Operation {
@@ -24,7 +30,8 @@ export function createGetAgentRunQuery(transactions: CoreTransactions): Operatio
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { createTestCoreRuntime, createTestCoreServices, defaultAgentRunSandboxConfig } = await import('../utils/test-helpers')
+	const { createTestCoreRuntime, createTestCoreServices, defaultAgentRunSandboxConfig } =
+		await import('../utils/test-helpers')
 
 	describe('getAgentRun query', () => {
 		it('validates input before reading storage', async () => {
@@ -46,7 +53,10 @@ if (import.meta.vitest) {
 
 			const result = await query({ agentRunId: '01k00000000000000000000002' })
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'agent-run', id: '01k00000000000000000000002' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'agent-run', id: '01k00000000000000000000002' },
+			})
 		})
 
 		it('returns the Agent Run by id without validating its purpose target', async () => {

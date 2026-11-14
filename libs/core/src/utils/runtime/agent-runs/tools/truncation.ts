@@ -35,7 +35,11 @@ export function lineCount(content: string): number {
 	return splitLinesForCounting(content).length
 }
 
-export function resultLimitTruncation(totalResults: number, outputResults: number, output: string): AgentRunToolTruncation | null {
+export function resultLimitTruncation(
+	totalResults: number,
+	outputResults: number,
+	output: string,
+): AgentRunToolTruncation | null {
 	return totalResults < outputResults
 		? null
 		: {
@@ -67,10 +71,22 @@ function truncateTail(content: string, limits: { maxLines: number; maxBytes: num
 		outputBytes += lineBytes
 	}
 	const output = outputLines.join('\n')
-	return truncated(output, 'tail', lines.length, totalBytes, outputLines.length, Buffer.byteLength(output, 'utf8'), false)
+	return truncated(
+		output,
+		'tail',
+		lines.length,
+		totalBytes,
+		outputLines.length,
+		Buffer.byteLength(output, 'utf8'),
+		false,
+	)
 }
 
-function truncateFromLines(content: string, limits: { maxLines: number; maxBytes: number }, strategy: 'head'): TruncatedText {
+function truncateFromLines(
+	content: string,
+	limits: { maxLines: number; maxBytes: number },
+	strategy: 'head',
+): TruncatedText {
 	const totalBytes = Buffer.byteLength(content, 'utf8')
 	const lines = splitLinesForCounting(content)
 	if (lines.length <= limits.maxLines && totalBytes <= limits.maxBytes) return untruncated(content, lines.length)
@@ -89,7 +105,15 @@ function truncateFromLines(content: string, limits: { maxLines: number; maxBytes
 		outputBytes += lineBytes
 	}
 	const output = outputLines.join('\n')
-	return truncated(output, strategy, lines.length, totalBytes, outputLines.length, Buffer.byteLength(output, 'utf8'), false)
+	return truncated(
+		output,
+		strategy,
+		lines.length,
+		totalBytes,
+		outputLines.length,
+		Buffer.byteLength(output, 'utf8'),
+		false,
+	)
 }
 
 function untruncated(content: string, totalLines: number): TruncatedText {
@@ -126,14 +150,22 @@ if (import.meta.vitest) {
 
 	describe('tool truncation helpers', () => {
 		it('keeps read output from the head and records truncation evidence', () => {
-			const output = truncateReadText(Array.from({ length: textReadMaxLines + 1 }, (_, index) => `line ${index + 1}`).join('\n'))
+			const output = truncateReadText(
+				Array.from({ length: textReadMaxLines + 1 }, (_, index) => `line ${index + 1}`).join('\n'),
+			)
 			expect(output.outputLines).toBe(textReadMaxLines)
 			expect(output.content.endsWith(`line ${textReadMaxLines}`)).toBe(true)
-			expect(output.truncation).toMatchObject({ truncated: true, strategy: 'head', originalLines: textReadMaxLines + 1 })
+			expect(output.truncation).toMatchObject({
+				truncated: true,
+				strategy: 'head',
+				originalLines: textReadMaxLines + 1,
+			})
 		})
 
 		it('keeps command output from the tail and truncates long grep lines', () => {
-			const output = truncateCommandText(Array.from({ length: textReadMaxLines + 1 }, (_, index) => `line ${index + 1}`).join('\n'))
+			const output = truncateCommandText(
+				Array.from({ length: textReadMaxLines + 1 }, (_, index) => `line ${index + 1}`).join('\n'),
+			)
 			expect(output.content.startsWith('line 2\n')).toBe(true)
 			expect(output.truncation).toMatchObject({ truncated: true, strategy: 'tail' })
 			expect(truncateLine('x'.repeat(grepMaxLineLength + 1))).toEqual({

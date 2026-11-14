@@ -2,7 +2,12 @@ import { v, type PipeInput, type PipeOutput } from 'valleyed'
 
 import { agentRunEventPipe } from '../domain/agent-run-event'
 import { idPipe, paginatedQueryEnvelopePipe, paginatedQueryInputPipe } from '../domain/commons'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { buildQueryHandler } from '../utils/query-handler'
 import { getRequired, listRecordsPaginated } from '../utils/storage/helpers'
 import type { CoreTransactions } from '../utils/transactions'
@@ -13,7 +18,8 @@ export type Input = UndefinedToOptional<PipeInput<typeof inputPipe>>
 
 export const resultPipe = paginatedQueryEnvelopePipe(agentRunEventPipe)
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createListAgentRunEventsQuery(transactions: CoreTransactions): Operation {
@@ -53,7 +59,10 @@ if (import.meta.vitest) {
 
 			const result = await query({ agentRunId: '01k00000000000000000000002' })
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'agent-run', id: '01k00000000000000000000002' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'agent-run', id: '01k00000000000000000000002' },
+			})
 		})
 
 		it('returns Agent Run Events ordered by id before the exclusive id', async () => {
@@ -67,10 +76,17 @@ if (import.meta.vitest) {
 				agentRunId: '01k00000000000000000001001',
 			})
 			options.tx.agentRunEvents.records.set(second.id, second)
-			options.tx.agentRunEvents.records.set('01k00000000000000000000003', agentRunEvent('01k00000000000000000000003', 1))
+			options.tx.agentRunEvents.records.set(
+				'01k00000000000000000000003',
+				agentRunEvent('01k00000000000000000000003', 1),
+			)
 			const query = createListAgentRunEventsQuery(options.transactions)
 
-			const result = await query({ agentRunId: '01k00000000000000000000002', beforeId: '01k00000000000000000000006', limit: 10 })
+			const result = await query({
+				agentRunId: '01k00000000000000000000002',
+				beforeId: '01k00000000000000000000006',
+				limit: 10,
+			})
 
 			expect(result).toEqual({
 				ok: true,
@@ -87,7 +103,9 @@ if (import.meta.vitest) {
 			seedAgentRun(options)
 			seedAgentRunEvents(options, 101)
 
-			const result = await createListAgentRunEventsQuery(options.transactions)({ agentRunId: '01k00000000000000000000002' })
+			const result = await createListAgentRunEventsQuery(options.transactions)({
+				agentRunId: '01k00000000000000000000002',
+			})
 
 			expect(result).toMatchObject({ ok: true })
 			expect(result.ok ? result.value.items.map((event) => event.id) : []).toEqual(rangeDesc(101, 1).map(cursor))

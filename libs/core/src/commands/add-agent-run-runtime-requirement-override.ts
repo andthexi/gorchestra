@@ -1,9 +1,12 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { requestAgentRunPreparation } from '../dispatch/accept'
 import type { AgentRunEvent } from '../domain/agent-run-event'
-import { agentRunRuntimeRequirementsPipe, firstDuplicateRuntimeRequirement, runtimeRequirementKey } from '../domain/agent-run-runtime'
+import {
+	agentRunRuntimeRequirementsPipe,
+	firstDuplicateRuntimeRequirement,
+	runtimeRequirementKey,
+} from '../domain/agent-run-runtime'
 import { idPipe } from '../domain/commons'
 import type {
 	AgentRunNotActiveError,
@@ -22,6 +25,7 @@ import { auditStamp, getRequired, runtimeRecord } from '../utils/command-storage
 import type { CoreRuntime } from '../utils/runtime'
 import { validateRuntimeRequirementSecretReferences } from '../utils/runtime-requirement-secrets'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const nonEmptyRuntimeRequirementsPipe = agentRunRuntimeRequirementsPipe.pipe(
 	v.custom((requirements) => requirements.length > 0, 'Expected at least one Agent Run Runtime Requirement.'),
@@ -48,51 +52,60 @@ export function createAddAgentRunRuntimeRequirementOverrideCommand(runtime: Core
 		const stamp = auditStamp(runtime.values, context)
 		if (!stamp.ok) return stamp
 
-		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(async ({ storage, notifications, dispatch }) => {
-			const duplicateRequirement = firstDuplicateRuntimeRequirement(input.requirements)
-			if (duplicateRequirement !== null) return duplicateRuntimeRequirement(duplicateRequirement)
+		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(
+			async ({ storage, notifications, dispatch }) => {
+				const duplicateRequirement = firstDuplicateRuntimeRequirement(input.requirements)
+				if (duplicateRequirement !== null) return duplicateRuntimeRequirement(duplicateRequirement)
 
-			const agentRun = await getRequired('agent-run', storage, input.agentRunId)
-			if (!agentRun.ok) return agentRun
-			if (agentRun.value.completed !== null)
-				return { ok: false, error: { type: 'agent-run-not-active', agentRunId: input.agentRunId } }
+				const agentRun = await getRequired('agent-run', storage, input.agentRunId)
+				if (!agentRun.ok) return agentRun
+				if (agentRun.value.completed !== null)
+					return { ok: false, error: { type: 'agent-run-not-active', agentRunId: input.agentRunId } }
 
-			const duplicateExisting = input.requirements.find((requirement) =>
-				new Set(agentRun.value.desiredRuntimeRequirements.map(runtimeRequirementKey)).has(runtimeRequirementKey(requirement)),
-			)
-			if (duplicateExisting !== undefined) return duplicateRuntimeRequirement(duplicateExisting)
+				const duplicateExisting = input.requirements.find((requirement) =>
+					new Set(agentRun.value.desiredRuntimeRequirements.map(runtimeRequirementKey)).has(
+						runtimeRequirementKey(requirement),
+					),
+				)
+				if (duplicateExisting !== undefined) return duplicateRuntimeRequirement(duplicateExisting)
 
-			const secretValidation = await validateRuntimeRequirementSecretReferences(storage, input.requirements)
-			if (!secretValidation.ok) return secretValidation
+				const secretValidation = await validateRuntimeRequirementSecretReferences(storage, input.requirements)
+				if (!secretValidation.ok) return secretValidation
 
-			const blocked = runtimeRecord(runtime.values)
-			if (!blocked.ok) return blocked
+				const blocked = runtimeRecord(runtime.values)
+				if (!blocked.ok) return blocked
 
-			const event = await appendAgentRunEvent({ values: runtime.values, notifications }, storage, input.agentRunId, {
-				type: 'agent-run-runtime-requirement-override-added',
-				requirements: input.requirements,
-				authorized: stamp.value,
-			})
-			if (!event.ok) return event
+				const event = await appendAgentRunEvent(
+					{ values: runtime.values, notifications },
+					storage,
+					input.agentRunId,
+					{
+						type: 'agent-run-runtime-requirement-override-added',
+						requirements: input.requirements,
+						authorized: stamp.value,
+					},
+				)
+				if (!event.ok) return event
 
-			const runtimeRequirementOverrides = [
-				...agentRun.value.runtimeRequirementOverrides,
-				{ requirements: input.requirements, added: stamp.value, eventId: event.value.id },
-			]
-			const desiredRuntimeRequirements = [...agentRun.value.desiredRuntimeRequirements, ...input.requirements]
-			const updated = await updateAgentRunRecord(storage, notifications, input.agentRunId, {
-				runtimeRequirementOverrides,
-				desiredRuntimeRequirements,
-				blocked: { type: 'preparation-pending', blocked: blocked.value },
-			})
-			if (!updated.ok) return updated
+				const runtimeRequirementOverrides = [
+					...agentRun.value.runtimeRequirementOverrides,
+					{ requirements: input.requirements, added: stamp.value, eventId: event.value.id },
+				]
+				const desiredRuntimeRequirements = [...agentRun.value.desiredRuntimeRequirements, ...input.requirements]
+				const updated = await updateAgentRunRecord(storage, notifications, input.agentRunId, {
+					runtimeRequirementOverrides,
+					desiredRuntimeRequirements,
+					blocked: { type: 'preparation-pending', blocked: blocked.value },
+				})
+				if (!updated.ok) return updated
 
-			const requested = await requestAgentRunPreparation(dispatch, input.agentRunId, {
-				type: 'runtime-requirement-override-added',
-				eventId: event.value.id,
-			})
-			return requested.ok ? event : requested
-		})
+				const requested = await requestAgentRunPreparation(dispatch, input.agentRunId, {
+					type: 'runtime-requirement-override-added',
+					eventId: event.value.id,
+				})
+				return requested.ok ? event : requested
+			},
+		)
 	})
 }
 
@@ -104,13 +117,16 @@ function duplicateRuntimeRequirement(
 
 if (import.meta.vitest) {
 	const { describe, expect, it, vi } = import.meta.vitest
-	const { context, createTestCoreRuntime, createTestCoreServices, seedSecret, testModelAgentRun } = await import('../utils/test-helpers')
+	const { context, createTestCoreRuntime, createTestCoreServices, seedSecret, testModelAgentRun } =
+		await import('../utils/test-helpers')
 
 	describe('addAgentRunRuntimeRequirementOverride command', () => {
 		it('appends an override batch for active autonomous Agent Runs and dispatches Agent Run preparation', async () => {
 			const publicationOrder: string[] = []
 			const options = createTestCoreServices({
-				notifications: { publish: (notification) => publicationOrder.push(`notification:${notification.data.type}`) },
+				notifications: {
+					publish: (notification) => publicationOrder.push(`notification:${notification.data.type}`),
+				},
 				dispatchWake: {
 					publish: () => publicationOrder.push('dispatch-wake'),
 					subscribe: () => () => {},
@@ -133,24 +149,35 @@ if (import.meta.vitest) {
 			const result = await command(
 				{
 					agentRunId: '01k00000000000000000000002',
-					requirements: [{ type: 'environment-secret', envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' }],
+					requirements: [
+						{ type: 'environment-secret', envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' },
+					],
 				},
 				context,
 			)
 
 			expect(result).toMatchObject({
 				ok: true,
-				value: { body: { type: 'agent-run-runtime-requirement-override-added' }, id: '01k00000000000000000010001' },
+				value: {
+					body: { type: 'agent-run-runtime-requirement-override-added' },
+					id: '01k00000000000000000010001',
+				},
 			})
 			expect(options.tx.agentRuns.records.get('01k00000000000000000000002')).toMatchObject({
 				blocked: { type: 'preparation-pending' },
-				desiredRuntimeRequirements: [{ type: 'environment-secret', envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' }],
+				desiredRuntimeRequirements: [
+					{ type: 'environment-secret', envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' },
+				],
 				runtimeRequirementOverrides: [{ eventId: '01k00000000000000000010001' }],
 			})
 			expect([...options.tx.dispatchRequests.records.values()].map((request) => request.payload)).toEqual([
 				{ type: 'agent-run-preparation', agentRunId: '01k00000000000000000000002' },
 			])
-			expect(publicationOrder).toEqual(['notification:agent-run-event-created', 'notification:agent-run-updated', 'dispatch-wake'])
+			expect(publicationOrder).toEqual([
+				'notification:agent-run-event-created',
+				'notification:agent-run-updated',
+				'dispatch-wake',
+			])
 		})
 
 		it('rolls back queued notifications and writes when dispatch acceptance fails', async () => {
@@ -169,14 +196,19 @@ if (import.meta.vitest) {
 			const result = await command(
 				{
 					agentRunId: original.id,
-					requirements: [{ type: 'environment-secret', envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' }],
+					requirements: [
+						{ type: 'environment-secret', envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' },
+					],
 				},
 				context,
 			)
 
 			expect(result).toMatchObject({
 				ok: false,
-				error: { type: 'storage-operation-failed', operation: { type: 'create', resource: 'dispatch-request' } },
+				error: {
+					type: 'storage-operation-failed',
+					operation: { type: 'create', resource: 'dispatch-request' },
+				},
 			})
 			expect(options.tx.agentRuns.records.get(original.id)).toEqual(original)
 			expect(options.tx.agentRunEvents.records.size).toBe(0)
@@ -200,12 +232,17 @@ if (import.meta.vitest) {
 			const result = await command(
 				{
 					agentRunId: agentRun.id,
-					requirements: [{ type: 'environment-secret', envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' }],
+					requirements: [
+						{ type: 'environment-secret', envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' },
+					],
 				},
 				context,
 			)
 
-			expect(result).toMatchObject({ ok: true, value: { body: { type: 'agent-run-runtime-requirement-override-added' } } })
+			expect(result).toMatchObject({
+				ok: true,
+				value: { body: { type: 'agent-run-runtime-requirement-override-added' } },
+			})
 		})
 
 		it('rejects completed Agent Runs', async () => {
@@ -220,12 +257,17 @@ if (import.meta.vitest) {
 			const result = await command(
 				{
 					agentRunId: '01k00000000000000000000002',
-					requirements: [{ type: 'environment-secret', envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' }],
+					requirements: [
+						{ type: 'environment-secret', envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' },
+					],
 				},
 				context,
 			)
 
-			expect(result).toEqual({ ok: false, error: { type: 'agent-run-not-active', agentRunId: '01k00000000000000000000002' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'agent-run-not-active', agentRunId: '01k00000000000000000000002' },
+			})
 		})
 	})
 }

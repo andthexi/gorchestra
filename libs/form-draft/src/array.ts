@@ -86,6 +86,8 @@ export class FormDraftArray<T extends FormDraftLike> extends FormDraft<InferEnti
 	}
 
 	private childModels(): InferModel<T>[] {
-		return this.#children.value.map((instance) => deepToRaw((instance as unknown as { model: () => InferModel<T> }).model()))
+		return this.#children.value.map((instance) =>
+			deepToRaw((instance as unknown as { model: () => InferModel<T> }).model()),
+		)
 	}
 }

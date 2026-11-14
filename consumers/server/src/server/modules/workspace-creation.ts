@@ -1,6 +1,6 @@
-import { assignWorkspaceOwnerRole, createWorkspace, createWorkspaceMember } from './workspaces'
 import type { ServerStorage } from '../storage/repo'
 import type { Workspace, WorkspaceMember, WorkspaceOwnerRole } from '../storage/schemas'
+import { assignWorkspaceOwnerRole, createWorkspace, createWorkspaceMember } from './workspaces'
 
 export type CreateWorkspaceForUserInput = {
 	serverStorage: ServerStorage
@@ -15,9 +15,15 @@ export type CreateWorkspaceForUserResult = {
 	workspaceOwnerRole: WorkspaceOwnerRole
 }
 
-export async function createWorkspaceForUser(input: CreateWorkspaceForUserInput): Promise<CreateWorkspaceForUserResult> {
+export async function createWorkspaceForUser(
+	input: CreateWorkspaceForUserInput,
+): Promise<CreateWorkspaceForUserResult> {
 	return await input.serverStorage.repo.session(async () => {
-		const workspace = await createWorkspace({ serverStorage: input.serverStorage, displayName: input.displayName, now: input.now })
+		const workspace = await createWorkspace({
+			serverStorage: input.serverStorage,
+			displayName: input.displayName,
+			now: input.now,
+		})
 		const workspaceMember = await createWorkspaceMember({
 			serverStorage: input.serverStorage,
 			workspaceId: workspace.id,
@@ -41,7 +47,9 @@ if (import.meta.vitest) {
 	const { listAccessibleWorkspaces } = await import('./workspaces')
 	const { workspaceSchema } = await import('../storage/schemas')
 
-	const { cleanupTempServerStorage, withTempServerStorage } = createTempServerStorageTestHarness('gorchestra-workspace-creation-')
+	const { cleanupTempServerStorage, withTempServerStorage } = createTempServerStorageTestHarness(
+		'gorchestra-workspace-creation-',
+	)
 	const testNow = new Date('2026-07-07T10:00:00.000Z')
 	const missingUserId = '01k00000000000000000000061'
 
@@ -72,7 +80,12 @@ if (import.meta.vitest) {
 				revokedAt: null,
 			})
 			expect(await listAccessibleWorkspaces({ serverStorage, userId: user.id })).toEqual([
-				{ ...result.workspace, member: result.workspaceMember, ownerRole: result.workspaceOwnerRole, portfolios: [] },
+				{
+					...result.workspace,
+					member: result.workspaceMember,
+					ownerRole: result.workspaceOwnerRole,
+					portfolios: [],
+				},
 			])
 		})
 	}
@@ -80,14 +93,25 @@ if (import.meta.vitest) {
 	async function testRollsBackWorkspaceCreationWhenOwnerCannotBeCreated(): Promise<void> {
 		await withTempServerStorage(async (serverStorage) => {
 			await expect(
-				createWorkspaceForUser({ serverStorage, userId: missingUserId, displayName: 'Delivery Ops', now: testNow }),
+				createWorkspaceForUser({
+					serverStorage,
+					userId: missingUserId,
+					displayName: 'Delivery Ops',
+					now: testNow,
+				}),
 			).rejects.toThrow()
 			expect(await serverStorage.repo.on(workspaceSchema).all().find()).toEqual([])
 		})
 	}
 
 	describe('Workspace Creation module', () => {
-		it('creates a Workspace, Workspace Member, and Workspace Owner role for a signed-in User', testCreatesOwnedWorkspaceForUser)
-		it('rolls back Workspace creation when ownership setup fails', testRollsBackWorkspaceCreationWhenOwnerCannotBeCreated)
+		it(
+			'creates a Workspace, Workspace Member, and Workspace Owner role for a signed-in User',
+			testCreatesOwnedWorkspaceForUser,
+		)
+		it(
+			'rolls back Workspace creation when ownership setup fails',
+			testRollsBackWorkspaceCreationWhenOwnerCannotBeCreated,
+		)
 	})
 }

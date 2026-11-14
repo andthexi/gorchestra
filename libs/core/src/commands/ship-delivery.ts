@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import type { Action } from '../domain/action'
 import { idPipe } from '../domain/commons'
 import type { Delivery, DeliveryWorkState } from '../domain/delivery'
@@ -10,6 +9,7 @@ import { auditStamp, deliveryWorkStateMismatch, updateRecordValue } from '../uti
 import { buildDeliveryContext, getDeliveryState } from '../utils/delivery-context'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const shipDeliveryInputPipe = v.object({ deliveryId: idPipe })
 export type Input = PipeOutput<typeof shipDeliveryInputPipe>
@@ -67,7 +67,10 @@ if (import.meta.vitest) {
 
 			const result = await command({} as never, context)
 
-			expect(result).toMatchObject({ ok: false, error: { type: 'invalid-input', boundary: 'command', operation: 'shipDelivery' } })
+			expect(result).toMatchObject({
+				ok: false,
+				error: { type: 'invalid-input', boundary: 'command', operation: 'shipDelivery' },
+			})
 		})
 
 		it('returns not-found when the Delivery does not exist', async () => {
@@ -75,7 +78,10 @@ if (import.meta.vitest) {
 
 			const result = await command({ deliveryId: '01k00000000000000000010019' }, context)
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'delivery', id: '01k00000000000000000010019' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'delivery', id: '01k00000000000000000010019' },
+			})
 		})
 
 		it('sets Delivery.closed when a Delivery Review Surface was merged', async () => {
@@ -90,7 +96,10 @@ if (import.meta.vitest) {
 				closed: {
 					type: 'shipped' as const,
 					shipped: localStamp(),
-					integration: { type: 'review-surface-merged' as const, reviewSurfaceId: '01k00000000000000000000037' },
+					integration: {
+						type: 'review-surface-merged' as const,
+						reviewSurfaceId: '01k00000000000000000000037',
+					},
 				},
 			}
 			expect(result).toEqual({ ok: true, value: expected })
@@ -196,7 +205,11 @@ if (import.meta.vitest) {
 	function seedMergedDeliveryReviewSurface(tx: ReturnType<typeof createTestCoreServices>['tx']) {
 		tx.reviewSurfaces.records.set('01k00000000000000000000037', {
 			id: '01k00000000000000000000037',
-			scope: { type: 'delivery', deliveryId: '01k00000000000000000000008', deliveryArtifactId: '01k00000000000000000000010' },
+			scope: {
+				type: 'delivery',
+				deliveryId: '01k00000000000000000000008',
+				deliveryArtifactId: '01k00000000000000000000010',
+			},
 			config: {
 				provider: 'github',
 				pullRequestNumber: 1,
@@ -219,7 +232,18 @@ if (import.meta.vitest) {
 		})
 	}
 
-	function seedAction(tx: ReturnType<typeof createTestCoreServices>['tx'], id: string, at: string, result: Action['result']) {
-		tx.actions.records.set(id, { id, deliveryId: '01k00000000000000000000008', performed: { at }, authorized: null, result })
+	function seedAction(
+		tx: ReturnType<typeof createTestCoreServices>['tx'],
+		id: string,
+		at: string,
+		result: Action['result'],
+	) {
+		tx.actions.records.set(id, {
+			id,
+			deliveryId: '01k00000000000000000000008',
+			performed: { at },
+			authorized: null,
+			result,
+		})
 	}
 }

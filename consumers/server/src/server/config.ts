@@ -20,14 +20,32 @@ const positiveIntegerPipe = v.number().pipe(v.int(), v.gte(1))
 export const portfolioCoreSupervisionConfigPipe = v
 	.defaults(
 		v.object({
-			reconciliationIntervalMs: v.defaults(positiveIntegerPipe, defaultPortfolioCoreSupervisionConfig.reconciliationIntervalMs),
-			retryInitialDelayMs: v.defaults(positiveIntegerPipe, defaultPortfolioCoreSupervisionConfig.retryInitialDelayMs),
+			reconciliationIntervalMs: v.defaults(
+				positiveIntegerPipe,
+				defaultPortfolioCoreSupervisionConfig.reconciliationIntervalMs,
+			),
+			retryInitialDelayMs: v.defaults(
+				positiveIntegerPipe,
+				defaultPortfolioCoreSupervisionConfig.retryInitialDelayMs,
+			),
 			retryMaxDelayMs: v.defaults(positiveIntegerPipe, defaultPortfolioCoreSupervisionConfig.retryMaxDelayMs),
-			retryMultiplier: v.defaults(v.number().pipe(v.gt(1)), defaultPortfolioCoreSupervisionConfig.retryMultiplier),
-			retryJitterRatio: v.defaults(v.number().pipe(v.gte(0), v.lte(1)), defaultPortfolioCoreSupervisionConfig.retryJitterRatio),
-			runtimeStartTimeoutMs: v.defaults(positiveIntegerPipe, defaultPortfolioCoreSupervisionConfig.runtimeStartTimeoutMs),
+			retryMultiplier: v.defaults(
+				v.number().pipe(v.gt(1)),
+				defaultPortfolioCoreSupervisionConfig.retryMultiplier,
+			),
+			retryJitterRatio: v.defaults(
+				v.number().pipe(v.gte(0), v.lte(1)),
+				defaultPortfolioCoreSupervisionConfig.retryJitterRatio,
+			),
+			runtimeStartTimeoutMs: v.defaults(
+				positiveIntegerPipe,
+				defaultPortfolioCoreSupervisionConfig.runtimeStartTimeoutMs,
+			),
 			shutdownGraceMs: v.defaults(positiveIntegerPipe, defaultPortfolioCoreSupervisionConfig.shutdownGraceMs),
-			maxConcurrentStarts: v.defaults(positiveIntegerPipe, defaultPortfolioCoreSupervisionConfig.maxConcurrentStarts),
+			maxConcurrentStarts: v.defaults(
+				positiveIntegerPipe,
+				defaultPortfolioCoreSupervisionConfig.maxConcurrentStarts,
+			),
 		}),
 		{},
 	)
@@ -172,9 +190,9 @@ if (import.meta.vitest) {
 			['negative processor timing', { coreDispatchProcessor: { heartbeatMs: -1 } }],
 			['fractional processor capacity', { coreDispatchProcessor: { maxConcurrentAttempts: 1.5 } }],
 		])('rejects %s', (_name, invalidGroup) => {
-			expect(() => validateServerConsumerConfig({ ...baseConfig, ...invalidGroup } as ServerConsumerConfig)).toThrow(
-				'Server Consumer Config is not valid',
-			)
+			expect(() =>
+				validateServerConsumerConfig({ ...baseConfig, ...invalidGroup } as ServerConsumerConfig),
+			).toThrow('Server Consumer Config is not valid')
 		})
 
 		it('rejects a retry initial delay greater than its cap', () => {

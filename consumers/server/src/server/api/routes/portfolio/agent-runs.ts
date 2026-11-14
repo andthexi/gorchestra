@@ -2,6 +2,10 @@ import { Domain, Queries } from '@gorchestra/core'
 import { Router } from 'equipped/server'
 import { v } from 'valleyed'
 
+import type { ServerApiContext } from '../../context'
+import { throwCoreOperationError } from '../../errors'
+import { withSelectedPortfolioCore } from '../../portfolio-context'
+import { coreIdPipe } from '../../schemas'
 import {
 	agentRunRuntimeRequirementOverrideRequestSchema,
 	portfolioRequestCookieSchema,
@@ -11,10 +15,6 @@ import {
 	type PortfolioRequestCookies,
 	type SendAgentRunMessageRequest,
 } from './shared'
-import type { ServerApiContext } from '../../context'
-import { throwCoreOperationError } from '../../errors'
-import { withSelectedPortfolioCore } from '../../portfolio-context'
-import { coreIdPipe } from '../../schemas'
 
 const agentRunEventsQuerySchema = Domain.Commons.paginatedQueryInputPipe
 
@@ -50,7 +50,9 @@ export function createAgentRunsApiRouter(context: ServerApiContext) {
 				body: agentRunRuntimeRequirementOverrideRequestSchema,
 				response: Domain.AgentRunEvent.agentRunEventPipe,
 			},
-		})(async (req) => addSelectedPortfolioAgentRunRuntimeRequirementOverride(context, req.cookies, req.params.agentRunId, req.body))
+		})(async (req) =>
+		addSelectedPortfolioAgentRunRuntimeRequirementOverride(context, req.cookies, req.params.agentRunId, req.body),
+	)
 }
 
 function getSelectedPortfolioAgentRun(

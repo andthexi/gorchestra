@@ -1,10 +1,17 @@
 import { Instance } from 'equipped'
 
-import type { Result } from './types'
 import type { CommandContext } from '../commands/types'
-import { idPipe, isoDateTimePipe, type AuditStamp, type Id, type IsoDateTime, type RuntimeRecord } from '../domain/commons'
+import {
+	idPipe,
+	isoDateTimePipe,
+	type AuditStamp,
+	type Id,
+	type IsoDateTime,
+	type RuntimeRecord,
+} from '../domain/commons'
 import type { InvalidCoreServiceOutputError } from '../errors'
 import { validateCoreServiceOutput } from '../validation'
+import type { Result } from './types'
 
 export interface CoreRuntimeValues {
 	nextId(): string
@@ -18,7 +25,10 @@ export function defaultCoreRuntimeValues(): CoreRuntimeValues {
 	}
 }
 
-export function auditStamp(values: CoreRuntimeValues, context: CommandContext): Result<AuditStamp, InvalidCoreServiceOutputError> {
+export function auditStamp(
+	values: CoreRuntimeValues,
+	context: CommandContext,
+): Result<AuditStamp, InvalidCoreServiceOutputError> {
 	const nowResult = nowIso(values)
 	if (!nowResult.ok) return nowResult
 

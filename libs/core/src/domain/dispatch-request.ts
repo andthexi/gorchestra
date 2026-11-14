@@ -1,5 +1,6 @@
 import { v, type Pipe, type PipeOutput } from 'valleyed'
 
+import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 import {
 	freeFormStringPipe,
 	idPipe,
@@ -11,7 +12,6 @@ import {
 	type Id,
 } from './commons'
 import { deliveryWorkOperationPipe } from './delivery-work-operation'
-import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 
 export const maxDispatchReasons = 64
 export const maxDispatchAttemptHistory = 64
@@ -43,7 +43,10 @@ export type DispatchRequestPayload = PipeOutput<typeof dispatchRequestPayloadPip
 export const dispatchReasonPipe = v.discriminate((value) => value.type, {
 	'input-appended': v.object({ type: v.eq('input-appended'), inputEventId: idPipe }),
 	'agent-run-created': v.object({ type: v.eq('agent-run-created') }),
-	'runtime-requirement-override-added': v.object({ type: v.eq('runtime-requirement-override-added'), eventId: idPipe }),
+	'runtime-requirement-override-added': v.object({
+		type: v.eq('runtime-requirement-override-added'),
+		eventId: idPipe,
+	}),
 	'agent-run-completed': v.object({ type: v.eq('agent-run-completed') }),
 	'delivery-work-requested': v.object({ type: v.eq('delivery-work-requested') }),
 	'delivery-work-operation-queued': v.object({ type: v.eq('delivery-work-operation-queued'), operationId: idPipe }),
@@ -103,7 +106,9 @@ const safeDispatchFailureShapePipe = v.object({
 export const safeDispatchFailurePipe = v.any<{ category: string; summary: string }>().pipe(
 	v.custom(
 		(value) =>
-			typeof value === 'object' && value !== null && Object.keys(value).every((key) => key === 'category' || key === 'summary'),
+			typeof value === 'object' &&
+			value !== null &&
+			Object.keys(value).every((key) => key === 'category' || key === 'summary'),
 		'Unexpected safe Dispatch failure field.',
 	),
 	safeDispatchFailureShapePipe,
@@ -150,7 +155,11 @@ export type DispatchLifecycleType = PipeOutput<typeof dispatchLifecycleTypePipe>
 
 export const dispatchLifecyclePipe = v.discriminate((value) => value.type, {
 	pending: v.object({ type: v.eq('pending'), eligibleAt: isoDateTimePipe }),
-	waiting: v.object({ type: v.eq('waiting'), since: runtimeRecordPipe, prerequisite: dispatchWaitingPrerequisitePipe }),
+	waiting: v.object({
+		type: v.eq('waiting'),
+		since: runtimeRecordPipe,
+		prerequisite: dispatchWaitingPrerequisitePipe,
+	}),
 	leased: v.object({ type: v.eq('leased'), attempt: activeDispatchAttemptPipe }),
 	completed: v.object({
 		type: v.eq('completed'),
@@ -204,7 +213,8 @@ function dispatchIdentityIsConsistent(input: {
 	switch (input.payload.type) {
 		case 'agent-run-preparation':
 			return (
-				input.deduplicationKey?.type === 'agent-run-preparation' && input.deduplicationKey.agentRunId === input.payload.agentRunId
+				input.deduplicationKey?.type === 'agent-run-preparation' &&
+				input.deduplicationKey.agentRunId === input.payload.agentRunId
 			)
 		case 'agent-run-sandbox-release':
 			return (
@@ -213,7 +223,8 @@ function dispatchIdentityIsConsistent(input: {
 			)
 		case 'delivery-work-scheduler':
 			return (
-				input.deduplicationKey?.type === 'delivery-work-scheduler' && input.deduplicationKey.deliveryId === input.payload.deliveryId
+				input.deduplicationKey?.type === 'delivery-work-scheduler' &&
+				input.deduplicationKey.deliveryId === input.payload.deliveryId
 			)
 		case 'agent-run-model-turn':
 		case 'delivery-work-operation':
@@ -310,25 +321,42 @@ if (import.meta.vitest) {
 				const identity = (() => {
 					switch (payload.type) {
 						case 'agent-run-model-turn':
-							return { reasons: [{ type: 'input-appended' as const, inputEventId: id(5) }], deduplicationKey: null }
+							return {
+								reasons: [{ type: 'input-appended' as const, inputEventId: id(5) }],
+								deduplicationKey: null,
+							}
 						case 'agent-run-preparation':
 							return {
 								reasons: [{ type: 'agent-run-created' as const }],
-								deduplicationKey: { type: 'agent-run-preparation' as const, agentRunId: payload.agentRunId },
+								deduplicationKey: {
+									type: 'agent-run-preparation' as const,
+									agentRunId: payload.agentRunId,
+								},
 							}
 						case 'agent-run-sandbox-release':
 							return {
 								reasons: [{ type: 'agent-run-completed' as const }],
-								deduplicationKey: { type: 'agent-run-sandbox-release' as const, agentRunId: payload.agentRunId },
+								deduplicationKey: {
+									type: 'agent-run-sandbox-release' as const,
+									agentRunId: payload.agentRunId,
+								},
 							}
 						case 'delivery-work-scheduler':
 							return {
 								reasons: [{ type: 'delivery-work-requested' as const }],
-								deduplicationKey: { type: 'delivery-work-scheduler' as const, deliveryId: payload.deliveryId },
+								deduplicationKey: {
+									type: 'delivery-work-scheduler' as const,
+									deliveryId: payload.deliveryId,
+								},
 							}
 						case 'delivery-work-operation':
 							return {
-								reasons: [{ type: 'delivery-work-operation-queued' as const, operationId: payload.operationId }],
+								reasons: [
+									{
+										type: 'delivery-work-operation-queued' as const,
+										operationId: payload.operationId,
+									},
+								],
 								deduplicationKey: null,
 							}
 						default:
@@ -355,7 +383,9 @@ if (import.meta.vitest) {
 			expect(
 				v.validate(dispatchRequestPipe, {
 					...request,
-					coordinationClaims: [{ scope: [{ type: 'agent-run', id: id(2) }], mode: { type: 'shared-capacity', capacity: 0 } }],
+					coordinationClaims: [
+						{ scope: [{ type: 'agent-run', id: id(2) }], mode: { type: 'shared-capacity', capacity: 0 } },
+					],
 				}).valid,
 			).toBe(false)
 			expect(

@@ -62,10 +62,13 @@ export type CoreDispatchProcessorStatus =
 	| { type: 'failed'; error: CoreDispatchProcessorFatalError }
 
 export type CoreDispatchProcessorStartError = InvalidInputError | DispatchProcessorAlreadyStartedError
-export type CoreDispatchProcessorFatalError = StorageOperationFailedError | InvalidCoreServiceOutputError | DispatchStorageIncompatibleError
+export type CoreDispatchProcessorFatalError =
+	StorageOperationFailedError | InvalidCoreServiceOutputError | DispatchStorageIncompatibleError
 
 export interface CoreDispatchApi {
-	startProcessor(input?: CoreDispatchProcessorInput): Result<CoreDispatchProcessorHandle, CoreDispatchProcessorStartError>
+	startProcessor(
+		input?: CoreDispatchProcessorInput,
+	): Result<CoreDispatchProcessorHandle, CoreDispatchProcessorStartError>
 }
 
 export interface CoreDispatchProcessorHandle {
@@ -87,7 +90,10 @@ interface DispatchProcessorDependencies {
 	random?: () => number
 }
 
-export function createCoreDispatchApi(runtime: CoreRuntime, dependencies: DispatchProcessorDependencies = {}): CoreDispatchApi {
+export function createCoreDispatchApi(
+	runtime: CoreRuntime,
+	dependencies: DispatchProcessorDependencies = {},
+): CoreDispatchApi {
 	let current: CoreDispatchProcessorHandle | null = null
 	return {
 		startProcessor(input: CoreDispatchProcessorInput = {}) {
@@ -106,16 +112,20 @@ export function createCoreDispatchApi(runtime: CoreRuntime, dependencies: Dispat
 	}
 }
 
-function resolveDispatchProcessorOptions(input: CoreDispatchProcessorInput): Result<ResolvedDispatchProcessorOptions, InvalidInputError> {
+function resolveDispatchProcessorOptions(
+	input: CoreDispatchProcessorInput,
+): Result<ResolvedDispatchProcessorOptions, InvalidInputError> {
 	const parsed = validateCoreInput(processorInputPipe, input, 'core', 'startDispatchProcessor')
 	if (!parsed.ok) return parsed
 	const options: ResolvedDispatchProcessorOptions = {
-		maxConcurrentAttempts: parsed.value.maxConcurrentAttempts ?? defaultDispatchProcessorOptions.maxConcurrentAttempts,
+		maxConcurrentAttempts:
+			parsed.value.maxConcurrentAttempts ?? defaultDispatchProcessorOptions.maxConcurrentAttempts,
 		heartbeatMs: parsed.value.heartbeatMs ?? defaultDispatchProcessorOptions.heartbeatMs,
 		leaseMs: parsed.value.leaseMs ?? defaultDispatchProcessorOptions.leaseMs,
 		idlePollMinMs: parsed.value.idlePollMinMs ?? defaultDispatchProcessorOptions.idlePollMinMs,
 		idlePollMaxMs: parsed.value.idlePollMaxMs ?? defaultDispatchProcessorOptions.idlePollMaxMs,
-		interruptedAttemptLimit: parsed.value.interruptedAttemptLimit ?? defaultDispatchProcessorOptions.interruptedAttemptLimit,
+		interruptedAttemptLimit:
+			parsed.value.interruptedAttemptLimit ?? defaultDispatchProcessorOptions.interruptedAttemptLimit,
 		completedRetentionMs: parsed.value.completedRetentionMs ?? defaultDispatchProcessorOptions.completedRetentionMs,
 		pruneBatchSize: parsed.value.pruneBatchSize ?? defaultDispatchProcessorOptions.pruneBatchSize,
 		shutdownGraceMs: parsed.value.shutdownGraceMs ?? defaultDispatchProcessorOptions.shutdownGraceMs,
@@ -123,7 +133,12 @@ function resolveDispatchProcessorOptions(input: CoreDispatchProcessorInput): Res
 	if (options.leaseMs >= options.heartbeatMs * 3 && options.idlePollMinMs <= options.idlePollMaxMs) {
 		return { ok: true, value: options }
 	}
-	const invalid = validateCoreInput(v.object({ valid: v.eq(true) }), { valid: false }, 'core', 'startDispatchProcessor')
+	const invalid = validateCoreInput(
+		v.object({ valid: v.eq(true) }),
+		{ valid: false },
+		'core',
+		'startDispatchProcessor',
+	)
 	if (invalid.ok) throw new Error('Expected invalid Dispatch processor options.')
 	return invalid
 }
@@ -180,7 +195,8 @@ function startDispatchProcessor(
 				if (result.error.type === 'invalid-core-service-output') fail(result.error)
 				return
 			}
-			for (const lost of result.value) active.get(dispatchAttemptKey(lost.requestId, lost.attemptToken))?.abortController.abort()
+			for (const lost of result.value)
+				active.get(dispatchAttemptKey(lost.requestId, lost.attemptToken))?.abortController.abort()
 		})
 	}, options.heartbeatMs)
 
@@ -222,7 +238,10 @@ function startDispatchProcessor(
 				const failureType = dispatchErrorType(failed.error)
 				if (failureType === 'invalid-core-service-output') fail(failed.error as InvalidCoreServiceOutputError)
 				else if (failureType === 'invariant-violation' || failureType === 'not-found') {
-					fail({ type: 'dispatch-storage-incompatible', summary: 'Persisted Dispatch state is incompatible.' })
+					fail({
+						type: 'dispatch-storage-incompatible',
+						summary: 'Persisted Dispatch state is incompatible.',
+					})
 				}
 			}
 		}
@@ -283,7 +302,8 @@ function startDispatchProcessor(
 		}
 		if (admitted.ok) {
 			for (const request of admitted.value) processRequest(request)
-			idlePollMs = admitted.value.length > 0 ? options.idlePollMinMs : Math.min(options.idlePollMaxMs, idlePollMs * 2)
+			idlePollMs =
+				admitted.value.length > 0 ? options.idlePollMinMs : Math.min(options.idlePollMaxMs, idlePollMs * 2)
 		}
 		return null
 	}
@@ -385,7 +405,7 @@ async function runDispatchMaintenance(
 	options: ResolvedDispatchProcessorOptions,
 	nextPruneAt: number,
 ): Promise<{ nextPruneAt: number; fatal: CoreDispatchProcessorFatalError | null }> {
-	let now = 0
+	let now: number
 	try {
 		now = runtime.values.now().getTime()
 	} catch {
@@ -415,7 +435,9 @@ function dispatchAttemptKey(requestId: string, attemptToken: string): string {
 }
 
 function dispatchErrorType(error: unknown): string | null {
-	return typeof error === 'object' && error !== null && 'type' in error && typeof error.type === 'string' ? error.type : null
+	return typeof error === 'object' && error !== null && 'type' in error && typeof error.type === 'string'
+		? error.type
+		: null
 }
 
 function isDispatchAttemptInterruption(error: unknown): boolean {
@@ -433,11 +455,16 @@ async function bootstrapLegacyDispatch(runtime: CoreRuntime): Promise<Result<voi
 	return runtime.transactions.run<void, DispatchBootstrapError>((tx) => bootstrapLegacyDispatchInTransaction(tx))
 }
 
-async function bootstrapLegacyDispatchInTransaction(tx: CoreTransaction): Promise<Result<void, DispatchBootstrapError>> {
+async function bootstrapLegacyDispatchInTransaction(
+	tx: CoreTransaction,
+): Promise<Result<void, DispatchBootstrapError>> {
 	const coordination = await getRequired('dispatch-coordination', tx.storage, '00000000000000000000000000')
 	if (!coordination.ok) {
 		return coordination.error.type === 'not-found'
-			? { ok: false, error: { type: 'dispatch-storage-incompatible', summary: 'Dispatch Coordination is missing.' } }
+			? {
+					ok: false,
+					error: { type: 'dispatch-storage-incompatible', summary: 'Dispatch Coordination is missing.' },
+				}
 			: { ok: false, error: coordination.error }
 	}
 	if (coordination.value.bootstrapVersion >= 1) return { ok: true, value: undefined }
@@ -449,7 +476,9 @@ async function bootstrapLegacyDispatchInTransaction(tx: CoreTransaction): Promis
 	const deliveries = await bootstrapDeliveryRequests(tx, facts.value.requests, facts.value.deliveries)
 	if (!deliveries.ok) return deliveries
 
-	const updated = await updateRecord('dispatch-coordination', tx.storage, coordination.value.id, { bootstrapVersion: 1 })
+	const updated = await updateRecord('dispatch-coordination', tx.storage, coordination.value.id, {
+		bootstrapVersion: 1,
+	})
 	if (updated.ok) return { ok: true, value: undefined }
 	return updated.error.type === 'not-found'
 		? { ok: false, error: { type: 'dispatch-storage-incompatible', summary: 'Dispatch Coordination disappeared.' } }
@@ -463,7 +492,9 @@ interface DispatchBootstrapFacts {
 	deliveries: Delivery[]
 }
 
-async function loadDispatchBootstrapFacts(tx: CoreTransaction): Promise<Result<DispatchBootstrapFacts, DispatchBootstrapError>> {
+async function loadDispatchBootstrapFacts(
+	tx: CoreTransaction,
+): Promise<Result<DispatchBootstrapFacts, DispatchBootstrapError>> {
 	const [requests, agentRuns, events, deliveries] = await Promise.all([
 		listRecords('dispatch-request', tx.storage),
 		listRecords('agent-run', tx.storage),
@@ -474,7 +505,15 @@ async function loadDispatchBootstrapFacts(tx: CoreTransaction): Promise<Result<D
 	if (!agentRuns.ok) return agentRuns
 	if (!events.ok) return events
 	if (!deliveries.ok) return deliveries
-	return { ok: true, value: { requests: requests.value, agentRuns: agentRuns.value, events: events.value, deliveries: deliveries.value } }
+	return {
+		ok: true,
+		value: {
+			requests: requests.value,
+			agentRuns: agentRuns.value,
+			events: events.value,
+			deliveries: deliveries.value,
+		},
+	}
 }
 
 async function bootstrapAgentRunRequests(
@@ -533,7 +572,9 @@ async function bootstrapModelTurnRequest(
 	agentRun: AgentRun,
 ): Promise<Result<void, DispatchBootstrapError>> {
 	const payload = { type: 'agent-run-model-turn' as const, agentRunId: agentRun.id }
-	const lastInput = events.findLast((event) => event.agentRunId === agentRun.id && event.body.type === 'input-message')
+	const lastInput = events.findLast(
+		(event) => event.agentRunId === agentRun.id && event.body.type === 'input-message',
+	)
 	const alreadyExists = requests.some(
 		(request) =>
 			request.payload.type === payload.type &&
@@ -573,12 +614,15 @@ async function bootstrapDeliveryRequests(
 }
 
 function blocksImplicitBootstrapRetry(requests: DispatchRequest[], payload: DispatchRequestPayload): boolean {
-	return requests.some((request) => request.lifecycle.type === 'failed' && JSON.stringify(request.payload) === JSON.stringify(payload))
+	return requests.some(
+		(request) => request.lifecycle.type === 'failed' && JSON.stringify(request.payload) === JSON.stringify(payload),
+	)
 }
 
 if (import.meta.vitest) {
 	const { describe, expect, it, vi } = import.meta.vitest
-	const { createTestCoreRuntime, createTestCoreServices, seedDispatchRequest, testId } = await import('../utils/test-helpers')
+	const { createTestCoreRuntime, createTestCoreServices, seedDispatchRequest, testId } =
+		await import('../utils/test-helpers')
 
 	describe('Core Dispatch Processor', () => {
 		it('validates options and rejects duplicate starts', async () => {
@@ -642,7 +686,9 @@ if (import.meta.vitest) {
 			await expect(started.value.ready).resolves.toEqual({ ok: true, value: undefined })
 
 			await vi.waitFor(() =>
-				expect(options.tx.dispatchRequests.records.get(request.id)?.lifecycle).toMatchObject({ type: 'completed' }),
+				expect(options.tx.dispatchRequests.records.get(request.id)?.lifecycle).toMatchObject({
+					type: 'completed',
+				}),
 			)
 			expect(started.value.status()).toMatchObject({ type: 'running' })
 			await started.value.stop()
@@ -668,7 +714,11 @@ if (import.meta.vitest) {
 			const started = api.startProcessor({ heartbeatMs: 2, leaseMs: 6, idlePollMinMs: 1, idlePollMaxMs: 2 })
 			if (!started.ok) throw new Error('Expected processor start.')
 
-			await vi.waitFor(() => expect(options.tx.dispatchRequests.records.get(request.id)?.lifecycle).toMatchObject({ type: 'failed' }))
+			await vi.waitFor(() =>
+				expect(options.tx.dispatchRequests.records.get(request.id)?.lifecycle).toMatchObject({
+					type: 'failed',
+				}),
+			)
 			expect([...options.tx.actions.records.values()].map((action) => action.result.type)).toEqual([
 				'record-delivery-work-dispatch-failure',
 			])
@@ -742,8 +792,14 @@ if (import.meta.vitest) {
 
 			await started.value.stop()
 
-			await expect(started.value.ready).resolves.toMatchObject({ ok: false, error: { type: 'storage-operation-failed' } })
-			await expect(started.value.completed).resolves.toMatchObject({ ok: false, error: { type: 'storage-operation-failed' } })
+			await expect(started.value.ready).resolves.toMatchObject({
+				ok: false,
+				error: { type: 'storage-operation-failed' },
+			})
+			await expect(started.value.completed).resolves.toMatchObject({
+				ok: false,
+				error: { type: 'storage-operation-failed' },
+			})
 			expect(started.value.status()).toMatchObject({ type: 'failed' })
 		})
 
@@ -775,7 +831,10 @@ if (import.meta.vitest) {
 
 			await expect(started.value.ready).resolves.toMatchObject({
 				ok: false,
-				error: { type: 'storage-operation-failed', operation: { type: 'get', resource: 'dispatch-coordination' } },
+				error: {
+					type: 'storage-operation-failed',
+					operation: { type: 'get', resource: 'dispatch-coordination' },
+				},
 			})
 			await expect(started.value.completed).resolves.toMatchObject({
 				ok: false,

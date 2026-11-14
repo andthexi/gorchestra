@@ -4,7 +4,8 @@
 		:type="buttonType"
 		:disabled="isDisabled"
 		class="inline-flex cursor-pointer items-center justify-center border font-semibold transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
-		:class="[variantClass, sizeClass]">
+		:class="[variantClass, sizeClass]"
+	>
 		<slot />
 	</button>
 </template>

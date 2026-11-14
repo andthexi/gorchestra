@@ -16,7 +16,8 @@ export function classifyMigrationHistory(
 	const appliedIds = new Set(parsed.value.map(({ id }) => id))
 	if (appliedIds.size !== parsed.value.length) return { ok: false, error: { type: 'schema-metadata-invalid' } }
 	const knownIds = new Set(catalogIds)
-	if (parsed.value.some(({ id }) => !knownIds.has(id))) return { ok: false, error: { type: 'schema-version-unrecognized' } }
+	if (parsed.value.some(({ id }) => !knownIds.has(id)))
+		return { ok: false, error: { type: 'schema-version-unrecognized' } }
 	if (catalogIds.slice(0, appliedIds.size).some((id) => !appliedIds.has(id))) {
 		return { ok: false, error: { type: 'schema-metadata-invalid' } }
 	}
@@ -33,7 +34,9 @@ if (import.meta.vitest) {
 		const sentinel = 'synthetic-PROTECTED-history'
 		const boxed: unknown = Object(id)
 		const boxedTimestamp: unknown = Object(0)
-		const spoof: unknown = JSON.parse('{"constructor":{"name":"String"},"length":26,"value":"synthetic-PROTECTED-history"}')
+		const spoof: unknown = JSON.parse(
+			'{"constructor":{"name":"String"},"length":26,"value":"synthetic-PROTECTED-history"}',
+		)
 		const malformed = [
 			null,
 			undefined,
@@ -60,10 +63,18 @@ if (import.meta.vitest) {
 				boxed,
 				spoof,
 			].map((id) => [{ id, appliedAt: 0 }]),
-			...[undefined, null, '0', -1, 1.5, 9007199254740992, NaN, Infinity, -Infinity, 0n, boxedTimestamp].map((appliedAt) => [
-				{ id, appliedAt },
-			]),
-			[{ id: sentinel, appliedAt: { value: sentinel }, valueRef: sentinel, cause: sentinel, [sentinel]: sentinel }],
+			...[undefined, null, '0', -1, 1.5, 9007199254740992, NaN, Infinity, -Infinity, 0n, boxedTimestamp].map(
+				(appliedAt) => [{ id, appliedAt }],
+			),
+			[
+				{
+					id: sentinel,
+					appliedAt: { value: sentinel },
+					valueRef: sentinel,
+					cause: sentinel,
+					[sentinel]: sentinel,
+				},
+			],
 		]
 		for (const candidate of malformed) {
 			const result = classifyMigrationHistory(candidate, ids)
@@ -103,21 +114,30 @@ if (import.meta.vitest) {
 			{ id: ids[0], appliedAt: 1 },
 		]
 		const original = structuredClone(entries)
-		expect(classifyMigrationHistory(entries, ids)).toEqual({ ok: false, error: { type: 'schema-metadata-invalid' } })
+		expect(classifyMigrationHistory(entries, ids)).toEqual({
+			ok: false,
+			error: { type: 'schema-metadata-invalid' },
+		})
 		expect(entries).toEqual(original)
 	})
 
 	it('rejects unknown valid IDs with only the schema-version-unrecognized type', () => {
 		const unknown = { id: '01k00000000000000000000009', appliedAt: 0, valueRef: 'synthetic-PROTECTED' }
 		for (const entries of [[unknown], [{ id: ids[0], appliedAt: 1 }, unknown]]) {
-			expect(classifyMigrationHistory(entries, ids)).toEqual({ ok: false, error: { type: 'schema-version-unrecognized' } })
+			expect(classifyMigrationHistory(entries, ids)).toEqual({
+				ok: false,
+				error: { type: 'schema-version-unrecognized' },
+			})
 		}
 	})
 
 	it('validates later malformed entries before classifying earlier unknown IDs', () => {
 		const unknown = { id: '01k00000000000000000000009', appliedAt: 0 }
 		for (const invalid of [{ id: ids[0], appliedAt: -1 }, { id: 'invalid', appliedAt: 0 }, null]) {
-			expect(classifyMigrationHistory([unknown, invalid], ids)).toEqual({ ok: false, error: { type: 'schema-metadata-invalid' } })
+			expect(classifyMigrationHistory([unknown, invalid], ids)).toEqual({
+				ok: false,
+				error: { type: 'schema-metadata-invalid' },
+			})
 		}
 	})
 
@@ -127,7 +147,10 @@ if (import.meta.vitest) {
 			[unknown, unknown],
 			[unknown, { id: ids[0], appliedAt: 0 }, { id: ids[0], appliedAt: 1 }],
 		]) {
-			expect(classifyMigrationHistory(entries, ids)).toEqual({ ok: false, error: { type: 'schema-metadata-invalid' } })
+			expect(classifyMigrationHistory(entries, ids)).toEqual({
+				ok: false,
+				error: { type: 'schema-metadata-invalid' },
+			})
 		}
 	})
 
@@ -141,7 +164,10 @@ if (import.meta.vitest) {
 			],
 		]) {
 			const original = structuredClone(entries)
-			expect(classifyMigrationHistory(entries, ids)).toEqual({ ok: false, error: { type: 'schema-metadata-invalid' } })
+			expect(classifyMigrationHistory(entries, ids)).toEqual({
+				ok: false,
+				error: { type: 'schema-metadata-invalid' },
+			})
 			expect(entries).toEqual(original)
 		}
 	})

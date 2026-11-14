@@ -1,7 +1,14 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import { freeFormStringPipe, idPipe, isoDateTimePipe, nonEmptyTrimmedStringPipe, positiveIntegerPipe, runtimeRecordPipe } from './commons'
 import { coreSchema, schemaToPipe } from '../utils/storage/schema'
+import {
+	freeFormStringPipe,
+	idPipe,
+	isoDateTimePipe,
+	nonEmptyTrimmedStringPipe,
+	positiveIntegerPipe,
+	runtimeRecordPipe,
+} from './commons'
 
 export const reviewSurfaceScopePipe = v.discriminate((value) => value.type, {
 	slice: v.object({ type: v.eq('slice'), sliceId: idPipe, sliceArtifactId: idPipe }),

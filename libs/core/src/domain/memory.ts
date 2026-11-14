@@ -1,8 +1,8 @@
 import { v, type PipeOutput } from 'valleyed'
 
+import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 import { auditStampPipe, idPipe } from './commons'
 import { currentMemoryRevisionPipe, memoryRevisionPipe } from './memory-revision'
-import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 
 export const memorySchema = coreSchema('memories')
 	.field('parentId', v.nullable(idPipe))

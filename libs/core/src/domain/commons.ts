@@ -10,7 +10,9 @@ const integerPipe = v.number().pipe(v.int())
 export const positiveIntegerPipe = integerPipe.pipe(v.gte(1))
 export const nonNegativeIntegerPipe = integerPipe.pipe(v.gte(0))
 
-export const idPipe = nonEmptyTrimmedStringPipe.pipe(v.custom((value) => /^[0-9a-hjkmnp-tv-z]{26}$/.test(value), 'Expected a Core id.'))
+export const idPipe = nonEmptyTrimmedStringPipe.pipe(
+	v.custom((value) => /^[0-9a-hjkmnp-tv-z]{26}$/.test(value), 'Expected a Core id.'),
+)
 export type Id = PipeOutput<typeof idPipe>
 
 export const maxPaginatedQueryLimit = 500

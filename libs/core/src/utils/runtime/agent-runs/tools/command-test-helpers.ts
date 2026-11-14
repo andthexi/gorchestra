@@ -1,8 +1,8 @@
-import { toolOutput } from './results'
 import type { AgentRunToolOutput } from '../../../../domain/agent-run-event'
 import type { SandboxCommandOutput } from '../../../../services'
 import type { ManagedSandbox, ManagedSandboxRunCommandInput } from '../../sandboxes/managed'
 import type { CoreAgentRunToolContext } from '../types'
+import { toolOutput } from './results'
 
 export function commandToolFixture(
 	output: SandboxCommandOutput,

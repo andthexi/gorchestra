@@ -1,18 +1,32 @@
 <template>
 	<UiForm @submit.prevent="$emit('submit')">
-		<UiFormGroup :label="titleLabel" :for-id="titleId" :error="draft.errors.title">
-			<UiInput :id="titleId" v-model="draft.title" required :placeholder="titlePlaceholder" :invalid="!!draft.errors.title" />
+		<UiFormGroup :label="titleLabel" :forId="titleId" :error="draft.errors.title">
+			<UiInput
+				:id="titleId"
+				v-model="draft.title"
+				required
+				:placeholder="titlePlaceholder"
+				:invalid="!!draft.errors.title"
+			/>
 		</UiFormGroup>
 
-		<UiFormGroup :label="bodyLabel" :for-id="bodyId" :error="draft.errors.body">
-			<UiTextarea :id="bodyId" v-model="draft.body" class="min-h-40" :placeholder="bodyPlaceholder" :invalid="!!draft.errors.body" />
+		<UiFormGroup :label="bodyLabel" :forId="bodyId" :error="draft.errors.body">
+			<UiTextarea
+				:id="bodyId"
+				v-model="draft.body"
+				class="min-h-40"
+				:placeholder="bodyPlaceholder"
+				:invalid="!!draft.errors.body"
+			/>
 		</UiFormGroup>
 
 		<div class="flex flex-wrap items-center gap-2">
 			<UiButton type="submit" :loading="loading" :disabled="disabled || !draft.valid">
 				{{ submitLabel }}
 			</UiButton>
-			<UiButton v-if="showCancel" type="button" variant="secondary" :disabled="loading" @click="$emit('cancel')">Cancel</UiButton>
+			<UiButton v-if="showCancel" type="button" variant="secondary" :disabled="loading" @click="$emit('cancel')"
+				>Cancel</UiButton
+			>
 		</div>
 		<UiText v-if="error" tone="error">{{ error }}</UiText>
 		<slot name="helper" />
@@ -20,13 +34,13 @@
 </template>
 
 <script setup lang="ts">
+import type { MemoryCreationFormDraft, MemoryRevisionFormDraft } from '../../forms/memory'
 import UiButton from '../ui/UiButton.vue'
 import UiForm from '../ui/UiForm.vue'
 import UiFormGroup from '../ui/UiFormGroup.vue'
 import UiInput from '../ui/UiInput.vue'
-import UiTextarea from '../ui/UiTextarea.vue'
 import UiText from '../ui/UiText.vue'
-import type { MemoryCreationFormDraft, MemoryRevisionFormDraft } from '../../forms/memory'
+import UiTextarea from '../ui/UiTextarea.vue'
 
 defineEmits<{
 	submit: []

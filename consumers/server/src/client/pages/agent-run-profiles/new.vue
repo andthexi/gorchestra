@@ -2,9 +2,13 @@
 	<NuxtLayout name="portfolio">
 		<header class="border-b border-dimmer px-3 pt-3 pb-4">
 			<div class="min-w-0">
-				<NuxtLink to="/agent-run-profiles" class="text-sz-helper text-dim hover:text-body">← Agent Run Profiles</NuxtLink>
+				<NuxtLink to="/agent-run-profiles" class="text-sz-helper text-dim hover:text-body"
+					>← Agent Run Profiles</NuxtLink
+				>
 				<h1 class="m-0 mt-1 text-sz-section font-semibold tracking-[-0.01em]">New Agent Run Profile</h1>
-				<p class="m-0 mt-1 text-sz-helper text-dim">Create reusable Model Use and sandbox runtime setup for future Agent Runs.</p>
+				<p class="m-0 mt-1 text-sz-helper text-dim">
+					Create reusable Model Use and sandbox runtime setup for future Agent Runs.
+				</p>
 			</div>
 		</header>
 
@@ -12,14 +16,15 @@
 			<AgentRunProfileForm
 				class="py-3"
 				:form="agentRunProfileForm"
-				:model-select="modelSelect"
-				:secret-options="secretOptions"
-				:secret-options-loaded="hasLoadedSecrets"
-				submit-label="Create Agent Run Profile"
+				:modelSelect="modelSelect"
+				:secretOptions="secretOptions"
+				:secretOptionsLoaded="hasLoadedSecrets"
+				submitLabel="Create Agent Run Profile"
 				:loading="isCreatingAgentRunProfile"
 				:disabled="!agentRunProfileForm.valid || isCreatingAgentRunProfile"
 				:error="createAgentRunProfileError"
-				@submit="createAgentRunProfile()" />
+				@submit="createAgentRunProfile()"
+			/>
 		</section>
 
 		<template #right>
@@ -27,21 +32,23 @@
 				<section class="border-b border-dimmer px-3 py-3">
 					<h2 class="m-0 text-sz-helper font-semibold">Run creation</h2>
 					<p class="m-0 mt-1 text-sz-helper leading-5 text-dim">
-						Plans, Revision Gates, and Delivery execution select a profile directly. The selected profile is copied onto each
-						new Agent Run.
+						Plans, Revision Gates, and Delivery execution select a profile directly. The selected profile is
+						copied onto each new Agent Run.
 					</p>
 				</section>
 				<section class="border-b border-dimmer px-3 py-3">
 					<h2 class="m-0 text-sz-helper font-semibold">Model use</h2>
 					<p class="m-0 mt-1 text-sz-helper leading-5 text-dim">
-						Model and thinking level are stored together so Core never represents a half-selected model configuration.
+						Model and thinking level are stored together so Core never represents a half-selected model
+						configuration.
 					</p>
 				</section>
 				<section class="px-3 py-3">
 					<h2 class="m-0 text-sz-helper font-semibold">Runtime setup</h2>
 					<p class="m-0 mt-1 text-sz-helper leading-5 text-dim">
-						Environment Secret Requirements persist values in the Agent Run sandbox. Run Command Requirements execute structured
-						argv without shell chaining, pipes, redirects, or implicit <code>cd</code>.
+						Environment Secret Requirements persist values in the Agent Run sandbox. Run Command
+						Requirements execute structured argv without shell chaining, pipes, redirects, or implicit
+						<code>cd</code>.
 					</p>
 				</section>
 			</aside>
@@ -57,11 +64,12 @@ import { useActiveSecretSelectOptions } from '../../composables/portfolio/secret
 
 definePageMeta({ middleware: ['has-selection'] })
 
-const { agentRunProfileForm, isCreatingAgentRunProfile, createAgentRunProfileError, createAgentRunProfile } = useAgentRunProfileCreate({
-	onSuccess: async (profile) => {
-		await navigateTo(`/agent-run-profiles/${profile.id}`)
-	},
-})
+const { agentRunProfileForm, isCreatingAgentRunProfile, createAgentRunProfileError, createAgentRunProfile } =
+	useAgentRunProfileCreate({
+		onSuccess: async (profile) => {
+			await navigateTo(`/agent-run-profiles/${profile.id}`)
+		},
+	})
 const modelSelect = useSelectModel(agentRunProfileForm.modelUse)
 const { activeSecretOptions: secretOptions, hasLoadedSecrets } = useActiveSecretSelectOptions()
 </script>

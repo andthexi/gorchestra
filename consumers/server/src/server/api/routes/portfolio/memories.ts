@@ -2,6 +2,10 @@ import { Domain, Queries } from '@gorchestra/core'
 import { Router } from 'equipped/server'
 import { v } from 'valleyed'
 
+import type { ServerApiContext } from '../../context'
+import { throwCoreOperationError } from '../../errors'
+import { withSelectedPortfolioCore } from '../../portfolio-context'
+import { coreIdPipe } from '../../schemas'
 import {
 	createMemoryRequestSchema,
 	createMemoryRevisionRequestSchema,
@@ -11,10 +15,6 @@ import {
 	type PaginatedQuery,
 	type PortfolioRequestCookies,
 } from './shared'
-import type { ServerApiContext } from '../../context'
-import { throwCoreOperationError } from '../../errors'
-import { withSelectedPortfolioCore } from '../../portfolio-context'
-import { coreIdPipe } from '../../schemas'
 
 const listMemoryChildrenQuerySchema = v.merge(
 	v.object({ parentId: v.defaults(v.fromJson(v.nullable(coreIdPipe)), null) }),
@@ -32,7 +32,11 @@ export function createMemoriesApiRouter(context: ServerApiContext) {
 			},
 		})(async (req) => listSelectedPortfolioMemoryChildren(context, req.cookies, req.query))
 		.post('/memories', {
-			schema: { cookies: portfolioRequestCookieSchema, body: createMemoryRequestSchema, response: Domain.Memory.memoryPipe },
+			schema: {
+				cookies: portfolioRequestCookieSchema,
+				body: createMemoryRequestSchema,
+				response: Domain.Memory.memoryPipe,
+			},
 		})(async (req) => createSelectedPortfolioMemory(context, req.cookies, req.body))
 		.get('/memories/:memoryId', {
 			schema: {

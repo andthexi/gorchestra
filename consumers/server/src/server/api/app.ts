@@ -2,12 +2,12 @@ import { Router } from 'equipped/server'
 import { FastifyServer } from 'equipped/server/adapters/fastify'
 
 import { ensureServerInstance } from '../instance'
+import { createSelectedPortfolioSocketAuthMethod } from '../sockets/auth'
 import type { ServerApiContext } from './context'
 import { createAuthApiRouter } from './routes/auth'
 import { createPortfolioApiRouter } from './routes/portfolio'
 import { createSelectionApiRouter } from './routes/selection'
 import { createWorkspaceApiRouter } from './routes/workspace'
-import { createSelectedPortfolioSocketAuthMethod } from '../sockets/auth'
 
 const buildServerApiRouter = (context: ServerApiContext) =>
 	new Router({ path: '/api' })
@@ -74,7 +74,12 @@ if (import.meta.vitest) {
 			try {
 				const serverCache = createTestServerCache()
 				const user = await createUser({ serverStorage, now })
-				const workspace = await createWorkspaceForUser({ serverStorage, userId: user.id, displayName: 'Workspace', now })
+				const workspace = await createWorkspaceForUser({
+					serverStorage,
+					userId: user.id,
+					displayName: 'Workspace',
+					now,
+				})
 				const portfolio = await createPortfolioRegistryEntry({
 					serverStorage,
 					workspaceId: workspace.workspace.id,
@@ -108,7 +113,11 @@ if (import.meta.vitest) {
 						portfolioCores: {
 							start: () => Promise.resolve(),
 							portfolioRegistered: () => {},
-							borrow: () => Promise.resolve({ ok: false as const, error: { type: 'portfolio-core-unavailable' as const } }),
+							borrow: () =>
+								Promise.resolve({
+									ok: false as const,
+									error: { type: 'portfolio-core-unavailable' as const },
+								}),
 							close: () => Promise.resolve(),
 						},
 						now: () => now,

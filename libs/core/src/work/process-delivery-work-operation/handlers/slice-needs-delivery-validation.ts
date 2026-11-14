@@ -1,6 +1,6 @@
-import { noConfiguredValidationEvidence, writeValidationAction } from './artifact-validation-recording'
 import type { Slice, SliceWorkState } from '../../../domain/slice'
 import type { DeliveryHandlerContext, DeliveryWorkHandlerResult } from '../../delivery-work/types'
+import { noConfiguredValidationEvidence, writeValidationAction } from './artifact-validation-recording'
 
 export function handleSliceNeedsDeliveryValidation(
 	context: DeliveryHandlerContext,
@@ -10,7 +10,10 @@ export function handleSliceNeedsDeliveryValidation(
 	return writeValidationAction(context, {
 		type: 'validate-slice-delivery-artifact',
 		sliceId: slice.id,
-		evidence: noConfiguredValidationEvidence('delivery-branch-validation', 'No Slice Delivery Artifact validation is configured.'),
+		evidence: noConfiguredValidationEvidence(
+			'delivery-branch-validation',
+			'No Slice Delivery Artifact validation is configured.',
+		),
 		dispatch: context.dispatch ?? null,
 	})
 }
@@ -18,7 +21,8 @@ export function handleSliceNeedsDeliveryValidation(
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
 	const { buildDeliveryContext } = await import('../../../utils/delivery-context')
-	const { createTestCoreServices, seedDelivery, seedSlice, validationEvidence } = await import('../../../utils/test-helpers')
+	const { createTestCoreServices, seedDelivery, seedSlice, validationEvidence } =
+		await import('../../../utils/test-helpers')
 
 	describe('handleSliceNeedsDeliveryValidation', () => {
 		it('records passing no-op Slice Delivery Artifact validation', async () => {

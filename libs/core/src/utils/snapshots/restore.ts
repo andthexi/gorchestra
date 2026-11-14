@@ -1,16 +1,24 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import { buildSnapshotStub } from './utils'
 import { nonEmptyRawStringPipe } from '../../domain/commons'
 import type { PortfolioSnapshotManifest } from '../../domain/snapshot'
 import type { InvalidInputError, NotImplementedError } from '../../errors'
 import type { Result as CoreResult } from '../types'
+import { buildSnapshotStub } from './utils'
 
 const encryptedSnapshotPayloadPipe = v
 	.instanceOf(Uint8Array, 'Expected a Uint8Array encrypted snapshot payload.')
-	.pipe(v.custom<Uint8Array<ArrayBuffer>>((value) => value.byteLength > 0, 'Expected a non-empty encrypted snapshot payload.'))
+	.pipe(
+		v.custom<Uint8Array<ArrayBuffer>>(
+			(value) => value.byteLength > 0,
+			'Expected a non-empty encrypted snapshot payload.',
+		),
+	)
 
-const restoreSnapshotInputPipe = v.object({ passphrase: nonEmptyRawStringPipe, encryptedPayload: encryptedSnapshotPayloadPipe })
+const restoreSnapshotInputPipe = v.object({
+	passphrase: nonEmptyRawStringPipe,
+	encryptedPayload: encryptedSnapshotPayloadPipe,
+})
 export type Input = PipeOutput<typeof restoreSnapshotInputPipe>
 
 export interface Result {
@@ -33,7 +41,10 @@ if (import.meta.vitest) {
 
 			const result = await operation({ passphrase: 'passphrase', encryptedPayload: new Uint8Array() })
 
-			expect(result).toMatchObject({ ok: false, error: { type: 'invalid-input', boundary: 'snapshot', operation: 'restore' } })
+			expect(result).toMatchObject({
+				ok: false,
+				error: { type: 'invalid-input', boundary: 'snapshot', operation: 'restore' },
+			})
 		})
 
 		it('accepts unknown input fields before returning not implemented', async () => {

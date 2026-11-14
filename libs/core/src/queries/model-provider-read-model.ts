@@ -6,7 +6,10 @@ import {
 	type ModelProviderSummary,
 } from '../domain/model-provider'
 import { isArchived } from '../utils/command-storage'
-import { availableThinkingLevelsForModel, configurableThinkingLevelsForProtocol } from '../utils/providers/model-provider-protocol/thinking'
+import {
+	availableThinkingLevelsForModel,
+	configurableThinkingLevelsForProtocol,
+} from '../utils/providers/model-provider-protocol/thinking'
 
 export function listedModelProviders(modelProviders: ModelProvider[], models: Model[]): ListedModelProvider[] {
 	const modelsByProviderId = new Map<string, Model[]>()
@@ -58,7 +61,11 @@ if (import.meta.vitest) {
 
 	describe('listedModelProviders', () => {
 		it('groups Models under Providers while preserving caller order with archive state and thinking levels', () => {
-			const providerA = modelProvider({ id: '01k00000000000000000100052', createdAt: '2026-06-09T00:00:00.000Z', archived: true })
+			const providerA = modelProvider({
+				id: '01k00000000000000000100052',
+				createdAt: '2026-06-09T00:00:00.000Z',
+				archived: true,
+			})
 			const providerB = modelProvider({ id: '01k00000000000000000100053', createdAt: '2026-06-10T00:00:00.000Z' })
 			const modelA = model({
 				id: '01k00000000000000000100045',
@@ -89,7 +96,10 @@ if (import.meta.vitest) {
 					...listedProvider(providerA, true),
 					protocol: 'openai-responses',
 					configurableThinkingLevels: ['minimal', 'low', 'medium', 'high', 'xhigh'],
-					models: [listedModelRecord(modelB, true, ['none', 'low', 'high']), listedModelRecord(modelA, false)],
+					models: [
+						listedModelRecord(modelB, true, ['none', 'low', 'high']),
+						listedModelRecord(modelA, false),
+					],
 				},
 			])
 		})

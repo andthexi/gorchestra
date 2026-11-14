@@ -31,7 +31,10 @@ export function moduleCookiesToResponseCookies<const Cookies extends readonly Se
 export function optionalCookiePipe<const Name extends string>(
 	name: Name,
 ): Pipe<Record<string, string | undefined>, Record<Name, string | undefined>> {
-	return v.object({ [name]: v.optional(v.string()) }) as Pipe<Record<string, string | undefined>, Record<Name, string | undefined>>
+	return v.object({ [name]: v.optional(v.string()) }) as Pipe<
+		Record<string, string | undefined>,
+		Record<Name, string | undefined>
+	>
 }
 
 function moduleCookieToResponseCookie(cookie: ServerModuleCookie): ServerApiResponseCookie {

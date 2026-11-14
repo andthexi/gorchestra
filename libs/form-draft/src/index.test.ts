@@ -241,7 +241,10 @@ describe('FormDraftSelect', () => {
 	})
 
 	it('uses differ equality when checking loaded options', () => {
-		const draft = new FormDraftSelect<{ id: string }>({ initialValue: { id: 'model-1' }, pipe: v.object({ id: v.string() }) })
+		const draft = new FormDraftSelect<{ id: string }>({
+			initialValue: { id: 'model-1' },
+			pipe: v.object({ id: v.string() }),
+		})
 
 		draft.setOptions([{ id: 'model-1' }])
 
@@ -314,7 +317,10 @@ describe('FormDraftMultiSelect', () => {
 	})
 
 	it('validates every selected value against loaded options', () => {
-		const draft = new FormDraftMultiSelect<string>({ initialValue: ['model-1', 'model-stale'], pipe: v.array(v.string()) })
+		const draft = new FormDraftMultiSelect<string>({
+			initialValue: ['model-1', 'model-stale'],
+			pipe: v.array(v.string()),
+		})
 
 		draft.setOptions(['model-1'])
 

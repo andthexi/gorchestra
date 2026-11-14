@@ -1,5 +1,6 @@
 import { v, type PipeOutput } from 'valleyed'
 
+import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 import { auditStampPipe, freeFormStringPipe, idPipe, nonEmptyTrimmedStringPipe, type Id } from './commons'
 import {
 	deliveryConfigRecordPipe,
@@ -11,7 +12,6 @@ import {
 import type { DeliveryWorkOperation } from './delivery-work-operation'
 import { repositoryPipe } from './repository'
 import { slicePipe } from './slice'
-import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 
 /**
  * Derived in priority order: closed, unqueued, operation-running,
@@ -62,7 +62,11 @@ export type DeliveryClosed = PipeOutput<typeof deliveryClosedPipe>
 export type DeliveryClosedOutcome = DeliveryClosed['type']
 
 export const deliveryTargetPipe = v.discriminate((value) => value.type, {
-	'source-control': v.object({ type: v.eq('source-control'), repositoryId: idPipe, targetBranch: nonEmptyTrimmedStringPipe }),
+	'source-control': v.object({
+		type: v.eq('source-control'),
+		repositoryId: idPipe,
+		targetBranch: nonEmptyTrimmedStringPipe,
+	}),
 })
 export type DeliveryTarget = PipeOutput<typeof deliveryTargetPipe>
 export type SourceControlDeliveryTarget = Extract<DeliveryTarget, { type: 'source-control' }>

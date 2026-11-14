@@ -21,7 +21,8 @@ export async function transaction<T, E>(
 		if (
 			retained &&
 			!retained.ok &&
-			(error === abort || (error instanceof EquippedError && error.context.operation === 'session' && error.cause === abort))
+			(error === abort ||
+				(error instanceof EquippedError && error.context.operation === 'session' && error.cause === abort))
 		)
 			return retained
 		if (retained && !retained.ok) owner.closeAdmission()

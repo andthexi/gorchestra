@@ -1,5 +1,5 @@
 <template>
-	<PortfolioLayout topbar-search-label="Search Projects, Memories, Repositories, Secrets, Deliveries…">
+	<PortfolioLayout topbarSearchLabel="Search Projects, Memories, Repositories, Secrets, Deliveries…">
 		<template #main-header>
 			<header class="border-b border-dimmer px-3 pt-3">
 				<div class="min-w-0">
@@ -12,7 +12,12 @@
 						:key="to"
 						:to="to"
 						class="border-b-2 px-0 pb-2 text-sz-helper font-semibold"
-						:class="isActiveBrainTab(to) ? 'border-primary text-body' : 'border-transparent text-dim hover:text-body'">
+						:class="
+							isActiveBrainTab(to)
+								? 'border-primary text-body'
+								: 'border-transparent text-dim hover:text-body'
+						"
+					>
 						{{ label }}
 					</NuxtLink>
 				</nav>

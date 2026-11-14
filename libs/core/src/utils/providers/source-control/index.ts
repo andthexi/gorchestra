@@ -1,3 +1,8 @@
+import type { Id } from '../../../domain/commons'
+import type { Repository } from '../../../domain/repository'
+import type { CoreServices, ResolvableSecretValue } from '../../../services'
+import { resolveSecretValueRefs } from '../../secrets'
+import type { Result } from '../../types'
 import { createGitHubSourceControlProvider, type GitHubSourceControlProvider } from './github'
 import type {
 	GitHubRepository,
@@ -14,11 +19,6 @@ import type {
 	SourceControlReviewSurfaceCreation,
 	SourceControlReviewSurfaceCreationError,
 } from './types'
-import type { Id } from '../../../domain/commons'
-import type { Repository } from '../../../domain/repository'
-import type { CoreServices, ResolvableSecretValue } from '../../../services'
-import { resolveSecretValueRefs } from '../../secrets'
-import type { Result } from '../../types'
 
 export interface SourceControlProviderImplementations {
 	github?: GitHubSourceControlProvider
@@ -102,7 +102,10 @@ async function preflightGitHubRepository(
 	if (!accessToken.ok) return accessToken
 	if (!isAccessToken(accessToken.value)) return { ok: true, value: accessToken.value }
 
-	const providerPreflight = await github.preflightRepository({ repository: input.repository, accessToken: accessToken.value })
+	const providerPreflight = await github.preflightRepository({
+		repository: input.repository,
+		accessToken: accessToken.value,
+	})
 	return { ok: true, value: gitHubRepositoryPreflight(providerPreflight) }
 }
 
@@ -155,7 +158,11 @@ function artifactCreationAccessFailure(preflight: SourceControlRepositoryPreflig
 				reason: { type: 'repository-access-secret-unresolved', secretId: preflight.reason.secretId },
 				summary: 'GitHub repository access Secret value could not be resolved.',
 			}
-		: { type: 'failed', reason: { type: 'provider-unavailable' }, summary: 'GitHub artifact branch operation failed.' }
+		: {
+				type: 'failed',
+				reason: { type: 'provider-unavailable' },
+				summary: 'GitHub artifact branch operation failed.',
+			}
 }
 
 function reviewSurfaceAccessFailure(preflight: SourceControlRepositoryPreflight): SourceControlReviewSurfaceCreation {
@@ -165,14 +172,23 @@ function reviewSurfaceAccessFailure(preflight: SourceControlRepositoryPreflight)
 				reason: { type: 'repository-access-secret-unresolved', secretId: preflight.reason.secretId },
 				summary: 'GitHub repository access Secret value could not be resolved.',
 			}
-		: { type: 'failed', reason: { type: 'provider-unavailable' }, summary: 'GitHub review surface operation failed.' }
+		: {
+				type: 'failed',
+				reason: { type: 'provider-unavailable' },
+				summary: 'GitHub review surface operation failed.',
+			}
 }
 
 function unresolvedAccessSecretPreflight(secretId: Id): SourceControlRepositoryPreflight {
-	return gitHubRepositoryPreflight({ type: 'failed', reason: { type: 'repository-access-secret-unresolved', secretId } })
+	return gitHubRepositoryPreflight({
+		type: 'failed',
+		reason: { type: 'repository-access-secret-unresolved', secretId },
+	})
 }
 
-function isAccessToken(value: SourceControlAccessToken | SourceControlRepositoryPreflight): value is SourceControlAccessToken {
+function isAccessToken(
+	value: SourceControlAccessToken | SourceControlRepositoryPreflight,
+): value is SourceControlAccessToken {
 	return value.type === 'access-token'
 }
 
@@ -221,9 +237,15 @@ if (import.meta.vitest) {
 				},
 			})
 
-			const result = await sourceControl.preflightRepository({ repository: gitHubRepository(), accessSecret: gitHubAccessSecret() })
+			const result = await sourceControl.preflightRepository({
+				repository: gitHubRepository(),
+				accessSecret: gitHubAccessSecret(),
+			})
 
-			expect(result).toEqual({ ok: true, value: { type: 'passed', summary: 'GitHub repository preflight passed.' } })
+			expect(result).toEqual({
+				ok: true,
+				value: { type: 'passed', summary: 'GitHub repository preflight passed.' },
+			})
 			expect(observedToken).toBe('token')
 		})
 
@@ -231,7 +253,10 @@ if (import.meta.vitest) {
 			const services = coreServices(() => Promise.resolve({}))
 			const sourceControl = createSourceControlProviders(services, { github: neverCalledGitHubProvider() })
 
-			const result = await sourceControl.preflightRepository({ repository: gitHubRepository(), accessSecret: gitHubAccessSecret() })
+			const result = await sourceControl.preflightRepository({
+				repository: gitHubRepository(),
+				accessSecret: gitHubAccessSecret(),
+			})
 
 			expect(result).toEqual({
 				ok: true,
@@ -288,7 +313,12 @@ if (import.meta.vitest) {
 						},
 						createReviewSurface(input) {
 							observedToken = input.accessToken.plaintext
-							return Promise.resolve({ type: 'review-surface', mode: 'created', pullRequestNumber: 1, summary: 'created' })
+							return Promise.resolve({
+								type: 'review-surface',
+								mode: 'created',
+								pullRequestNumber: 1,
+								summary: 'created',
+							})
 						},
 					},
 				},
@@ -336,7 +366,10 @@ if (import.meta.vitest) {
 			const services = coreServices(() => Promise.resolve({ '01k00000000000000000000040': 1 } as never))
 			const sourceControl = createSourceControlProviders(services, { github: neverCalledGitHubProvider() })
 
-			const result = await sourceControl.preflightRepository({ repository: gitHubRepository(), accessSecret: gitHubAccessSecret() })
+			const result = await sourceControl.preflightRepository({
+				repository: gitHubRepository(),
+				accessSecret: gitHubAccessSecret(),
+			})
 
 			expect(result).toMatchObject({
 				ok: false,

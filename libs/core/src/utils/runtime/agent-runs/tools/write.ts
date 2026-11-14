@@ -1,12 +1,12 @@
 import { v, type Pipe } from 'valleyed'
 
+import { nonEmptyTrimmedStringPipe } from '../../../../domain/commons'
+import type { ManagedSandbox } from '../../sandboxes/managed'
+import type { CoreAgentRunToolContext } from '../types'
 import { resolveWorkspaceToolPath } from './path-policy'
 import type { CoreAgentRunToolDefinition } from './registry'
 import { failInvalidInput, failSandboxError, sandboxErrorSummary, toolOutput } from './results'
 import { lineCount } from './truncation'
-import { nonEmptyTrimmedStringPipe } from '../../../../domain/commons'
-import type { ManagedSandbox } from '../../sandboxes/managed'
-import type { CoreAgentRunToolContext } from '../types'
 
 type WriteInput = { path: string; content: string }
 const writeInputPipe: Pipe<unknown, WriteInput> = v.object({ path: nonEmptyTrimmedStringPipe, content: v.string() })
@@ -19,9 +19,12 @@ export function writeTool(): CoreAgentRunToolDefinition<WriteInput> {
 			'Write UTF-8 text content to a file. Creates parent directories if needed and overwrites the file if it already exists.',
 		inputPipe: writeInputPipe,
 		promptSnippet: 'Create or overwrite files',
-		promptGuidelines: ['Use write only for new files or complete rewrites. Use edit for targeted changes to existing files.'],
+		promptGuidelines: [
+			'Use write only for new files or complete rewrites. Use edit for targeted changes to existing files.',
+		],
 		workspaceMutationKind: 'file-mutator',
-		workspaceMutationKey: (input) => resolveWorkspaceToolPath(input.path, { defaultPath: '/workspace', allowWorkspaceRoot: false }),
+		workspaceMutationKey: (input) =>
+			resolveWorkspaceToolPath(input.path, { defaultPath: '/workspace', allowWorkspaceRoot: false }),
 		execute: (input, context) => writeWorkspaceFile(input, context),
 	}
 }
@@ -48,20 +51,25 @@ if (import.meta.vitest) {
 	describe('write tool', () => {
 		it('writes UTF-8 text through the managed sandbox and reports bytes and lines', async () => {
 			const fixture = toolFixture()
-			await expect(writeTool().execute({ path: 'dir/file.txt', content: 'hello\nworld\n' }, fixture.context)).resolves.toEqual(
-				toolOutput('Wrote 12 byte(s), 2 line(s) to /workspace/dir/file.txt.'),
-			)
+			await expect(
+				writeTool().execute({ path: 'dir/file.txt', content: 'hello\nworld\n' }, fixture.context),
+			).resolves.toEqual(toolOutput('Wrote 12 byte(s), 2 line(s) to /workspace/dir/file.txt.'))
 			expect(fixture.files.get('/workspace/dir/file.txt')).toBe('hello\nworld\n')
 		})
 
 		it('overwrites existing files and rejects protected paths', async () => {
 			const fixture = toolFixture({ '/workspace/file.txt': 'old' })
-			await expect(writeTool().execute({ path: 'file.txt', content: 'new' }, fixture.context)).resolves.toMatchObject({
+			await expect(
+				writeTool().execute({ path: 'file.txt', content: 'new' }, fixture.context),
+			).resolves.toMatchObject({
 				output: { type: 'text' },
 			})
 			expect(fixture.files.get('/workspace/file.txt')).toBe('new')
 			await expect(
-				writeTool().execute({ path: '/workspace/.gorchestra/runtime-env.json', content: '{}' }, fixture.context),
+				writeTool().execute(
+					{ path: '/workspace/.gorchestra/runtime-env.json', content: '{}' },
+					fixture.context,
+				),
 			).rejects.toMatchObject({
 				reason: { type: 'invalid-input' },
 			})
@@ -84,8 +92,10 @@ if (import.meta.vitest) {
 
 	function fakeSandbox(files: Map<string, string>): ManagedSandbox {
 		return {
-			setEnv: () => Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
-			runCommand: () => Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
+			setEnv: () =>
+				Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
+			runCommand: () =>
+				Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
 			writeFile: ({ path, contentsBase64 }) => {
 				files.set(path, Buffer.from(contentsBase64, 'base64').toString('utf8'))
 				return Promise.resolve({ ok: true, value: undefined })

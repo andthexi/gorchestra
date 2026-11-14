@@ -71,7 +71,4 @@ export type { DeliveryWorkResolution }
 export type DeliveryWorkHandlerResult = CoreResult<Result, Exclude<Error, InvalidInputError>>
 
 export type DeliveryWorkStorageError =
-	| InvalidCoreServiceOutputError
-	| ResourceNotFoundError
-	| StorageOperationFailedError
-	| InvariantViolationError
+	InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError | InvariantViolationError

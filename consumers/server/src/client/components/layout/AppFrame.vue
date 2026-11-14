@@ -2,7 +2,10 @@
 	<main class="h-screen overflow-hidden bg-canvas text-body">
 		<section class="flex h-full w-full flex-col overflow-hidden border border-dimmer bg-body-contrast">
 			<header
-				v-if="props.topbar !== false && hasAnySlot($slots['topbar-left'], $slots['topbar-center'], $slots['topbar-right'])"
+				v-if="
+					props.topbar !== false &&
+					hasAnySlot($slots['topbar-left'], $slots['topbar-center'], $slots['topbar-right'])
+				"
 				class="grid min-h-[50px] shrink-0 gap-2 border-b border-dimmer bg-card px-3 py-2 lg:items-center"
 				:class="
 					topbarGridClass(
@@ -10,7 +13,8 @@
 						$slots['topbar-center'] !== undefined,
 						$slots['topbar-right'] !== undefined,
 					)
-				">
+				"
+			>
 				<div v-if="$slots['topbar-left']" class="min-w-0">
 					<slot name="topbar-left" />
 				</div>
@@ -22,8 +26,14 @@
 				</div>
 			</header>
 
-			<div class="grid min-h-0 flex-1 overflow-hidden" :class="shellGridClass($slots.left !== undefined, $slots.right !== undefined)">
-				<aside v-if="$slots.left" class="min-h-0 min-w-0 overflow-y-auto border-b border-dimmer lg:border-r lg:border-b-0">
+			<div
+				class="grid min-h-0 flex-1 overflow-hidden"
+				:class="shellGridClass($slots.left !== undefined, $slots.right !== undefined)"
+			>
+				<aside
+					v-if="$slots.left"
+					class="min-h-0 min-w-0 overflow-y-auto border-b border-dimmer lg:border-r lg:border-b-0"
+				>
 					<slot name="left" />
 				</aside>
 
@@ -31,7 +41,10 @@
 					<slot />
 				</section>
 
-				<aside v-if="$slots.right" class="min-h-0 min-w-0 overflow-y-auto border-t border-dimmer lg:border-t-0 lg:border-l">
+				<aside
+					v-if="$slots.right"
+					class="min-h-0 min-w-0 overflow-y-auto border-t border-dimmer lg:border-t-0 lg:border-l"
+				>
 					<slot name="right" />
 				</aside>
 			</div>

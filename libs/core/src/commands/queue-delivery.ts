@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { exclusiveDeliverySchedulerClaim } from '../dispatch/claims'
 import { idPipe } from '../domain/commons'
 import type { Delivery } from '../domain/delivery'
@@ -10,6 +9,7 @@ import { auditStamp, deliveryWorkStateMismatch, updateRecordValue } from '../uti
 import { buildDeliveryContext, getDeliveryState } from '../utils/delivery-context'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const queueDeliveryInputPipe = v.object({ deliveryId: idPipe })
 export type Input = PipeOutput<typeof queueDeliveryInputPipe>
@@ -33,7 +33,9 @@ export function createQueueDeliveryCommand(runtime: CoreRuntime): Operation {
 			const deliveryState = getDeliveryState(deliveryContext.value)
 			if (!deliveryState.ok) return deliveryState
 			if (deliveryState.value.type === 'unqueued') {
-				const delivery = await updateRecordValue('delivery', storage, deliveryContext.value.delivery.id, { queued: queued.value })
+				const delivery = await updateRecordValue('delivery', storage, deliveryContext.value.delivery.id, {
+					queued: queued.value,
+				})
 				if (!delivery.ok) return delivery
 				const accepted = await dispatch.request({
 					payload: { type: 'delivery-work-scheduler', deliveryId: input.deliveryId },
@@ -51,7 +53,8 @@ export function createQueueDeliveryCommand(runtime: CoreRuntime): Operation {
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { context, createTestCoreRuntime, createTestCoreServices, localStamp, seedDelivery } = await import('../utils/test-helpers')
+	const { context, createTestCoreRuntime, createTestCoreServices, localStamp, seedDelivery } =
+		await import('../utils/test-helpers')
 
 	describe('queueDelivery command', () => {
 		it('validates input before reading storage', async () => {
@@ -59,7 +62,10 @@ if (import.meta.vitest) {
 
 			const result = await command({} as never, context)
 
-			expect(result).toMatchObject({ ok: false, error: { type: 'invalid-input', boundary: 'command', operation: 'queueDelivery' } })
+			expect(result).toMatchObject({
+				ok: false,
+				error: { type: 'invalid-input', boundary: 'command', operation: 'queueDelivery' },
+			})
 		})
 
 		it('sets Delivery.queued when Delivery Work State is unqueued', async () => {
@@ -83,7 +89,9 @@ if (import.meta.vitest) {
 					queued: localStamp(),
 				},
 			})
-			expect(options.tx.deliveries.records.get('01k00000000000000000000008')).toEqual(result.ok ? result.value : null)
+			expect(options.tx.deliveries.records.get('01k00000000000000000000008')).toEqual(
+				result.ok ? result.value : null,
+			)
 			expect([...options.tx.dispatchRequests.records.values()].map((request) => request.payload)).toEqual([
 				{ type: 'delivery-work-scheduler', deliveryId: '01k00000000000000000000008' },
 			])

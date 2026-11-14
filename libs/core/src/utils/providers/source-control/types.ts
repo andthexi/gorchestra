@@ -121,9 +121,15 @@ export type SourceControlProviderRepositoryPreflight =
 	  }
 
 export interface SourceControlProvider<Config extends RepositoryConfig> {
-	preflightRepository(input: SourceControlProviderPreflightRepositoryInput<Config>): Promise<SourceControlProviderRepositoryPreflight>
-	createArtifactBranch(input: SourceControlProviderCreateArtifactBranchInput<Config>): Promise<SourceControlArtifactCreation>
-	createReviewSurface(input: SourceControlProviderCreateReviewSurfaceInput<Config>): Promise<SourceControlReviewSurfaceCreation>
+	preflightRepository(
+		input: SourceControlProviderPreflightRepositoryInput<Config>,
+	): Promise<SourceControlProviderRepositoryPreflight>
+	createArtifactBranch(
+		input: SourceControlProviderCreateArtifactBranchInput<Config>,
+	): Promise<SourceControlArtifactCreation>
+	createReviewSurface(
+		input: SourceControlProviderCreateReviewSurfaceInput<Config>,
+	): Promise<SourceControlReviewSurfaceCreation>
 }
 
 export type GitHubRepository = Repository & { config: GitHubRepositoryConfig }

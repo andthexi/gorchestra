@@ -84,7 +84,15 @@ export function useModelProviderDetail(modelProviderId: Ref<string>) {
 	})
 	const isRefreshingProvider = computed(() => isLoadingProvider.value && hasLoadedProvider.value)
 
-	return { provider, isLoadingProvider, providerError, hasLoadedProvider, isRefreshingProvider, refreshProvider, resetProvider }
+	return {
+		provider,
+		isLoadingProvider,
+		providerError,
+		hasLoadedProvider,
+		isRefreshingProvider,
+		refreshProvider,
+		resetProvider,
+	}
 }
 
 export function useModelProviderCreate(options: ModelProviderCreateOptions = {}) {
@@ -132,7 +140,10 @@ export function useModelProviderUpdate(modelProviderId: Ref<string>, provider: M
 		execute: saveProvider,
 		reset: resetSaveProvider,
 	} = useApiAction(async () => {
-		const updated = await serverApi.updateModelProvider(modelProviderId.value, modelProviderUpdateInput(providerForm.toModel()))
+		const updated = await serverApi.updateModelProvider(
+			modelProviderId.value,
+			modelProviderUpdateInput(providerForm.toModel()),
+		)
 		invalidateModelProviderQueries(queryCache, portfolio.value.id, modelProviderId.value)
 		toast.success({ title: 'Model Provider saved.', body: updated.name })
 		return updated
@@ -157,7 +168,10 @@ export function useModelProviderLifecycle(modelProviderId: Ref<string>, options:
 				? await serverApi.archiveModelProvider(modelProviderId.value)
 				: await serverApi.unarchiveModelProvider(modelProviderId.value)
 		invalidateModelProviderQueries(queryCache, portfolio.value.id, modelProviderId.value)
-		toast.success({ title: action === 'archive' ? 'Model Provider archived.' : 'Model Provider unarchived.', body: updated.name })
+		toast.success({
+			title: action === 'archive' ? 'Model Provider archived.' : 'Model Provider unarchived.',
+			body: updated.name,
+		})
 		await options.onSuccess?.(updated, action)
 		return updated
 	})
@@ -301,7 +315,11 @@ export function useModelPreflight(modelProviderId: Ref<string>, modelId: Ref<str
 	return { preflightEvidence, isPreflightingModel, preflightModelError, preflightModel, resetModelPreflight }
 }
 
-export function useModelLifecycle(modelProviderId: Ref<string>, modelId: Ref<string>, options: ModelLifecycleOptions = {}) {
+export function useModelLifecycle(
+	modelProviderId: Ref<string>,
+	modelId: Ref<string>,
+	options: ModelLifecycleOptions = {},
+) {
 	const serverApi = useServerApi()
 	const { toast } = useOverlay()
 	const queryCache = useQueryCache()
@@ -326,10 +344,19 @@ export function useModelLifecycle(modelProviderId: Ref<string>, modelId: Ref<str
 }
 
 function modelProviderUpdateInput(formModel: ModelProviderFormModel): UpdateModelProviderInput {
-	return { name: formModel.name, auth: formModel.auth, headers: formModel.headers, providerOptions: formModel.providerOptions }
+	return {
+		name: formModel.name,
+		auth: formModel.auth,
+		headers: formModel.headers,
+		providerOptions: formModel.providerOptions,
+	}
 }
 
-function invalidateModelProviderQueries(queryCache: ReturnType<typeof useQueryCache>, portfolioId: string, modelProviderId: string): void {
+function invalidateModelProviderQueries(
+	queryCache: ReturnType<typeof useQueryCache>,
+	portfolioId: string,
+	modelProviderId: string,
+): void {
 	queryCache.invalidate(queryCache.queryKeys.portfolio.modelProviders(portfolioId), { exact: true })
 	queryCache.invalidate(queryCache.queryKeys.portfolio.modelProvider(portfolioId, modelProviderId), { exact: true })
 }
@@ -341,6 +368,8 @@ function invalidateModelQueries(
 	modelId: string,
 ): void {
 	queryCache.invalidate(queryCache.queryKeys.portfolio.model(portfolioId, modelProviderId, modelId), { exact: true })
-	queryCache.invalidate(queryCache.queryKeys.portfolio.modelReferences(portfolioId, modelProviderId, modelId), { exact: true })
+	queryCache.invalidate(queryCache.queryKeys.portfolio.modelReferences(portfolioId, modelProviderId, modelId), {
+		exact: true,
+	})
 	invalidateModelProviderQueries(queryCache, portfolioId, modelProviderId)
 }

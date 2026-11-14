@@ -1,4 +1,3 @@
-import type { Result } from './types'
 import type { AgentRun } from '../domain/agent-run'
 import type { AgentRunEvent, AgentRunSystemTranscriptPart } from '../domain/agent-run-event'
 import type { Id } from '../domain/commons'
@@ -11,11 +10,10 @@ import type {
 } from '../errors'
 import type { CoreStorage } from '../services'
 import { getRequired, listRecords, type StorageBoundaryError } from './storage/helpers'
+import type { Result } from './types'
 
 export type ProposalReviewState =
-	| { type: 'pending' }
-	| { type: 'accepted'; event: AgentRunEvent }
-	| { type: 'rejected'; event: AgentRunEvent }
+	{ type: 'pending' } | { type: 'accepted'; event: AgentRunEvent } | { type: 'rejected'; event: AgentRunEvent }
 
 export type ProposalEventType = 'proposed-plan-output' | 'proposed-revision-output'
 export type ProposalReviewBodyType = 'proposal-accepted' | 'proposal-rejected'
@@ -26,7 +24,10 @@ export type AgentRunEventWithBody<TExpected extends AgentRunEvent['body']['type'
 	body: Extract<AgentRunEvent['body'], { type: TExpected }>
 }
 
-export interface PendingProposalForPurpose<TProposalType extends ProposalEventType, TPurposeType extends AgentRun['purpose']['type']> {
+export interface PendingProposalForPurpose<
+	TProposalType extends ProposalEventType,
+	TPurposeType extends AgentRun['purpose']['type'],
+> {
 	proposal: AgentRunEventWithBody<TProposalType>
 	agentRun: AgentRunWithPurpose<TPurposeType>
 }
@@ -78,7 +79,11 @@ async function getTypedPendingProposal<TProposalType extends ProposalEventType>(
 ): Promise<
 	Result<
 		AgentRunEventWithBody<TProposalType>,
-		StorageBoundaryError | ResourceNotFoundError | InvariantViolationError | ProposalAlreadyReviewedError | ProposalTypeMismatchError
+		| StorageBoundaryError
+		| ResourceNotFoundError
+		| InvariantViolationError
+		| ProposalAlreadyReviewedError
+		| ProposalTypeMismatchError
 	>
 > {
 	const proposal = await getProposalEvent(storage, proposalEventId)
@@ -91,7 +96,10 @@ async function getTypedPendingProposal<TProposalType extends ProposalEventType>(
 	return pending.ok ? typed : pending
 }
 
-async function loadProposalAgentRun<TProposalType extends ProposalEventType, TPurposeType extends AgentRun['purpose']['type']>(
+async function loadProposalAgentRun<
+	TProposalType extends ProposalEventType,
+	TPurposeType extends AgentRun['purpose']['type'],
+>(
 	storage: CoreStorage,
 	proposal: AgentRunEventWithBody<TProposalType>,
 	purposeType: TPurposeType,
@@ -153,7 +161,10 @@ export function proposalRejectedProjectedParts(
 	]
 }
 
-function proposalReviewState(proposal: AgentRunEvent, events: AgentRunEvent[]): Result<ProposalReviewState, InvariantViolationError> {
+function proposalReviewState(
+	proposal: AgentRunEvent,
+	events: AgentRunEvent[],
+): Result<ProposalReviewState, InvariantViolationError> {
 	const terminal = events.filter((event) => isReviewForProposal(proposal, event))
 	if (terminal.length === 0) return { ok: true, value: { type: 'pending' } }
 	if (terminal.length > 1) return invariant(`Proposal Event ${proposal.id} has multiple terminal reviews.`)
@@ -167,7 +178,9 @@ function isReviewForProposal(proposal: AgentRunEvent, event: AgentRunEvent): boo
 	return event.id > proposal.id && isProposalReviewBody(event.body) && event.body.proposalEventId === proposal.id
 }
 
-function isProposalReviewBody(body: AgentRunEvent['body']): body is Extract<AgentRunEvent['body'], { type: ProposalReviewBodyType }> {
+function isProposalReviewBody(
+	body: AgentRunEvent['body'],
+): body is Extract<AgentRunEvent['body'], { type: ProposalReviewBodyType }> {
 	return body.type === 'proposal-accepted' || body.type === 'proposal-rejected'
 }
 
@@ -175,12 +188,24 @@ function proposalAlreadyReviewed(proposalEventId: Id): Result<never, ProposalAlr
 	return { ok: false, error: { type: 'proposal-already-reviewed', proposalEventId } }
 }
 
-function proposalTypeMismatch(proposal: AgentRunEvent, expected: ProposalEventType): Result<never, ProposalTypeMismatchError> {
-	return { ok: false, error: { type: 'proposal-type-mismatch', proposalEventId: proposal.id, expected, actual: proposal.body.type } }
+function proposalTypeMismatch(
+	proposal: AgentRunEvent,
+	expected: ProposalEventType,
+): Result<never, ProposalTypeMismatchError> {
+	return {
+		ok: false,
+		error: { type: 'proposal-type-mismatch', proposalEventId: proposal.id, expected, actual: proposal.body.type },
+	}
 }
 
-function agentRunPurposeMismatch(agentRun: AgentRun, expected: AgentRun['purpose']['type'][]): Result<never, AgentRunPurposeMismatchError> {
-	return { ok: false, error: { type: 'agent-run-purpose-mismatch', agentRunId: agentRun.id, expected, actual: agentRun.purpose } }
+function agentRunPurposeMismatch(
+	agentRun: AgentRun,
+	expected: AgentRun['purpose']['type'][],
+): Result<never, AgentRunPurposeMismatchError> {
+	return {
+		ok: false,
+		error: { type: 'agent-run-purpose-mismatch', agentRunId: agentRun.id, expected, actual: agentRun.purpose },
+	}
 }
 
 function invariant(message: string): Result<never, InvariantViolationError> {
@@ -230,7 +255,10 @@ if (import.meta.vitest) {
 			)
 			await expect(deriveProposalReviewState(corrupt.storage, corrupt.proposal)).resolves.toEqual({
 				ok: false,
-				error: { type: 'invariant-violation', message: 'Proposal Event 01k00000000000000000000003 has multiple terminal reviews.' },
+				error: {
+					type: 'invariant-violation',
+					message: 'Proposal Event 01k00000000000000000000003 has multiple terminal reviews.',
+				},
 			})
 		})
 	})

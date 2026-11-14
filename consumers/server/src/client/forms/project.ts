@@ -1,8 +1,8 @@
 import { FormDraft } from '@gorchestra/form-draft'
 import { v } from 'valleyed'
 
-import { defaultDeliveryWorkConfig } from './project-config'
 import type { ProjectConfigInput } from '../composables/core/server-api'
+import { defaultDeliveryWorkConfig } from './project-config'
 
 type ProjectCreationFormFields = {
 	title: string
@@ -17,7 +17,11 @@ type ProjectCreationFormModel = { title: string; config: ProjectConfigInput }
 const titlePipe = v.string().pipe(v.min<string>(1, 'Enter a Project title'))
 const requiredIdPipe = v.string().pipe(v.asTrimmed(), v.min<string>(1, 'Select an Agent Run Profile'))
 
-export class ProjectCreationFormDraft extends FormDraft<ProjectCreationFormModel, ProjectCreationFormModel, ProjectCreationFormFields> {
+export class ProjectCreationFormDraft extends FormDraft<
+	ProjectCreationFormModel,
+	ProjectCreationFormModel,
+	ProjectCreationFormFields
+> {
 	protected readonly rules = {
 		title: titlePipe,
 		executionAgentRunProfileId: requiredIdPipe,

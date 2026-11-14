@@ -2,7 +2,12 @@ import { v, type PipeOutput } from 'valleyed'
 
 import { idPipe } from '../domain/commons'
 import { modelReferencePipe, type ModelReference } from '../domain/model'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { buildQueryHandler } from '../utils/query-handler'
 import { getRequired, listRecords } from '../utils/storage/helpers'
 import type { CoreTransactions } from '../utils/transactions'
@@ -13,7 +18,8 @@ export type Input = PipeOutput<typeof inputPipe>
 
 export const resultPipe = v.array(modelReferencePipe)
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createListModelReferencesQuery(transactions: CoreTransactions): Operation {
@@ -81,7 +87,10 @@ if (import.meta.vitest) {
 
 			const result = await query({ modelId: '01k00000000000000000000024' })
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'model', id: '01k00000000000000000000024' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'model', id: '01k00000000000000000000024' },
+			})
 		})
 
 		it('returns an empty reference list for an unreferenced existing Model', async () => {
@@ -97,7 +106,12 @@ if (import.meta.vitest) {
 		it('returns Agent Run Profile references ordered by active state and profile name', async () => {
 			const options = createTestCoreServices()
 			seedSelectableModel(options.tx, '01k00000000000000000000024')
-			const archived = seedAgentRunProfile(options.tx, '01k00000000000000000100063', '01k00000000000000000000024', { archived: true })
+			const archived = seedAgentRunProfile(
+				options.tx,
+				'01k00000000000000000100063',
+				'01k00000000000000000000024',
+				{ archived: true },
+			)
 			archived.name = 'A Archived'
 			const active = seedAgentRunProfile(options.tx, '01k00000000000000000100062', '01k00000000000000000000024')
 			active.name = 'B Active'

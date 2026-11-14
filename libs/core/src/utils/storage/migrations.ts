@@ -2,10 +2,10 @@ import type { AnySchemaField, CreateTableChange, FieldSpec, Migration, OrmAdapte
 import type { InMemoryAdapter as InMemoryAdapterType } from 'equipped/orm/adapters/in-memory'
 import { v, type JsonSchema } from 'valleyed'
 
-import { coreSchema, withExplicitCoreStorageId } from './schema'
 import { auditStampPipe, idPipe, runtimeRecordPipe } from '../../domain/commons'
 import { dispatchCoordinationId, dispatchCoordinationSchema } from '../../domain/dispatch-coordination'
 import type { CoreStorageAdapter } from '../../services'
+import { coreSchema, withExplicitCoreStorageId } from './schema'
 
 type CoreMigrationAdapter = CoreStorageAdapter & OrmAdapter & Required<Pick<OrmAdapter, 'applyCreateTable'>>
 // Expand native field values so adapter variance does not widen this literal catalog.
@@ -30,7 +30,12 @@ export const coreStorageMigrations = [
 		id: '2026-06-16-0001-create-core-storage',
 		tx: true,
 		changes: [
-			createTable('projects', [stringField('title'), objectField('source'), objectField('config'), objectField('created')]),
+			createTable('projects', [
+				stringField('title'),
+				objectField('source'),
+				objectField('config'),
+				objectField('created'),
+			]),
 			createTable('repositories', [stringField('projectId'), objectField('config'), objectField('created')]),
 			createTable('model_providers', [
 				stringField('name'),
@@ -87,9 +92,22 @@ export const coreStorageMigrations = [
 				objectField('accepted'),
 			]),
 			createTable('links', [objectField('def'), objectField('created')]),
-			createTable('memories', [nullableField(stringField('parentId')), objectField('currentRevision'), objectField('created')]),
-			createTable('memory_revisions', [stringField('memoryId'), stringField('title'), stringField('body'), objectField('created')]),
-			createTable('delivery_artifacts', [stringField('deliveryId'), objectField('config'), objectField('created')]),
+			createTable('memories', [
+				nullableField(stringField('parentId')),
+				objectField('currentRevision'),
+				objectField('created'),
+			]),
+			createTable('memory_revisions', [
+				stringField('memoryId'),
+				stringField('title'),
+				stringField('body'),
+				objectField('created'),
+			]),
+			createTable('delivery_artifacts', [
+				stringField('deliveryId'),
+				objectField('config'),
+				objectField('created'),
+			]),
 			createTable('slice_artifacts', [stringField('sliceId'), objectField('config'), objectField('created')]),
 			createTable('actions', [
 				stringField('deliveryId'),
@@ -158,7 +176,11 @@ export const coreStorageMigrations = [
 				arrayField('attempts'),
 				objectField('lifecycle'),
 			]),
-			createTable('dispatch_coordination', [numberField('epoch'), numberField('revision'), numberField('bootstrapVersion')]),
+			createTable('dispatch_coordination', [
+				numberField('epoch'),
+				numberField('revision'),
+				numberField('bootstrapVersion'),
+			]),
 			{ kind: 'execute', up: migrateDurableDispatch },
 		],
 	},
@@ -224,7 +246,10 @@ if (import.meta.vitest) {
 			const { repo } = migrationTestStorage()
 			const migrator = Migrator.from(repo).withLock().migrations(inMemoryMigrations).build()
 
-			expect((await migrator.up()).ran).toEqual(['2026-06-16-0001-create-core-storage', '2026-07-13-0002-durable-dispatch'])
+			expect((await migrator.up()).ran).toEqual([
+				'2026-06-16-0001-create-core-storage',
+				'2026-07-13-0002-durable-dispatch',
+			])
 			expect((await migrator.up()).ran).toEqual([])
 			expect(await repo.on(dispatchCoordinationSchema).all().find()).toEqual([
 				{ id: dispatchCoordinationId, epoch: 0, revision: 0, bootstrapVersion: 0 },
@@ -346,7 +371,9 @@ if (import.meta.vitest) {
 				.sort((left, right) => left.name.localeCompare(right.name))
 			// Equipped's diffSchemas projection cannot currently inspect every piped Valleyed field,
 			// so normalize the same metadata through Valleyed's public JSON Schema API.
-			const schemaTables = coreStorageSchemas.map(normalizeSchema).sort((left, right) => left.name.localeCompare(right.name))
+			const schemaTables = coreStorageSchemas
+				.map(normalizeSchema)
+				.sort((left, right) => left.name.localeCompare(right.name))
 
 			expect(migrationTables).toEqual(schemaTables)
 		})
@@ -394,7 +421,9 @@ if (import.meta.vitest) {
 			const branches = schema[key]
 			if (!Array.isArray(branches)) continue
 
-			const branchSchemas = branches.filter((branch): branch is JsonSchema => typeof branch === 'object' && branch !== null)
+			const branchSchemas = branches.filter(
+				(branch): branch is JsonSchema => typeof branch === 'object' && branch !== null,
+			)
 			if (branchSchemas.length !== branches.length) return null
 
 			const nonNullTypes = branchSchemas.filter((branch) => branch.type !== 'null').map(inferJsonSchemaType)

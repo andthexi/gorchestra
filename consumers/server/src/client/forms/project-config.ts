@@ -17,7 +17,11 @@ const positiveIntegerFieldPipe = v.number().pipe(v.int(), v.gte(1))
 const nonNegativeIntegerFieldPipe = v.number().pipe(v.int(), v.gte(0))
 const requiredIdPipe = v.string().pipe(v.asTrimmed(), v.min<string>(1, 'Select an Agent Run Profile'))
 
-export class ProjectConfigFormDraft extends FormDraft<ProjectConfigFormEntity, ProjectConfigFormModel, ProjectConfigFormFields> {
+export class ProjectConfigFormDraft extends FormDraft<
+	ProjectConfigFormEntity,
+	ProjectConfigFormModel,
+	ProjectConfigFormFields
+> {
 	protected readonly rules = {
 		executionAgentRunProfileId: requiredIdPipe,
 		revisionExecutionAgentRunProfileId: v.nullable(v.string().pipe(v.asTrimmed())),
@@ -101,7 +105,12 @@ if (import.meta.vitest) {
 			draft.revisionExecutionAgentRunProfileId = ' '
 
 			expect(draft.toModel()).toEqual({
-				config: { work: { ...defaultDeliveryWorkConfig('agent-run-profile-1'), revisionExecutionAgentRunProfileId: null } },
+				config: {
+					work: {
+						...defaultDeliveryWorkConfig('agent-run-profile-1'),
+						revisionExecutionAgentRunProfileId: null,
+					},
+				},
 			})
 		})
 	})

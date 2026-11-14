@@ -1,6 +1,6 @@
-import type { WorkStateResult } from './types'
 import type { InvariantViolationError } from '../../../errors'
 import type { Result } from '../../types'
+import type { WorkStateResult } from './types'
 
 export async function firstState<T>(
 	steps: Array<() => WorkStateResult<T | null> | Promise<WorkStateResult<T | null>>>,
@@ -33,7 +33,10 @@ export async function stateOrElse<T>(
 	return result.value === null ? fallback() : ok(result.value)
 }
 
-export function stateOrElseSync<T>(result: WorkStateResult<T | null>, fallback: () => WorkStateResult<T>): WorkStateResult<T> {
+export function stateOrElseSync<T>(
+	result: WorkStateResult<T | null>,
+	fallback: () => WorkStateResult<T>,
+): WorkStateResult<T> {
 	if (!result.ok) return result
 
 	return result.value === null ? fallback() : ok(result.value)

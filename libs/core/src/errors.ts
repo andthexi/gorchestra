@@ -40,7 +40,10 @@ export type OpenCoreError = InvalidInputError
 
 export type DeliveryWorkStateType = DeliveryWorkState['type']
 
-export type ArchivableCoreResource = Extract<CoreIdResource, 'model-provider' | 'model' | 'agent-run-profile' | 'secret'>
+export type ArchivableCoreResource = Extract<
+	CoreIdResource,
+	'model-provider' | 'model' | 'agent-run-profile' | 'secret'
+>
 
 export interface ResourceNotFoundError {
 	type: 'not-found'
@@ -187,7 +190,12 @@ export type InvalidPlanOutputError =
 	| { type: 'invalid-plan-output'; reason: 'unknown-proposed-slice-key'; proposedSliceKey: string }
 	| { type: 'invalid-plan-output'; reason: 'unknown-proposed-memory-key'; proposedMemoryKey: string }
 	| { type: 'invalid-plan-output'; reason: 'unknown-link-def-ref'; def: LinkDef }
-	| { type: 'invalid-plan-output'; reason: 'repository-project-mismatch'; proposedDeliveryKey: string; repositoryId: Id }
+	| {
+			type: 'invalid-plan-output'
+			reason: 'repository-project-mismatch'
+			proposedDeliveryKey: string
+			repositoryId: Id
+	  }
 	| { type: 'invalid-plan-output'; reason: 'project-boundary-mismatch'; def: LinkDef }
 	| { type: 'invalid-plan-output'; reason: 'invalid-link-def'; def: LinkDef }
 	| { type: 'invalid-plan-output'; reason: 'duplicate-link'; def: LinkDef }

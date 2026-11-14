@@ -98,7 +98,10 @@ export function dependenciesPipe() {
 				(value) => value instanceof OrmAdapter && v.validate(adapterMethods, value).valid,
 				'Expected a supported native storage adapter.',
 			),
-			resolveSchema: v.custom<RuntimeDependencies['storage']['resolveSchema']>(isCallback, 'Expected a function.'),
+			resolveSchema: v.custom<RuntimeDependencies['storage']['resolveSchema']>(
+				isCallback,
+				'Expected a function.',
+			),
 		}),
 		secrets: v.object({
 			encode: v.custom<RuntimeDependencies['secrets']['encode']>(isCallback, 'Expected a function.'),

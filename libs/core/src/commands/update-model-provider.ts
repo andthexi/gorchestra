@@ -1,8 +1,12 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { idPipe, nonEmptyTrimmedStringPipe } from '../domain/commons'
-import { modelProviderAuthPipe, modelProviderHeadersPipe, modelProviderOptionsPipe, type ModelProvider } from '../domain/model-provider'
+import {
+	modelProviderAuthPipe,
+	modelProviderHeadersPipe,
+	modelProviderOptionsPipe,
+	type ModelProvider,
+} from '../domain/model-provider'
 import type {
 	InvalidCoreServiceOutputError,
 	InvalidInputError,
@@ -22,6 +26,7 @@ import {
 import type { CoreRuntime } from '../utils/runtime'
 import { validateActiveSecretReferencesFromRecords } from '../utils/secrets'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const updateModelProviderInputPipe = v.object({
 	modelProviderId: idPipe,
@@ -49,25 +54,27 @@ export function createUpdateModelProviderCommand(runtime: CoreRuntime): Operatio
 		const stamp = auditStamp(runtime.values, context)
 		if (!stamp.ok) return Promise.resolve(stamp)
 
-		return runtime.transactions.run(async ({ storage }): Promise<CoreResult<ModelProvider, Exclude<Error, InvalidInputError>>> => {
-			const existing = await getRequired('model-provider', storage, input.modelProviderId)
-			if (!existing.ok) return existing
+		return runtime.transactions.run(
+			async ({ storage }): Promise<CoreResult<ModelProvider, Exclude<Error, InvalidInputError>>> => {
+				const existing = await getRequired('model-provider', storage, input.modelProviderId)
+				if (!existing.ok) return existing
 
-			const secretIds = secretReferencesFromModelProviderConfig(input.auth, input.headers)
-			const secrets = await listRecordsByIds('secret', storage, secretIds)
-			if (!secrets.ok) return secrets
+				const secretIds = secretReferencesFromModelProviderConfig(input.auth, input.headers)
+				const secrets = await listRecordsByIds('secret', storage, secretIds)
+				if (!secrets.ok) return secrets
 
-			const validReferences = validateActiveSecretReferencesFromRecords(secretIds, secrets.value)
-			if (!validReferences.ok) return validReferences
+				const validReferences = validateActiveSecretReferencesFromRecords(secretIds, secrets.value)
+				if (!validReferences.ok) return validReferences
 
-			return updateRecordValue('model-provider', storage, existing.value.id, {
-				name: input.name,
-				auth: input.auth,
-				headers: input.headers,
-				providerOptions: input.providerOptions,
-				updated: stamp.value,
-			})
-		})
+				return updateRecordValue('model-provider', storage, existing.value.id, {
+					name: input.name,
+					auth: input.auth,
+					headers: input.headers,
+					providerOptions: input.providerOptions,
+					updated: stamp.value,
+				})
+			},
+		)
 	})
 }
 

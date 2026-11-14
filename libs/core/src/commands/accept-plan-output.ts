@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import type { AgentRun } from '../domain/agent-run'
 import type { AgentRunEvent } from '../domain/agent-run-event'
 import { idPipe, type AuditStamp, type Id } from '../domain/commons'
@@ -8,7 +7,12 @@ import type { Delivery } from '../domain/delivery'
 import type { Link, LinkDef } from '../domain/link'
 import type { Memory } from '../domain/memory'
 import type { MemoryRevision } from '../domain/memory-revision'
-import type { PlanOutputProposal, ProposedChildMemoryCreation, ProposedDelivery, ProposedMemoryCreation } from '../domain/plan'
+import type {
+	PlanOutputProposal,
+	ProposedChildMemoryCreation,
+	ProposedDelivery,
+	ProposedMemoryCreation,
+} from '../domain/plan'
 import type { Slice } from '../domain/slice'
 import type {
 	AgentRunPurposeMismatchError,
@@ -29,6 +33,7 @@ import type { NotificationEmitter } from '../utils/notification-emitter'
 import { getPendingProposalForAgentRunPurpose, proposalAcceptedProjectedParts } from '../utils/proposals'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const acceptPlanOutputInputPipe = v.object({ proposalEventId: idPipe })
 export type Input = PipeOutput<typeof acceptPlanOutputInputPipe>
@@ -68,31 +73,38 @@ export function createAcceptPlanOutputCommand(runtime: CoreRuntime): Operation {
 		const stamp = auditStamp(runtime.values, context)
 		if (!stamp.ok) return stamp
 
-		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(async ({ storage, notifications }) => {
-			const proposal = await getPendingProposalForAgentRunPurpose(storage, input.proposalEventId, 'proposed-plan-output', 'planning')
-			if (!proposal.ok) return proposal
+		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(
+			async ({ storage, notifications }) => {
+				const proposal = await getPendingProposalForAgentRunPurpose(
+					storage,
+					input.proposalEventId,
+					'proposed-plan-output',
+					'planning',
+				)
+				if (!proposal.ok) return proposal
 
-			const plan = await getRequired('plan', storage, proposal.value.agentRun.purpose.planId)
-			if (!plan.ok) return plan
+				const plan = await getRequired('plan', storage, proposal.value.agentRun.purpose.planId)
+				if (!plan.ok) return plan
 
-			const proposalContext = {
-				agentRun: proposal.value.agentRun,
-				planId: plan.value.id,
-				projectId: plan.value.projectId,
-				output: proposal.value.proposal.body.output,
-			}
-			const validatedContext = await validatePlanProposalContext(storage, proposalContext)
-			return validatedContext.ok
-				? materializeAcceptedPlanProposal(
-						runtime,
-						storage,
-						notifications,
-						proposal.value.proposal,
-						validatedContext.value,
-						stamp.value,
-					)
-				: validatedContext
-		})
+				const proposalContext = {
+					agentRun: proposal.value.agentRun,
+					planId: plan.value.id,
+					projectId: plan.value.projectId,
+					output: proposal.value.proposal.body.output,
+				}
+				const validatedContext = await validatePlanProposalContext(storage, proposalContext)
+				return validatedContext.ok
+					? materializeAcceptedPlanProposal(
+							runtime,
+							storage,
+							notifications,
+							proposal.value.proposal,
+							validatedContext.value,
+							stamp.value,
+						)
+					: validatedContext
+			},
+		)
 	})
 }
 
@@ -181,7 +193,10 @@ async function validatePlanMemoryRevisions(
 				actualCurrentRevisionId: memory.value.currentRevision.id,
 			})
 		}
-		if (memory.value.currentRevision.title === revision.title && memory.value.currentRevision.body === revision.body) {
+		if (
+			memory.value.currentRevision.title === revision.title &&
+			memory.value.currentRevision.body === revision.body
+		) {
 			return invalidPlanOutput({ reason: 'noop-memory-revision', memoryId: memory.value.id })
 		}
 		targets.set(memoryId, memory.value)
@@ -215,32 +230,44 @@ async function materializeAcceptedPlanProposal(
 	const memoryResult = await storeRecordSet('memory', storage, materialized.value.memories)
 	let memoryUpdateResult: CoreResult<void, Exclude<Error, InvalidInputError>> = { ok: true, value: undefined }
 	for (const memory of materialized.value.memoryUpdates) {
-		const stored = await updateRecordValue('memory', storage, memory.id, { currentRevision: memory.currentRevision })
+		const stored = await updateRecordValue('memory', storage, memory.id, {
+			currentRevision: memory.currentRevision,
+		})
 		if (!stored.ok) {
 			memoryUpdateResult = stored
 			break
 		}
 	}
 	const linkResult = await storeRecordSet('link', storage, materialized.value.links)
-	const storageFailure = [deliveryResult, sliceResult, memoryRevisionResult, memoryResult, memoryUpdateResult, linkResult].find(
-		(result) => !result.ok,
-	)
+	const storageFailure = [
+		deliveryResult,
+		sliceResult,
+		memoryRevisionResult,
+		memoryResult,
+		memoryUpdateResult,
+		linkResult,
+	].find((result) => !result.ok)
 	if (storageFailure !== undefined && !storageFailure.ok) return storageFailure
 
-	const acceptedEvent = await appendAgentRunEvent({ values: runtime.values, notifications }, storage, proposal.agentRunId, {
-		type: 'proposal-accepted',
-		proposalEventId: proposal.id,
-		authorized: stamp,
-		materialized: {
-			type: 'plan-output',
-			deliveryIds: materialized.value.deliveries.map((record) => record.id),
-			sliceIds: materialized.value.slices.map((record) => record.id),
-			memoryIds: materialized.value.memories.map((record) => record.id),
-			memoryRevisionIds: materialized.value.memoryRevisions.map((record) => record.id),
-			linkIds: materialized.value.links.map((record) => record.id),
+	const acceptedEvent = await appendAgentRunEvent(
+		{ values: runtime.values, notifications },
+		storage,
+		proposal.agentRunId,
+		{
+			type: 'proposal-accepted',
+			proposalEventId: proposal.id,
+			authorized: stamp,
+			materialized: {
+				type: 'plan-output',
+				deliveryIds: materialized.value.deliveries.map((record) => record.id),
+				sliceIds: materialized.value.slices.map((record) => record.id),
+				memoryIds: materialized.value.memories.map((record) => record.id),
+				memoryRevisionIds: materialized.value.memoryRevisions.map((record) => record.id),
+				linkIds: materialized.value.links.map((record) => record.id),
+			},
+			projectedParts: proposalAcceptedProjectedParts(proposal.id),
 		},
-		projectedParts: proposalAcceptedProjectedParts(proposal.id),
-	})
+	)
 	return acceptedEvent.ok
 		? {
 				ok: true,
@@ -314,7 +341,11 @@ class PlanOutputBuilder {
 		return { ok: true, value: undefined }
 	}
 
-	private buildSlices(deliveryKey: string, proposed: ProposedDelivery, deliveryId: Id): CoreResult<void, InvalidCoreServiceOutputError> {
+	private buildSlices(
+		deliveryKey: string,
+		proposed: ProposedDelivery,
+		deliveryId: Id,
+	): CoreResult<void, InvalidCoreServiceOutputError> {
 		const sliceIds = new Map<string, Id>()
 		for (const [sliceKey, proposedSlice] of sortedSlices(proposed.slices)) {
 			const sliceId = nextId(this.runtime.values)
@@ -425,8 +456,18 @@ class PlanOutputBuilder {
 				for (const dependency of sortedKeys(slice.dependsOnProposedSliceKeys)) {
 					const def = {
 						type: 'depends-on',
-						from: { type: 'slice', projectId: this.context.projectId, deliveryId, id: sliceIds.get(sliceKey)! },
-						to: { type: 'slice', projectId: this.context.projectId, deliveryId, id: sliceIds.get(dependency)! },
+						from: {
+							type: 'slice',
+							projectId: this.context.projectId,
+							deliveryId,
+							id: sliceIds.get(sliceKey)!,
+						},
+						to: {
+							type: 'slice',
+							projectId: this.context.projectId,
+							deliveryId,
+							id: sliceIds.get(dependency)!,
+						},
 					} satisfies LinkDef
 					const link = this.pushLink(this.#sliceDependencyLinks, def)
 					if (!link.ok) return link
@@ -566,7 +607,14 @@ if (import.meta.vitest) {
 							title: 'Delivery',
 						},
 					],
-					slices: [{ id: '01k00000000000000000010002', deliveryId: '01k00000000000000000010001', title: 'Slice', order: 0 }],
+					slices: [
+						{
+							id: '01k00000000000000000010002',
+							deliveryId: '01k00000000000000000010001',
+							title: 'Slice',
+							order: 0,
+						},
+					],
 					memories: [
 						{
 							id: '01k00000000000000000010003',
@@ -610,13 +658,19 @@ if (import.meta.vitest) {
 					},
 				},
 			})
-			expect(options.tx.memories.records.get(existingMemoryId)?.currentRevision).toMatchObject({ id: '01k00000000000000000010007' })
+			expect(options.tx.memories.records.get(existingMemoryId)?.currentRevision).toMatchObject({
+				id: '01k00000000000000000010007',
+			})
 			expect(result.ok ? result.value.links : []).toMatchObject([
 				{
 					id: '01k00000000000000000010008',
 					def: {
 						type: 'produced',
-						from: { type: 'plan', projectId: '01k00000000000000000000030', id: '01k00000000000000000000028' },
+						from: {
+							type: 'plan',
+							projectId: '01k00000000000000000000030',
+							id: '01k00000000000000000000028',
+						},
 						to: { type: 'memory', id: '01k00000000000000000010003' },
 					},
 				},
@@ -624,7 +678,11 @@ if (import.meta.vitest) {
 					id: '01k00000000000000000010009',
 					def: {
 						type: 'produced',
-						from: { type: 'plan', projectId: '01k00000000000000000000030', id: '01k00000000000000000000028' },
+						from: {
+							type: 'plan',
+							projectId: '01k00000000000000000000030',
+							id: '01k00000000000000000000028',
+						},
 						to: { type: 'memory', id: '01k00000000000000000010005' },
 					},
 				},
@@ -632,23 +690,43 @@ if (import.meta.vitest) {
 					id: '01k00000000000000000010010',
 					def: {
 						type: 'produced',
-						from: { type: 'plan', projectId: '01k00000000000000000000030', id: '01k00000000000000000000028' },
-						to: { type: 'memory-revision', memoryId: '01k00000000000000000010003', id: '01k00000000000000000010004' },
+						from: {
+							type: 'plan',
+							projectId: '01k00000000000000000000030',
+							id: '01k00000000000000000000028',
+						},
+						to: {
+							type: 'memory-revision',
+							memoryId: '01k00000000000000000010003',
+							id: '01k00000000000000000010004',
+						},
 					},
 				},
 				{
 					id: '01k00000000000000000010011',
 					def: {
 						type: 'produced',
-						from: { type: 'plan', projectId: '01k00000000000000000000030', id: '01k00000000000000000000028' },
-						to: { type: 'memory-revision', memoryId: '01k00000000000000000010005', id: '01k00000000000000000010006' },
+						from: {
+							type: 'plan',
+							projectId: '01k00000000000000000000030',
+							id: '01k00000000000000000000028',
+						},
+						to: {
+							type: 'memory-revision',
+							memoryId: '01k00000000000000000010005',
+							id: '01k00000000000000000010006',
+						},
 					},
 				},
 				{
 					id: '01k00000000000000000010012',
 					def: {
 						type: 'produced',
-						from: { type: 'plan', projectId: '01k00000000000000000000030', id: '01k00000000000000000000028' },
+						from: {
+							type: 'plan',
+							projectId: '01k00000000000000000000030',
+							id: '01k00000000000000000000028',
+						},
 						to: { type: 'memory-revision', memoryId: existingMemoryId, id: '01k00000000000000000010007' },
 					},
 				},
@@ -700,7 +778,10 @@ if (import.meta.vitest) {
 				}),
 			)
 			await expect(
-				createAcceptPlanOutputCommand(createTestCoreRuntime(noop))({ proposalEventId: proposalEventId }, context),
+				createAcceptPlanOutputCommand(createTestCoreRuntime(noop))(
+					{ proposalEventId: proposalEventId },
+					context,
+				),
 			).resolves.toEqual({
 				ok: false,
 				error: { type: 'invalid-plan-output', reason: 'noop-memory-revision', memoryId: existingMemoryId },
@@ -726,7 +807,10 @@ if (import.meta.vitest) {
 					...planOutput(),
 					proposedDeliveries: {
 						...planOutput().proposedDeliveries,
-						delivery: { ...planOutput().proposedDeliveries.delivery!, dependsOnDeliveryIds: { [otherDeliveryId]: true } },
+						delivery: {
+							...planOutput().proposedDeliveries.delivery!,
+							dependsOnDeliveryIds: { [otherDeliveryId]: true },
+						},
 					},
 				}),
 			)
@@ -743,7 +827,11 @@ if (import.meta.vitest) {
 					reason: 'project-boundary-mismatch',
 					def: {
 						type: 'depends-on',
-						from: { type: 'delivery', projectId: '01k00000000000000000000030', id: '01k00000000000000000010001' },
+						from: {
+							type: 'delivery',
+							projectId: '01k00000000000000000000030',
+							id: '01k00000000000000000010001',
+						},
 						to: { type: 'delivery', projectId: otherProjectId, id: otherDeliveryId },
 					},
 				},
@@ -771,7 +859,12 @@ if (import.meta.vitest) {
 			id: existingMemoryId,
 			parentId: null,
 			created: localStamp(),
-			currentRevision: { id: existingMemoryRevisionId, title: 'Existing memory', body: 'Existing body.', created: localStamp() },
+			currentRevision: {
+				id: existingMemoryRevisionId,
+				title: 'Existing memory',
+				body: 'Existing body.',
+				created: localStamp(),
+			},
 		})
 		options.tx.agentRuns.records.set('01k00000000000000000000002', {
 			id: '01k00000000000000000000002',
@@ -817,7 +910,11 @@ if (import.meta.vitest) {
 			proposedDeliveries: {
 				delivery: {
 					title: 'Delivery',
-					target: { type: 'source-control', repositoryId: '01k00000000000000000000034', targetBranch: 'main' },
+					target: {
+						type: 'source-control',
+						repositoryId: '01k00000000000000000000034',
+						targetBranch: 'main',
+					},
 					slices: {
 						slice: {
 							order: 0,

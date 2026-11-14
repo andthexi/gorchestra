@@ -2,6 +2,10 @@ import { Domain, Queries } from '@gorchestra/core'
 import { Router } from 'equipped/server'
 import { v } from 'valleyed'
 
+import type { ServerApiContext } from '../../context'
+import { throwCoreOperationError } from '../../errors'
+import { withSelectedPortfolioCore, withSelectedPortfolioOwnerCore } from '../../portfolio-context'
+import { coreIdPipe } from '../../schemas'
 import {
 	createProjectRequestSchema,
 	portfolioRequestCookieSchema,
@@ -10,10 +14,6 @@ import {
 	type PortfolioRequestCookies,
 	type SetProjectConfigRequest,
 } from './shared'
-import type { ServerApiContext } from '../../context'
-import { throwCoreOperationError } from '../../errors'
-import { withSelectedPortfolioCore, withSelectedPortfolioOwnerCore } from '../../portfolio-context'
-import { coreIdPipe } from '../../schemas'
 
 export function createProjectsApiRouter(context: ServerApiContext) {
 	return new Router()
@@ -30,7 +30,11 @@ export function createProjectsApiRouter(context: ServerApiContext) {
 			}),
 		)
 		.post('/projects', {
-			schema: { cookies: portfolioRequestCookieSchema, body: createProjectRequestSchema, response: Queries.GetProject.resultPipe },
+			schema: {
+				cookies: portfolioRequestCookieSchema,
+				body: createProjectRequestSchema,
+				response: Queries.GetProject.resultPipe,
+			},
 		})(async (req) => createSelectedPortfolioProject(context, req.cookies, req.body))
 		.get('/projects/:projectId', {
 			schema: {

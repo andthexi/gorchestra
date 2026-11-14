@@ -6,7 +6,7 @@
 			</slot>
 			<slot name="label-end" />
 		</div>
-		<slot :invalid="hasError" :error-id="errorId" />
+		<slot :invalid="hasError" :errorId="errorId" />
 		<UiText v-if="showError && error" :id="errorId" tone="error" size="helper">
 			{{ error }}
 		</UiText>

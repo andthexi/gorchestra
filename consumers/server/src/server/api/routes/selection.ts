@@ -45,18 +45,20 @@ const selectionAccessResponseSchema = v.or([
 
 export function createSelectionApiRouter(context: ServerApiContext) {
 	return new Router({ path: '/selection' })
-		.get('/', { schema: { cookies: selectionRequestCookieSchema, response: selectionAccessResponseSchema } })(async (req) => {
-			const authentication = await authenticateApiSession(context, getSessionToken(req.cookies))
-			if (!authentication.authenticated) throwSessionAuthenticationError(authentication.reason)
+		.get('/', { schema: { cookies: selectionRequestCookieSchema, response: selectionAccessResponseSchema } })(
+			async (req) => {
+				const authentication = await authenticateApiSession(context, getSessionToken(req.cookies))
+				if (!authentication.authenticated) throwSessionAuthenticationError(authentication.reason)
 
-			return await resolveSelectionAccess({
-				serverStorage: context.serverStorage,
-				userId: authentication.session.userId,
-				selectionToken: req.cookies[selectionCookieName] ?? null,
-				now: context.now(),
-				signingKey: context.security.selectionSigningKey,
-			})
-		})
+				return await resolveSelectionAccess({
+					serverStorage: context.serverStorage,
+					userId: authentication.session.userId,
+					selectionToken: req.cookies[selectionCookieName] ?? null,
+					now: context.now(),
+					signingKey: context.security.selectionSigningKey,
+				})
+			},
+		)
 		.post('/', {
 			schema: {
 				body: setSelectionBodySchema,

@@ -2,7 +2,12 @@ import { v, type PipeInput, type PipeOutput } from 'valleyed'
 
 import { idPipe, paginatedQueryEnvelopePipe, paginatedQueryInputPipe } from '../domain/commons'
 import { planPipe, type Plan } from '../domain/plan'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { buildQueryHandler } from '../utils/query-handler'
 import { getRequired, listRecordsPaginated } from '../utils/storage/helpers'
 import type { CoreTransactions } from '../utils/transactions'
@@ -13,7 +18,8 @@ export type Input = UndefinedToOptional<PipeInput<typeof inputPipe>>
 
 export const resultPipe = paginatedQueryEnvelopePipe(planPipe)
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createListPlansQuery(transactions: CoreTransactions): Operation {
@@ -47,16 +53,23 @@ if (import.meta.vitest) {
 		})
 
 		it('returns not-found when the target Project does not exist', async () => {
-			const result = await createListPlansQuery(createTestCoreServices().transactions)({ projectId: '01k00000000000000000000030' })
+			const result = await createListPlansQuery(createTestCoreServices().transactions)({
+				projectId: '01k00000000000000000000030',
+			})
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'project', id: '01k00000000000000000000030' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'project', id: '01k00000000000000000000030' },
+			})
 		})
 
 		it('lists stored Plans for one Project in id-desc order without reading Agent Runs', async () => {
 			const records = seedPlanListRecords()
 			records.options.tx.agentRuns.fail.list = true
 
-			const result = await createListPlansQuery(records.options.transactions)({ projectId: '01k00000000000000000000030' })
+			const result = await createListPlansQuery(records.options.transactions)({
+				projectId: '01k00000000000000000000030',
+			})
 
 			expect(result).toEqual({
 				ok: true,

@@ -2,7 +2,12 @@ import { v, type PipeOutput } from 'valleyed'
 
 import { idPipe } from '../domain/commons'
 import { planPipe, type Plan } from '../domain/plan'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { buildQueryHandler } from '../utils/query-handler'
 import { getRequired, notFound } from '../utils/storage/helpers'
 import type { CoreTransactions } from '../utils/transactions'
@@ -13,7 +18,8 @@ export type Input = PipeOutput<typeof inputPipe>
 
 export const resultPipe = planPipe
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createGetPlanQuery(transactions: CoreTransactions): Operation {
@@ -38,7 +44,10 @@ if (import.meta.vitest) {
 			const options = createTestCoreServices()
 			options.tx.projects.fail.get = true
 
-			const result = await createGetPlanQuery(options.transactions)({ projectId: '', planId: '01k00000000000000000000028' })
+			const result = await createGetPlanQuery(options.transactions)({
+				projectId: '',
+				planId: '01k00000000000000000000028',
+			})
 
 			expect(result).toMatchObject({
 				ok: false,
@@ -64,7 +73,11 @@ if (import.meta.vitest) {
 			const options = createTestCoreServices()
 			options.tx.plans.records.set(
 				'01k00000000000000000000028',
-				plan({ id: '01k00000000000000000000028', projectId: '01k00000000000000000000030', title: 'Plan setup' }),
+				plan({
+					id: '01k00000000000000000000028',
+					projectId: '01k00000000000000000000030',
+					title: 'Plan setup',
+				}),
 			)
 
 			const result = await createGetPlanQuery(options.transactions)({
@@ -72,7 +85,10 @@ if (import.meta.vitest) {
 				planId: '01k00000000000000000000028',
 			})
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'project', id: '01k00000000000000000000030' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'project', id: '01k00000000000000000000030' },
+			})
 		})
 
 		it('returns not-found when the Plan does not belong to the Project', async () => {
@@ -84,7 +100,10 @@ if (import.meta.vitest) {
 				planId: '01k00000000000000000000028',
 			})
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'plan', id: '01k00000000000000000000028' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'plan', id: '01k00000000000000000000028' },
+			})
 		})
 	})
 

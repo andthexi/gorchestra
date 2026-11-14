@@ -1,10 +1,10 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import { buildSnapshotStub } from './utils'
 import { nonEmptyRawStringPipe } from '../../domain/commons'
 import type { PortfolioSnapshotManifest } from '../../domain/snapshot'
 import type { InvalidInputError, NotImplementedError } from '../../errors'
 import type { Result as CoreResult } from '../types'
+import { buildSnapshotStub } from './utils'
 
 const exportSnapshotInputPipe = v.object({ passphrase: nonEmptyRawStringPipe })
 export type Input = PipeOutput<typeof exportSnapshotInputPipe>
@@ -30,7 +30,10 @@ if (import.meta.vitest) {
 
 			const result = await operation({ passphrase: '' })
 
-			expect(result).toMatchObject({ ok: false, error: { type: 'invalid-input', boundary: 'snapshot', operation: 'export' } })
+			expect(result).toMatchObject({
+				ok: false,
+				error: { type: 'invalid-input', boundary: 'snapshot', operation: 'export' },
+			})
 		})
 	})
 }

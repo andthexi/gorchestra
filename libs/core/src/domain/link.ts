@@ -1,7 +1,7 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import { auditStampPipe, idPipe } from './commons'
 import { coreSchema, schemaToPipe } from '../utils/storage/schema'
+import { auditStampPipe, idPipe } from './commons'
 
 const planGraphNodeRefPipe = v.object({ type: v.eq('plan'), projectId: idPipe, id: idPipe })
 const deliveryGraphNodeRefPipe = v.object({ type: v.eq('delivery'), projectId: idPipe, id: idPipe })
@@ -21,7 +21,12 @@ export type GraphNodeRef = PipeOutput<typeof graphNodeRefPipe>
 const deliveryDependsOnDeliveryEndpointPipe = v
 	.object({ type: v.eq('depends-on'), from: deliveryGraphNodeRefPipe, to: deliveryGraphNodeRefPipe })
 	.pipe(v.custom((link) => link.from.id !== link.to.id, 'Expected dependency endpoints to be different nodes.'))
-	.pipe(v.custom((link) => link.from.projectId === link.to.projectId, 'Expected Delivery dependency endpoints in the same Project.'))
+	.pipe(
+		v.custom(
+			(link) => link.from.projectId === link.to.projectId,
+			'Expected Delivery dependency endpoints in the same Project.',
+		),
+	)
 
 const sliceDependsOnSliceEndpointPipe = v
 	.object({ type: v.eq('depends-on'), from: sliceGraphNodeRefPipe, to: sliceGraphNodeRefPipe })
@@ -34,7 +39,11 @@ const sliceDependsOnSliceEndpointPipe = v
 	)
 
 export const linkDefPipe = v.discriminate((value) => `${value.type}-${value.from.type}-${value.to.type}`, {
-	'produced-plan-memory': v.object({ type: v.eq('produced'), from: planGraphNodeRefPipe, to: memoryGraphNodeRefPipe }),
+	'produced-plan-memory': v.object({
+		type: v.eq('produced'),
+		from: planGraphNodeRefPipe,
+		to: memoryGraphNodeRefPipe,
+	}),
 	'produced-plan-memory-revision': v.object({
 		type: v.eq('produced'),
 		from: planGraphNodeRefPipe,
@@ -59,7 +68,11 @@ if (import.meta.vitest) {
 					linkPipe,
 					link({
 						type: 'produced',
-						from: { type: 'plan', projectId: '01k00000000000000000000030', id: '01k00000000000000000000028' },
+						from: {
+							type: 'plan',
+							projectId: '01k00000000000000000000030',
+							id: '01k00000000000000000000028',
+						},
 						to: { type: 'memory', id: '01k00000000000000000000019' },
 					}),
 				).valid,
@@ -69,8 +82,16 @@ if (import.meta.vitest) {
 					linkPipe,
 					link({
 						type: 'produced',
-						from: { type: 'plan', projectId: '01k00000000000000000000030', id: '01k00000000000000000000028' },
-						to: { type: 'memory-revision', memoryId: '01k00000000000000000000019', id: '01k00000000000000000000038' },
+						from: {
+							type: 'plan',
+							projectId: '01k00000000000000000000030',
+							id: '01k00000000000000000000028',
+						},
+						to: {
+							type: 'memory-revision',
+							memoryId: '01k00000000000000000000019',
+							id: '01k00000000000000000000038',
+						},
 					}),
 				).valid,
 			).toBe(true)
@@ -79,8 +100,16 @@ if (import.meta.vitest) {
 					linkPipe,
 					link({
 						type: 'depends-on',
-						from: { type: 'delivery', projectId: '01k00000000000000000000030', id: '01k00000000000000000000009' },
-						to: { type: 'delivery', projectId: '01k00000000000000000000030', id: '01k00000000000000000000008' },
+						from: {
+							type: 'delivery',
+							projectId: '01k00000000000000000000030',
+							id: '01k00000000000000000000009',
+						},
+						to: {
+							type: 'delivery',
+							projectId: '01k00000000000000000000030',
+							id: '01k00000000000000000000008',
+						},
 					}),
 				).valid,
 			).toBe(true)
@@ -110,7 +139,11 @@ if (import.meta.vitest) {
 			expect(
 				v.validate(linkDefPipe, {
 					type: 'depends-on',
-					from: { type: 'delivery', projectId: '01k00000000000000000000030', id: '01k00000000000000000000009' },
+					from: {
+						type: 'delivery',
+						projectId: '01k00000000000000000000030',
+						id: '01k00000000000000000000009',
+					},
 					to: { type: 'delivery', projectId: '01k00000000000000000000031', id: '01k00000000000000000000008' },
 				}).valid,
 			).toBe(false)
@@ -134,7 +167,11 @@ if (import.meta.vitest) {
 			expect(
 				v.validate(linkDefPipe, {
 					type: 'depends-on',
-					from: { type: 'delivery', projectId: '01k00000000000000000000030', id: '01k00000000000000000000008' },
+					from: {
+						type: 'delivery',
+						projectId: '01k00000000000000000000030',
+						id: '01k00000000000000000000008',
+					},
 					to: { type: 'delivery', projectId: '01k00000000000000000000030', id: '01k00000000000000000000008' },
 				}).valid,
 			).toBe(false)
@@ -156,6 +193,10 @@ if (import.meta.vitest) {
 	})
 
 	function link(def: LinkDef): Link {
-		return { id: '01k00000000000000000000014', def, created: { origin: 'imported', at: '2026-07-03T00:00:00.000Z' } }
+		return {
+			id: '01k00000000000000000000014',
+			def,
+			created: { origin: 'imported', at: '2026-07-03T00:00:00.000Z' },
+		}
 	}
 }

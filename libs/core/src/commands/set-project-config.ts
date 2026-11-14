@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { idPipe } from '../domain/commons'
 import { projectConfigPipe } from '../domain/config'
 import type { Project } from '../domain/project'
@@ -17,6 +16,7 @@ import {
 } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const setProjectConfigInputPipe = v.object({ projectId: idPipe, config: projectConfigPipe })
 export type Input = PipeOutput<typeof setProjectConfigInputPipe>
@@ -30,17 +30,22 @@ export function createSetProjectConfigCommand(runtime: CoreRuntime): Operation {
 		const stamp = auditStamp(runtime.values, context)
 		if (!stamp.ok) return stamp
 
-		return runtime.transactions.run(async ({ storage }): Promise<CoreResult<Project, Exclude<Error, InvalidInputError>>> => {
-			const projectResult = await getRequired('project', storage, input.projectId)
-			if (!projectResult.ok) return projectResult
+		return runtime.transactions.run(
+			async ({ storage }): Promise<CoreResult<Project, Exclude<Error, InvalidInputError>>> => {
+				const projectResult = await getRequired('project', storage, input.projectId)
+				if (!projectResult.ok) return projectResult
 
-			const profileValidation = await validateSelectableAgentRunProfiles(storage, agentRunProfileIdsFromProjectConfig(input.config))
-			if (!profileValidation.ok) return profileValidation
+				const profileValidation = await validateSelectableAgentRunProfiles(
+					storage,
+					agentRunProfileIdsFromProjectConfig(input.config),
+				)
+				if (!profileValidation.ok) return profileValidation
 
-			return updateRecordValue('project', storage, projectResult.value.id, {
-				config: normalizeProjectConfigRecord(input.config, stamp.value),
-			})
-		})
+				return updateRecordValue('project', storage, projectResult.value.id, {
+					config: normalizeProjectConfigRecord(input.config, stamp.value),
+				})
+			},
+		)
 	})
 }
 

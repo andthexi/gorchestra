@@ -1,17 +1,24 @@
 import { v, type PipeOutput } from 'valleyed'
 
+import { requestAgentRunModelTurn } from '../dispatch/accept'
 import type { AgentRun } from '../domain/agent-run'
 import { idPipe, nonEmptyTrimmedStringPipe, type RuntimeRecord } from '../domain/commons'
 import type { Plan } from '../domain/plan'
 import type { InvalidInputError } from '../errors'
-import type { CommandContext } from './types'
-import { requestAgentRunModelTurn } from '../dispatch/accept'
 import { appendAgentRunEvent, createModelAgentRunAndRequestPreparation } from '../utils/agent-runs'
 import type { ConfigCommandReferenceError, ConfigCommandStorageError } from '../utils/command-errors'
 import { buildCommandHandler } from '../utils/command-handler'
-import { auditStamp, createRecordValue, getRequired, isArchived, nextId, validateModelThinkingLevel } from '../utils/command-storage'
+import {
+	auditStamp,
+	createRecordValue,
+	getRequired,
+	isArchived,
+	nextId,
+	validateModelThinkingLevel,
+} from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const createPlanInputPipe = v.object({
 	projectId: idPipe,
@@ -60,10 +67,17 @@ export function createCreatePlanCommand(runtime: CoreRuntime): Operation {
 			const provider = await getRequired('model-provider', storage, model.value.providerId)
 			if (!provider.ok) return provider
 			if (isArchived(provider.value.archivePeriods)) {
-				return { ok: false, error: { type: 'resource-archived', resource: 'model-provider', id: provider.value.id } }
+				return {
+					ok: false,
+					error: { type: 'resource-archived', resource: 'model-provider', id: provider.value.id },
+				}
 			}
 
-			const thinkingLevelValidation = validateModelThinkingLevel(model.value, provider.value, profile.value.modelUse.thinkingLevel)
+			const thinkingLevelValidation = validateModelThinkingLevel(
+				model.value,
+				provider.value,
+				profile.value.modelUse.thinkingLevel,
+			)
 			if (!thinkingLevelValidation.ok) return thinkingLevelValidation
 
 			const plan = await createRecordValue('plan', storage, {
@@ -76,20 +90,29 @@ export function createCreatePlanCommand(runtime: CoreRuntime): Operation {
 			})
 			if (!plan.ok) return plan
 
-			const created = await createModelAgentRunAndRequestPreparation({ values: runtime.values, dispatch, notifications }, storage, {
-				agentRunId: agentRunId.value,
-				agentRunProfile: profile.value,
-				project: project.value,
-				purpose: { type: 'planning', planId: planId.value },
-				started,
-			})
+			const created = await createModelAgentRunAndRequestPreparation(
+				{ values: runtime.values, dispatch, notifications },
+				storage,
+				{
+					agentRunId: agentRunId.value,
+					agentRunProfile: profile.value,
+					project: project.value,
+					purpose: { type: 'planning', planId: planId.value },
+					started,
+				},
+			)
 			if (!created.ok) return created
 
-			const inputMessage = await appendAgentRunEvent({ values: runtime.values, notifications }, storage, created.value.agentRun.id, {
-				type: 'input-message',
-				source: { type: 'operator', authorized: stamp.value },
-				parts: [{ type: 'text', text: input.initialMessage, metadata: null }],
-			})
+			const inputMessage = await appendAgentRunEvent(
+				{ values: runtime.values, notifications },
+				storage,
+				created.value.agentRun.id,
+				{
+					type: 'input-message',
+					source: { type: 'operator', authorized: stamp.value },
+					parts: [{ type: 'text', text: input.initialMessage, metadata: null }],
+				},
+			)
 			if (!inputMessage.ok) return inputMessage
 
 			const modelTurnRequested = await requestAgentRunModelTurn(dispatch, agentRunId.value, inputMessage.value.id)
@@ -127,7 +150,10 @@ if (import.meta.vitest) {
 				context,
 			)
 
-			expect(result).toMatchObject({ ok: false, error: { type: 'invalid-input', boundary: 'command', operation: 'createPlan' } })
+			expect(result).toMatchObject({
+				ok: false,
+				error: { type: 'invalid-input', boundary: 'command', operation: 'createPlan' },
+			})
 			expect(options.transactionCalls()).toBe(0)
 		})
 
@@ -215,7 +241,10 @@ if (import.meta.vitest) {
 
 			expect(result).toMatchObject({
 				ok: false,
-				error: { type: 'storage-operation-failed', operation: { type: 'create', resource: 'dispatch-request' } },
+				error: {
+					type: 'storage-operation-failed',
+					operation: { type: 'create', resource: 'dispatch-request' },
+				},
 			})
 			expect(options.tx.plans.records.size).toBe(0)
 			expect(options.tx.agentRuns.records.size).toBe(0)
@@ -227,7 +256,9 @@ if (import.meta.vitest) {
 		it('rejects archived selected profiles', async () => {
 			const options = createTestCoreServices()
 			seedProject(options.tx, '01k00000000000000000000030')
-			seedAgentRunProfile(options.tx, '01k00000000000000000000006', '01k00000000000000000000024', { archived: true })
+			seedAgentRunProfile(options.tx, '01k00000000000000000000006', '01k00000000000000000000024', {
+				archived: true,
+			})
 			const command = createCreatePlanCommand(createTestCoreRuntime(options))
 
 			const result = await command(validPlanCreationInput(), context)

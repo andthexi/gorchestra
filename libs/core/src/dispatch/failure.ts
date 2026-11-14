@@ -1,20 +1,27 @@
 import { v } from 'valleyed'
 
-import { appendBoundedDispatchAttemptHistory } from './history'
-import type { ActiveDispatchAttempt, DispatchAttemptHistory, DispatchRequest, SafeDispatchFailure } from '../domain/dispatch-request'
+import type {
+	ActiveDispatchAttempt,
+	DispatchAttemptHistory,
+	DispatchRequest,
+	SafeDispatchFailure,
+} from '../domain/dispatch-request'
 import { safeDispatchFailurePipe } from '../domain/dispatch-request'
-import type { InvalidCoreServiceOutputError, InvariantViolationError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvariantViolationError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { appendAgentRunEvent } from '../utils/agent-runs'
 import { nextId, runtimeRecord, type CoreRuntimeValues } from '../utils/runtime-values'
 import { createRecord, updateRecord } from '../utils/storage/helpers'
 import type { CoreTransaction } from '../utils/transactions'
 import type { Result } from '../utils/types'
+import { appendBoundedDispatchAttemptHistory } from './history'
 
 export type DispatchFailureWriteError =
-	| InvalidCoreServiceOutputError
-	| StorageOperationFailedError
-	| ResourceNotFoundError
-	| InvariantViolationError
+	InvalidCoreServiceOutputError | StorageOperationFailedError | ResourceNotFoundError | InvariantViolationError
 
 export interface SafeDispatchFailureInput {
 	type: 'safe-dispatch-failure'
@@ -25,7 +32,9 @@ export function safeDispatchFailure(category: string, summary: string): SafeDisp
 	const validated = v.validate(safeDispatchFailurePipe, { category, summary })
 	return {
 		type: 'safe-dispatch-failure',
-		failure: validated.valid ? validated.value : { category: 'dispatch-failure', summary: 'Dispatch processing failed.' },
+		failure: validated.valid
+			? validated.value
+			: { category: 'dispatch-failure', summary: 'Dispatch processing failed.' },
 	}
 }
 
@@ -183,7 +192,12 @@ if (import.meta.vitest) {
 			const { options, runtime, request, attempt } = failureFixture()
 
 			const result = await runtime.transactions.run((tx) =>
-				failDispatchRequestWithEvidence({ tx, values: runtime.values }, request, attempt, new Error('raw secret')),
+				failDispatchRequestWithEvidence(
+					{ tx, values: runtime.values },
+					request,
+					attempt,
+					new Error('raw secret'),
+				),
 			)
 
 			expect(result).toEqual({ ok: true, value: undefined })
@@ -204,7 +218,12 @@ if (import.meta.vitest) {
 			const { options, runtime, request, attempt } = failureFixture(true)
 
 			const result = await runtime.transactions.run((tx) =>
-				failDispatchRequestWithEvidence({ tx, values: runtime.values }, request, attempt, new Error('raw secret')),
+				failDispatchRequestWithEvidence(
+					{ tx, values: runtime.values },
+					request,
+					attempt,
+					new Error('raw secret'),
+				),
 			)
 
 			expect(result).toMatchObject({

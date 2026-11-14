@@ -10,9 +10,12 @@ import type {
 	StorageOperationFailedError,
 } from '../errors'
 
-export type ConfigCommandReferenceError = ResourceNotFoundError | ResourceArchivedError | ModelThinkingLevelUnavailableError
-export type ConfigCommandStorageError = StorageOperationFailedError | InvalidCoreServiceOutputError | InvariantViolationError
-export type RepositoryCommandReferenceError = ResourceNotFoundError | ResourceArchivedError | ProjectSourceTypeMismatchError
+export type ConfigCommandReferenceError =
+	ResourceNotFoundError | ResourceArchivedError | ModelThinkingLevelUnavailableError
+export type ConfigCommandStorageError =
+	StorageOperationFailedError | InvalidCoreServiceOutputError | InvariantViolationError
+export type RepositoryCommandReferenceError =
+	ResourceNotFoundError | ResourceArchivedError | ProjectSourceTypeMismatchError
 export type DeliveryActionCommandError =
 	| InvalidInputError
 	| InvalidCoreServiceOutputError

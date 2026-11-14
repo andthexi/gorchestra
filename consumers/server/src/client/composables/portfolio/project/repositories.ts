@@ -95,7 +95,13 @@ export function useRepositoriesCreate(projectId: Ref<string>, options: Repositor
 		return repository
 	})
 
-	return { repositoryCreationForm, isCreatingRepository, createRepositoryError, createRepository, resetCreateRepository }
+	return {
+		repositoryCreationForm,
+		isCreatingRepository,
+		createRepositoryError,
+		createRepository,
+		resetCreateRepository,
+	}
 }
 
 export function useRepositoryPreflight(projectId: Ref<string>, repositoryId: Ref<string>) {

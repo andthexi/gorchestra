@@ -22,13 +22,19 @@ const defaultPromptFormDraftOptions: OverlayPromptFormDraftOptions = {
 	requiredMessage: defaultRequiredMessage,
 }
 
-export class OverlayPromptFormDraft extends FormDraft<OverlayPromptFormModel, OverlayPromptFormModel, OverlayPromptFormFields> {
+export class OverlayPromptFormDraft extends FormDraft<
+	OverlayPromptFormModel,
+	OverlayPromptFormModel,
+	OverlayPromptFormFields
+> {
 	private required = true
 	private trim = false
 	private requiredMessage = defaultRequiredMessage
 
 	protected readonly rules = {
-		value: v.lazy(() => v.string().pipe(v.custom<string>((value) => this.isValidSubmittedValue(value), this.requiredMessage))),
+		value: v.lazy(() =>
+			v.string().pipe(v.custom<string>((value) => this.isValidSubmittedValue(value), this.requiredMessage)),
+		),
 	}
 
 	constructor(options: Partial<OverlayPromptFormDraftOptions> = {}) {

@@ -1,9 +1,9 @@
-import type { Result as CoreResult } from './types'
 import type { Delivery, DeliveryReadModel, DeliveryReadTarget } from '../domain/delivery'
 import type { Repository } from '../domain/repository'
 import type { Slice } from '../domain/slice'
 import type { ResourceNotFoundError } from '../errors'
 import { notFound } from './storage/helpers'
+import type { Result as CoreResult } from './types'
 
 export function deliveryReadModels(
 	deliveries: Delivery[],

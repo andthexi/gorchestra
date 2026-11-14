@@ -5,8 +5,9 @@ import { memoryPipe, memorySchema } from '../../domain/memory'
 import { memoryRevisionPipe, memoryRevisionSchema } from '../../domain/memory-revision'
 import { notFoundPipe } from '../../errors'
 import { defineOperation } from '../../runtime/define-operation'
-import { stored, storageCall } from '../../storage/read'
+import { storageCall } from '../../storage/read'
 import { withExplicitId } from '../../storage/schema'
+import { requireMemory } from './require-memory'
 
 export const create = defineOperation({
 	title: 'Create Memory',
@@ -20,11 +21,7 @@ export const create = defineOperation({
 	error: v.merge(notFoundPipe, v.object({ resource: v.eq('memory') })),
 	handler: async (input, context) => {
 		if (input.parentId !== null) {
-			const parentQuery = context.storage.on(memorySchema).one().id(input.parentId)
-			const read = await storageCall(() => parentQuery.find())
-			if (!read.ok) return read
-			if (read.value === null) return { ok: false, error: { type: 'not-found', resource: 'memory' as const, id: input.parentId } }
-			const parent = stored(memoryPipe, read.value)
+			const parent = await requireMemory(context.storage, input.parentId)
 			if (!parent.ok) return parent
 		}
 		const memoryId = Instance.createId()
@@ -32,7 +29,14 @@ export const create = defineOperation({
 		const summary = { id: revisionId, version: 1, title: input.title }
 		const memoryQuery = context.storage.on(memorySchema).one()
 		const memory = await withExplicitId(memoryId, () =>
-			storageCall(() => memoryQuery.create({ id: memoryId, parentId: input.parentId, revision: summary, created: context.stamp })),
+			storageCall(() =>
+				memoryQuery.create({
+					id: memoryId,
+					parentId: input.parentId,
+					revision: summary,
+					created: context.stamp,
+				}),
+			),
 		)
 		if (!memory.ok) return memory
 		const revisionQuery = context.storage.on(memoryRevisionSchema).one()

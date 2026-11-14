@@ -47,7 +47,9 @@ export function openCore(services: CoreServices): Result<GorchestraCore, OpenCor
 
 type CorePreflightCheckResult = Result<CorePreflightCheck, CorePreflightError>
 
-async function preflightCore(runtime: ReturnType<typeof createCoreRuntime>): Promise<Result<CorePreflightReport, CorePreflightError>> {
+async function preflightCore(
+	runtime: ReturnType<typeof createCoreRuntime>,
+): Promise<Result<CorePreflightReport, CorePreflightError>> {
 	const checks = await collectCorePreflightChecks(runtime)
 	if (!checks.ok) return checks
 
@@ -111,7 +113,8 @@ function failedProbeCheck(): CorePreflightCheck {
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { createTestCoreServices, createTestCoreStorage, noopRawSandboxInstance } = await import('./utils/test-helpers')
+	const { createTestCoreServices, createTestCoreStorage, noopRawSandboxInstance } =
+		await import('./utils/test-helpers')
 
 	const secrets: CoreServices['secrets'] = {
 		preflight: () => Promise.resolve({ ok: true }),
@@ -233,7 +236,9 @@ if (import.meta.vitest) {
 				},
 			})
 
-			expect(openCore({ ...options, storage: { ...options.storage, session: undefined } } as never)).toMatchObject({
+			expect(
+				openCore({ ...options, storage: { ...options.storage, session: undefined } } as never),
+			).toMatchObject({
 				ok: false,
 				error: {
 					type: 'invalid-input',

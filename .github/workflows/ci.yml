@@ -1,0 +1,64 @@
+name: CI
+
+on:
+    pull_request:
+        types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
+jobs:
+    checks:
+        name: Monorepo checks
+        if: ${{ !github.event.pull_request.draft }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 45
+        defaults:
+            run:
+                shell: bash
+        steps:
+            - name: Check out the pull request
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+            - name: Prepare the isolated workspace
+              id: setup
+              run: bash .github/scripts/ci-container.sh setup
+            - name: Verify offline containment
+              id: isolation
+              if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+              run: bash .github/scripts/ci-container.sh verify-isolation
+            - name: Check toolchain and dependencies
+              id: dependencies
+              if: ${{ !cancelled() && steps.isolation.outcome == 'success' }}
+              run: bash .github/scripts/ci-container.sh run check:dependencies
+            - name: Prepare selected workspace prerequisites
+              id: prepare
+              if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+              run: bash .github/scripts/ci-container.sh run check:prepare
+            - name: Lint selected workspaces
+              if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+              run: bash .github/scripts/ci-container.sh run lint
+            - name: Check selected workspace formatting
+              if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+              run: bash .github/scripts/ci-container.sh run format
+            - name: Typecheck selected workspaces
+              if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+              run: bash .github/scripts/ci-container.sh run typecheck
+            - name: Test selected workspaces
+              if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+              run: bash .github/scripts/ci-container.sh run test
+            - name: Check selected workspace Fallow findings
+              if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+              run: bash .github/scripts/ci-container.sh run fallow:check
+            - name: Audit changes against main
+              if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+              run: bash .github/scripts/ci-container.sh run fallow:audit
+            - name: Clean up isolated resources
+              if: ${{ always() }}
+              run: bash .github/scripts/ci-container.sh cleanup

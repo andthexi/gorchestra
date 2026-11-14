@@ -1,5 +1,6 @@
 import { Octokit } from '@octokit/rest'
 
+import type { GitHubRepositoryConfig } from '../../../domain/repository'
 import type {
 	SourceControlArtifactCreation,
 	SourceControlArtifactCreationFailureReason,
@@ -11,7 +12,6 @@ import type {
 	SourceControlProviderRepositoryPreflight,
 	SourceControlReviewSurfaceCreation,
 } from './types'
-import type { GitHubRepositoryConfig } from '../../../domain/repository'
 
 export type GitHubSourceControlProvider = SourceControlProvider<GitHubRepositoryConfig>
 
@@ -23,7 +23,12 @@ export interface GitHubRepositoryClient {
 	getBranchIfExists(input: { owner: string; name: string; branch: string }): Promise<string | null>
 	createBranch(input: { owner: string; name: string; branch: string; sha: string }): Promise<void>
 	updateBranch(input: { owner: string; name: string; branch: string; sha: string }): Promise<void>
-	compareCommits(input: { owner: string; name: string; baseSha: string; headSha: string }): Promise<GitHubCompareStatus>
+	compareCommits(input: {
+		owner: string
+		name: string
+		baseSha: string
+		headSha: string
+	}): Promise<GitHubCompareStatus>
 	listOpenPullRequests(input: {
 		owner: string
 		name: string
@@ -45,7 +50,9 @@ export interface GitHubSourceControlProviderDependencies {
 	createRepositoryClient?: GitHubRepositoryClientFactory
 }
 
-export function createGitHubSourceControlProvider(dependencies: GitHubSourceControlProviderDependencies = {}): GitHubSourceControlProvider {
+export function createGitHubSourceControlProvider(
+	dependencies: GitHubSourceControlProviderDependencies = {},
+): GitHubSourceControlProvider {
 	const createRepositoryClient = dependencies.createRepositoryClient ?? createOctokitRepositoryClient
 
 	return {
@@ -89,7 +96,14 @@ async function createArtifactBranch(
 	if (artifact.type === 'failed') return artifact.failure
 	if (artifact.sha === null) return createMissingArtifactBranch(client, repository, input.artifactBranch, source.sha)
 
-	return reconcileExistingArtifactBranch(client, repository, input.sourceBranch, input.artifactBranch, source.sha, artifact.sha)
+	return reconcileExistingArtifactBranch(
+		client,
+		repository,
+		input.sourceBranch,
+		input.artifactBranch,
+		source.sha,
+		artifact.sha,
+	)
 }
 
 async function createReviewSurface(
@@ -115,7 +129,10 @@ async function readSourceBranchHead(
 	try {
 		return { type: 'passed', sha: await client.getBranchHead({ ...repository, branch }) }
 	} catch (error) {
-		return { type: 'failed', failure: failedArtifactCreation(error, { operation: 'read-source', sourceBranch: branch }) }
+		return {
+			type: 'failed',
+			failure: failedArtifactCreation(error, { operation: 'read-source', sourceBranch: branch }),
+		}
 	}
 }
 
@@ -127,11 +144,15 @@ async function readArtifactBranchHead(
 	try {
 		return { type: 'passed', sha: await client.getBranchIfExists({ ...repository, branch }) }
 	} catch (error) {
-		return { type: 'failed', failure: failedArtifactCreation(error, { operation: 'read-artifact', artifactBranch: branch }) }
+		return {
+			type: 'failed',
+			failure: failedArtifactCreation(error, { operation: 'read-artifact', artifactBranch: branch }),
+		}
 	}
 }
 
-type BranchIntegration = { type: 'not-integrated' } | Extract<SourceControlReviewSurfaceCreation, { type: 'integrated' | 'failed' }>
+type BranchIntegration =
+	{ type: 'not-integrated' } | Extract<SourceControlReviewSurfaceCreation, { type: 'integrated' | 'failed' }>
 
 async function branchIntegration(
 	client: GitHubRepositoryClient,
@@ -166,13 +187,18 @@ async function readReviewSurfaceBranchHead(
 	repository: { owner: string; name: string },
 	branch: string,
 	role: 'source' | 'target',
-): Promise<{ ok: true; sha: string } | { ok: false; failure: Extract<SourceControlReviewSurfaceCreation, { type: 'failed' }> }> {
+): Promise<
+	{ ok: true; sha: string } | { ok: false; failure: Extract<SourceControlReviewSurfaceCreation, { type: 'failed' }> }
+> {
 	try {
 		return { ok: true, sha: await client.getBranchHead({ ...repository, branch }) }
 	} catch (error) {
 		return {
 			ok: false,
-			failure: failedReviewSurfaceCreation(error, { operation: role === 'source' ? 'read-source' : 'read-target', branch }),
+			failure: failedReviewSurfaceCreation(error, {
+				operation: role === 'source' ? 'read-source' : 'read-target',
+				branch,
+			}),
 		}
 	}
 }
@@ -184,7 +210,9 @@ async function integratedBranchComparison(
 	targetSha: string,
 ): Promise<BranchIntegration> {
 	try {
-		return integratedComparison(await client.compareCommits({ ...repository, baseSha: targetSha, headSha: sourceSha }))
+		return integratedComparison(
+			await client.compareCommits({ ...repository, baseSha: targetSha, headSha: sourceSha }),
+		)
 	} catch (error) {
 		return failedReviewSurfaceCreation(error, { operation: 'compare' })
 	}
@@ -196,7 +224,8 @@ function integratedComparison(comparison: GitHubCompareStatus): BranchIntegratio
 		: { type: 'not-integrated' }
 }
 
-type OpenPullRequest = { type: 'missing' } | Extract<SourceControlReviewSurfaceCreation, { type: 'review-surface' | 'failed' }>
+type OpenPullRequest =
+	{ type: 'missing' } | Extract<SourceControlReviewSurfaceCreation, { type: 'review-surface' | 'failed' }>
 
 async function openPullRequest(
 	client: GitHubRepositoryClient,
@@ -205,7 +234,9 @@ async function openPullRequest(
 	targetBranch: string,
 ): Promise<OpenPullRequest> {
 	try {
-		const pullRequest = firstOpenPullRequest(await client.listOpenPullRequests({ ...repository, sourceBranch, targetBranch }))
+		const pullRequest = firstOpenPullRequest(
+			await client.listOpenPullRequests({ ...repository, sourceBranch, targetBranch }),
+		)
 		return pullRequest === null ? { type: 'missing' } : adoptedPullRequest(pullRequest.number)
 	} catch (error) {
 		return failedReviewSurfaceCreation(error, { operation: 'list-pull-requests' })
@@ -216,7 +247,9 @@ function firstOpenPullRequest(pullRequests: Array<{ number: number }>): { number
 	return [...pullRequests].sort((left, right) => left.number - right.number)[0] ?? null
 }
 
-function adoptedPullRequest(pullRequestNumber: number): Extract<SourceControlReviewSurfaceCreation, { type: 'review-surface' }> {
+function adoptedPullRequest(
+	pullRequestNumber: number,
+): Extract<SourceControlReviewSurfaceCreation, { type: 'review-surface' }> {
 	return {
 		type: 'review-surface',
 		mode: 'adopted-existing',
@@ -257,7 +290,9 @@ async function createPullRequestFailure(
 	if (statusCode(error) !== 422) return failedReviewSurfaceCreation(error, { operation: 'create-pull-request' })
 
 	const existing = await openPullRequest(client, repository, sourceBranch, targetBranch)
-	return existing.type === 'missing' ? failedReviewSurfaceCreation(error, { operation: 'create-pull-request' }) : existing
+	return existing.type === 'missing'
+		? failedReviewSurfaceCreation(error, { operation: 'create-pull-request' })
+		: existing
 }
 
 async function createMissingArtifactBranch(
@@ -282,7 +317,8 @@ async function reconcileExistingArtifactBranch(
 	sourceSha: string,
 	artifactSha: string,
 ): Promise<SourceControlArtifactCreation> {
-	if (sourceSha === artifactSha) return { type: 'passed', mode: 'adopted-existing', summary: 'GitHub artifact branch already existed.' }
+	if (sourceSha === artifactSha)
+		return { type: 'passed', mode: 'adopted-existing', summary: 'GitHub artifact branch already existed.' }
 
 	try {
 		const comparison = await client.compareCommits({ ...repository, baseSha: artifactSha, headSha: sourceSha })
@@ -301,7 +337,9 @@ function reconcileComparedArtifactBranch(
 	sourceSha: string,
 ): Promise<SourceControlArtifactCreation> | SourceControlArtifactCreation {
 	const compared = existingArtifactBranchOutcome(comparison, artifactBranch, sourceBranch)
-	return compared === 'fast-forward' ? fastForwardArtifactBranch(client, repository, artifactBranch, sourceSha) : compared
+	return compared === 'fast-forward'
+		? fastForwardArtifactBranch(client, repository, artifactBranch, sourceSha)
+		: compared
 }
 
 function existingArtifactBranchOutcome(
@@ -341,7 +379,11 @@ function createOctokitRepositoryClient(input: { accessToken: string }): GitHubRe
 			await octokit.rest.repos.get({ owner: repository.owner, repo: repository.name })
 		},
 		async getBranchHead(input) {
-			const response = await octokit.rest.git.getRef({ owner: input.owner, repo: input.name, ref: `heads/${input.branch}` })
+			const response = await octokit.rest.git.getRef({
+				owner: input.owner,
+				repo: input.name,
+				ref: `heads/${input.branch}`,
+			})
 			return response.data.object.sha
 		},
 		async getBranchIfExists(input) {
@@ -353,7 +395,12 @@ function createOctokitRepositoryClient(input: { accessToken: string }): GitHubRe
 			}
 		},
 		async createBranch(input) {
-			await octokit.rest.git.createRef({ owner: input.owner, repo: input.name, ref: `refs/heads/${input.branch}`, sha: input.sha })
+			await octokit.rest.git.createRef({
+				owner: input.owner,
+				repo: input.name,
+				ref: `refs/heads/${input.branch}`,
+				sha: input.sha,
+			})
 		},
 		async updateBranch(input) {
 			await octokit.rest.git.updateRef({
@@ -429,7 +476,10 @@ function failedArtifactCreation(error: unknown, context: ArtifactFailureContext)
 	return failedArtifactCreationForReason(failedArtifactCreationReason(error, context))
 }
 
-function failedArtifactCreationReason(error: unknown, context: ArtifactFailureContext): SourceControlArtifactCreationFailureReason {
+function failedArtifactCreationReason(
+	error: unknown,
+	context: ArtifactFailureContext,
+): SourceControlArtifactCreationFailureReason {
 	const mapper = artifactFailureReasonMappers[statusCode(error) ?? 0] ?? providerUnavailableFailure
 	return mapper(context)
 }
@@ -443,13 +493,17 @@ const artifactFailureReasonMappers: Record<number, ArtifactFailureReasonMapper> 
 	422: updateDeniedOrUnavailableFailure,
 }
 
-function accessDeniedOrUpdateDeniedFailure(context: ArtifactFailureContext): SourceControlArtifactCreationFailureReason {
+function accessDeniedOrUpdateDeniedFailure(
+	context: ArtifactFailureContext,
+): SourceControlArtifactCreationFailureReason {
 	return context.operation === 'update-artifact'
 		? { type: 'artifact-branch-update-denied', branch: context.artifactBranch }
 		: { type: 'provider-access-denied' }
 }
 
-function sourceMissingOrRepositoryMissingFailure(context: ArtifactFailureContext): SourceControlArtifactCreationFailureReason {
+function sourceMissingOrRepositoryMissingFailure(
+	context: ArtifactFailureContext,
+): SourceControlArtifactCreationFailureReason {
 	return context.operation === 'read-source'
 		? { type: 'source-branch-not-found', branch: context.sourceBranch }
 		: { type: 'provider-repository-not-found' }
@@ -473,7 +527,9 @@ function failedArtifactBranchDiverged(branch: string, sourceBranch: string): Sou
 	return failedArtifactCreationForReason({ type: 'artifact-branch-diverged', branch, sourceBranch })
 }
 
-function failedArtifactCreationForReason(reason: SourceControlArtifactCreationFailureReason): SourceControlArtifactCreation {
+function failedArtifactCreationForReason(
+	reason: SourceControlArtifactCreationFailureReason,
+): SourceControlArtifactCreation {
 	return { type: 'failed', reason, summary: artifactCreationFailureSummary(reason) }
 }
 
@@ -516,12 +572,17 @@ function failedReviewSurfaceCreation(
 	return failedReviewSurfaceCreationForReason(reviewSurfaceFailureReason(error, context))
 }
 
-function reviewSurfaceFailureReason(error: unknown, context: ReviewSurfaceFailureContext): SourceControlBranchOperationFailureReason {
+function reviewSurfaceFailureReason(
+	error: unknown,
+	context: ReviewSurfaceFailureContext,
+): SourceControlBranchOperationFailureReason {
 	const mapper = reviewSurfaceFailureReasonMappers[statusCode(error) ?? 0] ?? reviewSurfaceProviderUnavailableFailure
 	return mapper(context)
 }
 
-type ReviewSurfaceFailureReasonMapper = (context: ReviewSurfaceFailureContext) => SourceControlBranchOperationFailureReason
+type ReviewSurfaceFailureReasonMapper = (
+	context: ReviewSurfaceFailureContext,
+) => SourceControlBranchOperationFailureReason
 
 const reviewSurfaceFailureReasonMappers: Record<number, ReviewSurfaceFailureReasonMapper> = {
 	401: () => ({ type: 'provider-authentication-failed' }),
@@ -630,7 +691,11 @@ if (import.meta.vitest) {
 		})
 
 		it('adopts an existing artifact branch when it is ahead of the source branch', async () => {
-			const client = artifactClient({ sourceSha: 'source-sha', artifactSha: 'artifact-sha', comparison: 'behind' })
+			const client = artifactClient({
+				sourceSha: 'source-sha',
+				artifactSha: 'artifact-sha',
+				comparison: 'behind',
+			})
 			const provider = createGitHubSourceControlProvider({ createRepositoryClient: () => client })
 
 			await expect(provider.createArtifactBranch(gitHubArtifactInput())).resolves.toEqual({
@@ -641,7 +706,11 @@ if (import.meta.vitest) {
 		})
 
 		it('fails when the existing artifact branch diverged from the source branch', async () => {
-			const client = artifactClient({ sourceSha: 'source-sha', artifactSha: 'artifact-sha', comparison: 'diverged' })
+			const client = artifactClient({
+				sourceSha: 'source-sha',
+				artifactSha: 'artifact-sha',
+				comparison: 'diverged',
+			})
 			const provider = createGitHubSourceControlProvider({ createRepositoryClient: () => client })
 
 			await expect(provider.createArtifactBranch(gitHubArtifactInput())).resolves.toEqual({
@@ -652,7 +721,10 @@ if (import.meta.vitest) {
 		})
 
 		it('fails when the source branch is missing', async () => {
-			const client = artifactClient({ sourceSha: Object.assign(new Error('missing'), { status: 404 }), artifactSha: null })
+			const client = artifactClient({
+				sourceSha: Object.assign(new Error('missing'), { status: 404 }),
+				artifactSha: null,
+			})
 			const provider = createGitHubSourceControlProvider({ createRepositoryClient: () => client })
 
 			await expect(provider.createArtifactBranch(gitHubArtifactInput())).resolves.toEqual({
@@ -663,7 +735,12 @@ if (import.meta.vitest) {
 		})
 
 		it('reports an integrated review surface when the source branch is already in the target branch', async () => {
-			const client = artifactClient({ sourceSha: 'source-sha', targetSha: 'target-sha', artifactSha: null, comparison: 'behind' })
+			const client = artifactClient({
+				sourceSha: 'source-sha',
+				targetSha: 'target-sha',
+				artifactSha: null,
+				comparison: 'behind',
+			})
 			const provider = createGitHubSourceControlProvider({ createRepositoryClient: () => client })
 
 			await expect(provider.createReviewSurface(gitHubReviewSurfaceInput())).resolves.toEqual({
@@ -762,19 +839,28 @@ if (import.meta.vitest) {
 		return {
 			id: '01k00000000000000000000034',
 			projectId: '01k00000000000000000000030',
-			config: { provider: 'github' as const, owner: 'Octo', name: 'Repo', secretId: '01k00000000000000000000040' },
+			config: {
+				provider: 'github' as const,
+				owner: 'Octo',
+				name: 'Repo',
+				secretId: '01k00000000000000000000040',
+			},
 			created: { origin: 'imported' as const, at: '2026-06-01T00:00:00.000Z' },
 		}
 	}
 
 	function passingClient(): GitHubRepositoryClient {
-		return { ...artifactClient({ sourceSha: 'source-sha', artifactSha: null }), getRepository: () => Promise.resolve() }
+		return {
+			...artifactClient({ sourceSha: 'source-sha', artifactSha: null }),
+			getRepository: () => Promise.resolve(),
+		}
 	}
 
 	function failingClient(status: number | null): GitHubRepositoryClientFactory {
 		return () => ({
 			...artifactClient({ sourceSha: 'source-sha', artifactSha: null }),
-			getRepository: () => Promise.reject(status === null ? new Error('failed') : Object.assign(new Error('failed'), { status })),
+			getRepository: () =>
+				Promise.reject(status === null ? new Error('failed') : Object.assign(new Error('failed'), { status })),
 		})
 	}
 

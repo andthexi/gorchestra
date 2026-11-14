@@ -137,7 +137,8 @@ export class PortfolioSetup {
 		} catch (error) {
 			if (
 				failure &&
-				(error === abort || (error instanceof EquippedError && error.context.operation === 'session' && error.cause === abort))
+				(error === abort ||
+					(error instanceof EquippedError && error.context.operation === 'session' && error.cause === abort))
 			) {
 				return { ok: false, error: failure }
 			}
@@ -165,7 +166,8 @@ export class PortfolioClient {
 	}
 
 	as(
-		attribution: Pick<PipeInput<typeof attributionPipe>, 'by'> & Partial<Pick<PipeInput<typeof attributionPipe>, 'cid'>>,
+		attribution: Pick<PipeInput<typeof attributionPipe>, 'by'> &
+			Partial<Pick<PipeInput<typeof attributionPipe>, 'cid'>>,
 	): Result<Portfolio, InvalidInputError | StorageOperationFailedError> {
 		let parsed: PipeOutput<typeof attributionPipe> | PipeError
 		try {
@@ -173,7 +175,8 @@ export class PortfolioClient {
 		} catch {
 			return { ok: false, error: { type: 'invalid-input', issues: [{ message: 'Invalid attribution.' }] } }
 		}
-		if (parsed instanceof PipeError) return { ok: false, error: { type: 'invalid-input', issues: inputIssues(parsed) } }
+		if (parsed instanceof PipeError)
+			return { ok: false, error: { type: 'invalid-input', issues: inputIssues(parsed) } }
 		const release = this.#owner.admit()
 		if (!release) return { ok: false, error: { type: 'storage-operation-failed' } }
 		try {
@@ -212,7 +215,11 @@ function migrationFailure(
 			// Callback-bearing entries lack precise failing-change provenance;
 			// internal-error is the fallback, not proof of an authored cause.
 			const entry = catalog.find(({ id }) => id === error.id)
-			return { type: entry?.changes.every(({ kind }) => kind !== 'execute') ? 'storage-operation-failed' : 'internal-error' }
+			return {
+				type: entry?.changes.every(({ kind }) => kind !== 'execute')
+					? 'storage-operation-failed'
+					: 'internal-error',
+			}
 		}
 		default:
 			throw new Error('Unexpected migration phase.')
@@ -227,11 +234,15 @@ if (import.meta.vitest) {
 		...migrations,
 		{
 			id: '01m76d124c6e848k2hfvb4mar3',
-			changes: [{ kind: 'createTable', name: 'test_pending_one', pk: { name: 'id', type: 'string' }, fields: [] }],
+			changes: [
+				{ kind: 'createTable', name: 'test_pending_one', pk: { name: 'id', type: 'string' }, fields: [] },
+			],
 		},
 		{
 			id: '01m76d124c6e848k2hfvb4mar4',
-			changes: [{ kind: 'createTable', name: 'test_pending_two', pk: { name: 'id', type: 'string' }, fields: [] }],
+			changes: [
+				{ kind: 'createTable', name: 'test_pending_two', pk: { name: 'id', type: 'string' }, fields: [] },
+			],
 		},
 	] as const satisfies readonly Migration<StorageAdapter>[]
 
@@ -257,7 +268,10 @@ if (import.meta.vitest) {
 			if (!client.ok) throw new Error('Expected ready')
 			const portfolio = client.value.as({ by: 'test-prefix' })
 			if (!portfolio.ok) throw new Error('Expected Portfolio')
-			const project = await portfolio.value.projects.create({ title: 'Existing project', spec: { type: 'source-control' } })
+			const project = await portfolio.value.projects.create({
+				title: 'Existing project',
+				spec: { type: 'source-control' },
+			})
 			if (!project.ok) throw new Error('Expected Project')
 			const before = {
 				schema: await adapter.introspect(),
@@ -483,7 +497,8 @@ if (import.meta.vitest) {
 					if (method === 'loadMigrations') {
 						const history = await load({ table: '_equipped_migrations' })
 						reads++
-						if ((fault === 'native-load' && reads !== 2) || (fault === 'post-run' && history.length !== 3)) return history
+						if ((fault === 'native-load' && reads !== 2) || (fault === 'post-run' && history.length !== 3))
+							return history
 					}
 					throw new Error('synthetic-PROTECTED')
 				},
@@ -549,6 +564,9 @@ if (import.meta.vitest) {
 			const ledger = await adapter.loadMigrations({ table: '_equipped_migrations' })
 			const descriptor = Object.getOwnPropertyDescriptor(adapter, 'session')
 			const session = adapter.session.bind(adapter)
+			// This fault deliberately loses the original abort and its cause.
+			const replacement = new Error('synthetic-PROTECTED')
+			let intercepted: unknown
 			Object.defineProperty(adapter, 'session', {
 				configurable: true,
 				value: async (work: () => Promise<unknown>) => {
@@ -556,24 +574,31 @@ if (import.meta.vitest) {
 					try {
 						return await session(work)
 					} catch (error) {
+						intercepted = error
 						switch (mode) {
 							case 'direct':
 								throw error
 							case 'wrapped':
 								throw new EquippedError('synthetic-PROTECTED', { operation: 'session' }, error)
 							case 'replaced':
-								throw new Error('synthetic-PROTECTED')
+								throw replacement
 							case 'swallowed':
 								return undefined
 							default:
-								throw new Error('Unexpected fault mode')
+								throw new Error('Unexpected fault mode', { cause: error })
 						}
 					}
 				},
 			})
 			try {
-				const type = mode === 'direct' || mode === 'wrapped' ? 'schema-metadata-invalid' : 'storage-operation-failed'
+				const type =
+					mode === 'direct' || mode === 'wrapped' ? 'schema-metadata-invalid' : 'storage-operation-failed'
 				expect(await opened.migrate()).toEqual({ ok: false, error: { type } })
+				if (mode === 'replaced') {
+					expect(intercepted).toBeDefined()
+					expect(replacement).not.toBe(intercepted)
+					expect(replacement).not.toHaveProperty('cause')
+				}
 				expect(await adapter.introspect()).toEqual(before.schema)
 				expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual(ledger)
 				if (descriptor) Object.defineProperty(adapter, 'session', descriptor)
@@ -652,110 +677,119 @@ if (import.meta.vitest) {
 		}
 	})
 
-	it.each(['authored', 'declarative'] as const)('rolls back every new suffix change after a later %s failure', async (failure) => {
-		const { projectSchema } = await import('../domain/project')
-		const { Schema } = await import('equipped/orm')
-		const pendingSchema = Schema.from('test_pending_one')
-			.pk('id', v.string(), () => 'pending-row')
-			.build()
-		let fail = true
-		let reachedLater = false
-		const catalog: readonly Migration<StorageAdapter>[] = [
-			migrations[0],
-			{
-				id: upgradeCatalog[1].id,
-				changes: [
-					...upgradeCatalog[1].changes,
-					{
-						kind: 'execute',
-						up: async (repo) => {
-							await repo.on(projectSchema).all().update({ title: 'Pending rewrite' })
-							await repo.on(pendingSchema).one().create({})
-						},
-					},
-				],
-			},
-			failure === 'authored'
-				? {
-						id: upgradeCatalog[2].id,
-						changes: [
-							{
-								kind: 'execute',
-								up: async (repo) => {
-									expect((await repo.on(projectSchema).all().find()).map(({ title }) => title)).toEqual([
-										'Pending rewrite',
-									])
-									reachedLater = true
-									await repo.on(projectSchema).all().update({ title: 'Later rewrite' })
-									if (fail) throw new Error('synthetic-PROTECTED')
-								},
+	it.each(['authored', 'declarative'] as const)(
+		'rolls back every new suffix change after a later %s failure',
+		async (failure) => {
+			const { projectSchema } = await import('../domain/project')
+			const { Schema } = await import('equipped/orm')
+			const pendingSchema = Schema.from('test_pending_one')
+				.pk('id', v.string(), () => 'pending-row')
+				.build()
+			let fail = true
+			let reachedLater = false
+			const catalog: readonly Migration<StorageAdapter>[] = [
+				migrations[0],
+				{
+					id: upgradeCatalog[1].id,
+					changes: [
+						...upgradeCatalog[1].changes,
+						{
+							kind: 'execute',
+							up: async (repo) => {
+								await repo.on(projectSchema).all().update({ title: 'Pending rewrite' })
+								await repo.on(pendingSchema).one().create({})
 							},
-						],
-					}
-				: upgradeCatalog[2],
-		]
-		const { adapter, opened, before } = await migrationFixture(catalog)
-		const descriptor = Object.getOwnPropertyDescriptor(adapter, 'applyCreateTable')
-		const create = adapter.applyCreateTable.bind(adapter)
-		if (failure === 'declarative')
-			adapter.applyCreateTable = async (change) => {
-				await create(change)
-				if (change.name === 'test_pending_two') {
-					expect((await adapter.loadMigrations({ table: '_equipped_migrations' })).map(({ id }) => id)).toEqual([
-						migrations[0].id,
-						upgradeCatalog[1].id,
-					])
-					expect(await adapter.findByPk(projectSchema, { table: 'projects' }, before.project.id)).toEqual({
-						...before.project,
-						title: 'Pending rewrite',
-					})
-					reachedLater = true
-					if (fail) throw new Error('synthetic-PROTECTED')
-				}
-			}
-		try {
-			expect(await opened.migrate()).toEqual({
-				ok: false,
-				error: {
-					type: failure === 'authored' ? 'internal-error' : 'storage-operation-failed',
+						},
+					],
 				},
-			})
-			expect(reachedLater).toBe(true)
-			expect(await adapter.introspect()).toEqual(before.schema)
-			expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual(before.ledger)
-			expect(await adapter.findByPk(projectSchema, { table: 'projects' }, before.project.id)).toEqual(before.project)
-			expect(await adapter.findByPk(pendingSchema, { table: 'test_pending_one' }, 'pending-row')).toBeNull()
-			fail = false
-			const result = await opened.migrate()
-			if (!result.ok) throw new Error('Expected explicit retry to migrate')
-			const portfolio = result.value.as({ by: 'after-retry' })
-			if (!portfolio.ok) throw new Error('Expected Portfolio')
-			expect(await portfolio.value.projects.list()).toEqual({
-				ok: true,
-				value: [
-					{
-						...before.project,
-						title: failure === 'authored' ? 'Later rewrite' : 'Pending rewrite',
+				failure === 'authored'
+					? {
+							id: upgradeCatalog[2].id,
+							changes: [
+								{
+									kind: 'execute',
+									up: async (repo) => {
+										expect(
+											(await repo.on(projectSchema).all().find()).map(({ title }) => title),
+										).toEqual(['Pending rewrite'])
+										reachedLater = true
+										await repo.on(projectSchema).all().update({ title: 'Later rewrite' })
+										if (fail) throw new Error('synthetic-PROTECTED')
+									},
+								},
+							],
+						}
+					: upgradeCatalog[2],
+			]
+			const { adapter, opened, before } = await migrationFixture(catalog)
+			const descriptor = Object.getOwnPropertyDescriptor(adapter, 'applyCreateTable')
+			const create = adapter.applyCreateTable.bind(adapter)
+			if (failure === 'declarative')
+				adapter.applyCreateTable = async (change) => {
+					await create(change)
+					if (change.name === 'test_pending_two') {
+						expect(
+							(await adapter.loadMigrations({ table: '_equipped_migrations' })).map(({ id }) => id),
+						).toEqual([migrations[0].id, upgradeCatalog[1].id])
+						expect(await adapter.findByPk(projectSchema, { table: 'projects' }, before.project.id)).toEqual(
+							{
+								...before.project,
+								title: 'Pending rewrite',
+							},
+						)
+						reachedLater = true
+						if (fail) throw new Error('synthetic-PROTECTED')
+					}
+				}
+			try {
+				expect(await opened.migrate()).toEqual({
+					ok: false,
+					error: {
+						type: failure === 'authored' ? 'internal-error' : 'storage-operation-failed',
 					},
-				],
-			})
-			expect((await adapter.loadMigrations({ table: '_equipped_migrations' })).map(({ id }) => id)).toEqual(
-				catalog.map(({ id }) => id),
-			)
-			expect(await adapter.findByPk(pendingSchema, { table: 'test_pending_one' }, 'pending-row')).toEqual({ id: 'pending-row' })
-		} finally {
-			if (descriptor) Object.defineProperty(adapter, 'applyCreateTable', descriptor)
-			else Reflect.deleteProperty(adapter, 'applyCreateTable')
-			expect(await opened.shutdown()).toEqual({ ok: true, value: undefined })
-		}
-	})
+				})
+				expect(reachedLater).toBe(true)
+				expect(await adapter.introspect()).toEqual(before.schema)
+				expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual(before.ledger)
+				expect(await adapter.findByPk(projectSchema, { table: 'projects' }, before.project.id)).toEqual(
+					before.project,
+				)
+				expect(await adapter.findByPk(pendingSchema, { table: 'test_pending_one' }, 'pending-row')).toBeNull()
+				fail = false
+				const result = await opened.migrate()
+				if (!result.ok) throw new Error('Expected explicit retry to migrate')
+				const portfolio = result.value.as({ by: 'after-retry' })
+				if (!portfolio.ok) throw new Error('Expected Portfolio')
+				expect(await portfolio.value.projects.list()).toEqual({
+					ok: true,
+					value: [
+						{
+							...before.project,
+							title: failure === 'authored' ? 'Later rewrite' : 'Pending rewrite',
+						},
+					],
+				})
+				expect((await adapter.loadMigrations({ table: '_equipped_migrations' })).map(({ id }) => id)).toEqual(
+					catalog.map(({ id }) => id),
+				)
+				expect(await adapter.findByPk(pendingSchema, { table: 'test_pending_one' }, 'pending-row')).toEqual({
+					id: 'pending-row',
+				})
+			} finally {
+				if (descriptor) Object.defineProperty(adapter, 'applyCreateTable', descriptor)
+				else Reflect.deleteProperty(adapter, 'applyCreateTable')
+				expect(await opened.shutdown()).toEqual({ ok: true, value: undefined })
+			}
+		},
+	)
 
 	it.each([false, true])('refuses empty history without upgrading (containers: %s)', async (containers) => {
 		const { adapter, opened } = await migrationFixture()
 		const schema = await adapter.introspect()
 		const restore = restoreMethods(adapter, 'loadMigrations', 'introspect')
 		Object.defineProperty(adapter, 'loadMigrations', { configurable: true, value: () => Promise.resolve([]) })
-		if (!containers) Object.defineProperty(adapter, 'introspect', { configurable: true, value: () => Promise.resolve([]) })
+		if (!containers)
+			Object.defineProperty(adapter, 'introspect', { configurable: true, value: () => Promise.resolve([]) })
 		try {
 			expect(await opened.migrate()).toEqual({
 				ok: false,
@@ -844,7 +878,9 @@ if (import.meta.vitest) {
 				...migrations,
 				{
 					id: '01m76d124c6e848k2hfvb4mar3',
-					changes: [{ kind: 'createTable', name: 'test_later', pk: { name: 'id', type: 'string' }, fields: [] }],
+					changes: [
+						{ kind: 'createTable', name: 'test_later', pk: { name: 'id', type: 'string' }, fields: [] },
+					],
 				},
 			],
 		)
@@ -866,7 +902,8 @@ async function openWithCatalog(
 		// The compiled Valleyed pipe preserves normal parsing/stripping but lets
 		// unexpected getter exceptions reach this safe boundary, not issue text.
 		const parsed = v.compile(dependenciesPipe())(dependencies)
-		if (parsed instanceof PipeError) return { ok: false, error: { type: 'invalid-input', issues: inputIssues(parsed) } }
+		if (parsed instanceof PipeError)
+			return { ok: false, error: { type: 'invalid-input', issues: inputIssues(parsed) } }
 		owner = new Owner(parsed, catalog)
 		try {
 			await parsed.storage.adapter.connect?.()

@@ -11,11 +11,11 @@ import type {
 	SandboxProviderResolutionFailedError,
 	StorageOperationFailedError,
 } from '../errors'
-import type { WorkContext } from './types'
 import type { CoreRuntime } from '../utils/runtime'
 import { runModelAgentRun } from '../utils/runtime/agent-runs/model-loop'
 import type { Result as CoreResult } from '../utils/types'
 import { buildWorkHandler } from '../utils/work-handler'
+import type { WorkContext } from './types'
 
 const inputPipe = v.object({ agentRunId: idPipe })
 type ParsedInput = PipeOutput<typeof inputPipe>

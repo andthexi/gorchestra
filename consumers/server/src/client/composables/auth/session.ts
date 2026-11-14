@@ -3,7 +3,14 @@ import {
 	selectedServerSocketIdentity,
 	selectedServerSocketIdentityOrNull,
 } from '../../utils/selected-server-socket'
-import { fetchSelection, fetchSession, loadSelection, loadSessionWithRefresh, type Selection, type Session } from '../../utils/sessions'
+import {
+	fetchSelection,
+	fetchSession,
+	loadSelection,
+	loadSessionWithRefresh,
+	type Selection,
+	type Session,
+} from '../../utils/sessions'
 import { useApiAction, useFetchAction } from '../core/action-state'
 import { useOverlay } from '../core/overlay'
 import { useQueryCache } from '../core/query-cache'
@@ -104,7 +111,8 @@ export function useSelectedPortfolio() {
 	const { selection } = useAuth()
 	const selected = computed(() => {
 		const select = selection.value
-		if (!select || !select.selected) throw new Error('Selected Portfolio context requires a valid selected Workspace and Portfolio')
+		if (!select || !select.selected)
+			throw new Error('Selected Portfolio context requires a valid selected Workspace and Portfolio')
 		return select
 	})
 	const workspace = computed(() => selected.value.workspace)

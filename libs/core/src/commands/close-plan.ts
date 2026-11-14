@@ -12,13 +12,13 @@ import type {
 	ResourceNotFoundError,
 	StorageOperationFailedError,
 } from '../errors'
-import type { CommandContext } from './types'
 import { completeAgentRunByIdAndRequestSandboxRelease, requireAgentRunIdle } from '../utils/agent-runs'
 import { buildCommandHandler } from '../utils/command-handler'
 import { auditStamp, getRequired, updateRecordValue } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import { notFound } from '../utils/storage/helpers'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const closePlanInputPipe = v.object({ projectId: idPipe, planId: idPipe })
 export type Input = PipeOutput<typeof closePlanInputPipe>
@@ -40,34 +40,44 @@ export function createClosePlanCommand(runtime: CoreRuntime): Operation {
 		const stamp = auditStamp(runtime.values, context)
 		if (!stamp.ok) return stamp
 
-		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(async ({ storage, notifications, dispatch }) => {
-			const plan = await getRequired('plan', storage, input.planId)
-			if (!plan.ok) return plan
-			if (plan.value.projectId !== input.projectId) return notFound('plan', input.planId)
-			if (plan.value.closed !== null) return { ok: false, error: { type: 'plan-closed', planId: plan.value.id } }
+		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(
+			async ({ storage, notifications, dispatch }) => {
+				const plan = await getRequired('plan', storage, input.planId)
+				if (!plan.ok) return plan
+				if (plan.value.projectId !== input.projectId) return notFound('plan', input.planId)
+				if (plan.value.closed !== null)
+					return { ok: false, error: { type: 'plan-closed', planId: plan.value.id } }
 
-			const idle = await requireAgentRunIdle(storage, plan.value.agentRunId)
-			if (!idle.ok) return idle
+				const idle = await requireAgentRunIdle(storage, plan.value.agentRunId)
+				if (!idle.ok) return idle
 
-			const closedPlan = await updateRecordValue('plan', storage, plan.value.id, { closed: stamp.value })
-			if (!closedPlan.ok) return closedPlan
+				const closedPlan = await updateRecordValue('plan', storage, plan.value.id, { closed: stamp.value })
+				if (!closedPlan.ok) return closedPlan
 
-			const completed = await completeAgentRunByIdAndRequestSandboxRelease(
-				storage,
-				dispatch,
-				notifications,
-				closedPlan.value.agentRunId,
-				{ at: stamp.value.at },
-			)
-			return completed.ok ? closedPlan : completed
-		})
+				const completed = await completeAgentRunByIdAndRequestSandboxRelease(
+					storage,
+					dispatch,
+					notifications,
+					closedPlan.value.agentRunId,
+					{ at: stamp.value.at },
+				)
+				return completed.ok ? closedPlan : completed
+			},
+		)
 	})
 }
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { context, createTestCoreRuntime, createTestCoreServices, defaultAgentRunSandboxConfig, localStamp, seedProject, stamp } =
-		await import('../utils/test-helpers')
+	const {
+		context,
+		createTestCoreRuntime,
+		createTestCoreServices,
+		defaultAgentRunSandboxConfig,
+		localStamp,
+		seedProject,
+		stamp,
+	} = await import('../utils/test-helpers')
 
 	describe('closePlan command', () => {
 		it('validates input before reading storage', async () => {
@@ -88,7 +98,10 @@ if (import.meta.vitest) {
 			const options = closePlanFixture()
 			const command = createClosePlanCommand(createTestCoreRuntime(options))
 
-			const result = await command({ projectId: '01k00000000000000000000030', planId: '01k00000000000000000000028' }, context)
+			const result = await command(
+				{ projectId: '01k00000000000000000000030', planId: '01k00000000000000000000028' },
+				context,
+			)
 
 			const expectedPlan = { ...plan(), closed: localStamp() }
 			const expectedAgentRun = { ...planningAgentRun(), completed: { at: localStamp().at } }
@@ -103,10 +116,15 @@ if (import.meta.vitest) {
 			options.tx.agentRuns.records.get('01k00000000000000000000002')!.completed = previousCompletion
 			const command = createClosePlanCommand(createTestCoreRuntime(options))
 
-			const result = await command({ projectId: '01k00000000000000000000030', planId: '01k00000000000000000000028' }, context)
+			const result = await command(
+				{ projectId: '01k00000000000000000000030', planId: '01k00000000000000000000028' },
+				context,
+			)
 
 			expect(result).toEqual({ ok: true, value: { ...plan(), closed: localStamp() } })
-			expect(options.tx.agentRuns.records.get('01k00000000000000000000002')?.completed).toEqual(previousCompletion)
+			expect(options.tx.agentRuns.records.get('01k00000000000000000000002')?.completed).toEqual(
+				previousCompletion,
+			)
 		})
 
 		it('rejects closed Plans', async () => {
@@ -114,7 +132,10 @@ if (import.meta.vitest) {
 			options.tx.plans.records.get('01k00000000000000000000028')!.closed = localStamp()
 			const command = createClosePlanCommand(createTestCoreRuntime(options))
 
-			const result = await command({ projectId: '01k00000000000000000000030', planId: '01k00000000000000000000028' }, context)
+			const result = await command(
+				{ projectId: '01k00000000000000000000030', planId: '01k00000000000000000000028' },
+				context,
+			)
 
 			expect(result).toEqual({ ok: false, error: { type: 'plan-closed', planId: '01k00000000000000000000028' } })
 		})
@@ -124,9 +145,15 @@ if (import.meta.vitest) {
 			seedProject(options.tx, '01k00000000000000000000031')
 			const command = createClosePlanCommand(createTestCoreRuntime(options))
 
-			const result = await command({ projectId: '01k00000000000000000000031', planId: '01k00000000000000000000028' }, context)
+			const result = await command(
+				{ projectId: '01k00000000000000000000031', planId: '01k00000000000000000000028' },
+				context,
+			)
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'plan', id: '01k00000000000000000000028' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'plan', id: '01k00000000000000000000028' },
+			})
 		})
 
 		it('rejects Plans whose Planning Agent Run has an unmatched active turn', async () => {
@@ -143,11 +170,18 @@ if (import.meta.vitest) {
 			})
 			const command = createClosePlanCommand(createTestCoreRuntime(options))
 
-			const result = await command({ projectId: '01k00000000000000000000030', planId: '01k00000000000000000000028' }, context)
+			const result = await command(
+				{ projectId: '01k00000000000000000000030', planId: '01k00000000000000000000028' },
+				context,
+			)
 
 			expect(result).toEqual({
 				ok: false,
-				error: { type: 'agent-run-turn-active', agentRunId: '01k00000000000000000000002', turnStartedEventId: 'turn-started' },
+				error: {
+					type: 'agent-run-turn-active',
+					agentRunId: '01k00000000000000000000002',
+					turnStartedEventId: 'turn-started',
+				},
 			})
 			expect(options.tx.plans.records.get('01k00000000000000000000028')?.closed).toBeNull()
 		})

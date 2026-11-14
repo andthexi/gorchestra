@@ -1,8 +1,8 @@
 import { createOpenAI } from '@ai-sdk/openai'
 
+import type { ModelProvider } from '../../../domain/model-provider'
 import { resolveProviderOptions } from './options'
 import type { AISDKLanguageModelResolution, ModelProviderProtocolAccess, ModelProviderProtocolProvider } from './types'
-import type { ModelProvider } from '../../../domain/model-provider'
 
 export type OpenAIResponsesModelProviderProtocolProvider = ModelProviderProtocolProvider<'openai-responses'>
 
@@ -20,7 +20,12 @@ export function createOpenAIResponsesModelProviderProtocolProvider(
 				ok: true,
 				value: {
 					languageModel: providerFactory(input).responses(input.model.providerModelId),
-					providerOptions: resolveProviderOptions('openai', { store: false }, input.modelProvider, input.model),
+					providerOptions: resolveProviderOptions(
+						'openai',
+						{ store: false },
+						input.modelProvider,
+						input.model,
+					),
 				},
 			}
 		},
@@ -77,7 +82,9 @@ if (import.meta.vitest) {
 		})
 
 		it('lets explicit model provider options override OpenAI defaults', () => {
-			const provider = createOpenAIResponsesModelProviderProtocolProvider(() => ({ responses: () => 'language-model' }))
+			const provider = createOpenAIResponsesModelProviderProtocolProvider(() => ({
+				responses: () => 'language-model',
+			}))
 
 			const result = provider.resolveLanguageModel({
 				...input(),

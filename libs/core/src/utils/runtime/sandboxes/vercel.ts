@@ -18,7 +18,9 @@ interface VercelSandboxProviderInput {
 	credentials: VercelCredentials
 }
 
-export function createVercelSandboxProvider(input: VercelSandboxProviderInput): RawSandboxProvider<VercelSandboxSourceConfig> {
+export function createVercelSandboxProvider(
+	input: VercelSandboxProviderInput,
+): RawSandboxProvider<VercelSandboxSourceConfig> {
 	return {
 		kind: input.source.type,
 		create: async ({ key, config }) =>

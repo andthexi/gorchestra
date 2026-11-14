@@ -33,9 +33,19 @@ export function sliceOperationFromState(sliceId: Id, state: SliceWorkState): Del
 		case 'needs-delivery-validation':
 			return { scope: 'slice', sliceId, state: state.type, detail: { type: 'action', actionId: state.actionId } }
 		case 'needs-artifact-validation':
-			return { scope: 'slice', sliceId, state: state.type, detail: { type: 'artifact', artifactId: state.sliceArtifactId } }
+			return {
+				scope: 'slice',
+				sliceId,
+				state: state.type,
+				detail: { type: 'artifact', artifactId: state.sliceArtifactId },
+			}
 		case 'needs-review-surface':
-			return { scope: 'slice', sliceId, state: state.type, detail: { type: 'artifact', artifactId: state.sliceArtifactId } }
+			return {
+				scope: 'slice',
+				sliceId,
+				state: state.type,
+				detail: { type: 'artifact', artifactId: state.sliceArtifactId },
+			}
 		case 'needs-artifact-creation':
 			return { scope: 'slice', sliceId, state: state.type, detail: null }
 		case 'executable':

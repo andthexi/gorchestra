@@ -16,7 +16,7 @@ export async function createDefaultServerStorageBackend(
 	}
 }
 
-export function getDefaultServerStorageFilePath(dataDir: string): string {
+function getDefaultServerStorageFilePath(dataDir: string): string {
 	return join(dataDir, 'server', 'storage.json')
 }
 

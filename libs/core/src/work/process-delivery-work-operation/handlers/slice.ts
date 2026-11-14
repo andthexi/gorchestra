@@ -1,12 +1,16 @@
+import type { Slice, SliceWorkState } from '../../../domain/slice'
+import type { CoreTransaction } from '../../../utils/transactions'
+import type {
+	DeliveryHandlerContext,
+	DeliveryWorkResolution,
+	DeliveryWorkHandlerResult,
+} from '../../delivery-work/types'
 import { noEligibleWork } from './result'
 import { handleSliceAwaitingReview } from './slice-awaiting-review'
 import { handleSliceExecutable } from './slice-executable'
 import { handleSliceNeedsArtifactValidation } from './slice-needs-artifact-validation'
 import { handleSliceNeedsDeliveryValidation } from './slice-needs-delivery-validation'
 import { handleSliceOperationFailed } from './slice-operation-failed'
-import type { Slice, SliceWorkState } from '../../../domain/slice'
-import type { CoreTransaction } from '../../../utils/transactions'
-import type { DeliveryHandlerContext, DeliveryWorkResolution, DeliveryWorkHandlerResult } from '../../delivery-work/types'
 
 type NoWorkSliceState = Extract<
 	SliceWorkState,
@@ -23,7 +27,10 @@ type NoWorkSliceState = Extract<
 >
 
 type ValidationSliceState = Extract<SliceWorkState, { type: 'needs-delivery-validation' | 'needs-artifact-validation' }>
-type RemainingSliceState = Exclude<SliceWorkState, NoWorkSliceState | ValidationSliceState | { type: 'needs-review-surface' }>
+type RemainingSliceState = Exclude<
+	SliceWorkState,
+	NoWorkSliceState | ValidationSliceState | { type: 'needs-review-surface' }
+>
 
 const noWorkSliceStateTypes = new Set<SliceWorkState['type']>([
 	'complete',
@@ -35,7 +42,10 @@ const noWorkSliceStateTypes = new Set<SliceWorkState['type']>([
 	'needs-artifact-creation',
 ])
 
-const validationSliceStateTypes = new Set<SliceWorkState['type']>(['needs-delivery-validation', 'needs-artifact-validation'])
+const validationSliceStateTypes = new Set<SliceWorkState['type']>([
+	'needs-delivery-validation',
+	'needs-artifact-validation',
+])
 
 export function handleSliceWorkState(
 	context: DeliveryHandlerContext,
@@ -51,7 +61,8 @@ export function handleSliceWorkState(
 			ok: false,
 			error: {
 				type: 'invariant-violation',
-				message: 'Provider-backed Slice work must be handled outside the transactional Slice Work State dispatcher.',
+				message:
+					'Provider-backed Slice work must be handled outside the transactional Slice Work State dispatcher.',
 			},
 		}
 	}

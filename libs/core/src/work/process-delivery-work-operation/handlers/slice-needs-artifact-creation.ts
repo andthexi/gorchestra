@@ -1,15 +1,18 @@
-import { actionRecord, externalOperationEvidence } from './result'
 import type { DeliveryWorkState } from '../../../domain/delivery'
 import type { Slice, SliceWorkState } from '../../../domain/slice'
 import type { SliceArtifact } from '../../../domain/slice-artifact'
 import type { InvariantViolationError } from '../../../errors'
 import { sourceControlSliceBranchName } from '../../../utils/providers/source-control/branches'
-import type { SourceControlArtifactCreation, SourceControlCreateArtifactBranchInput } from '../../../utils/providers/source-control/types'
+import type {
+	SourceControlArtifactCreation,
+	SourceControlCreateArtifactBranchInput,
+} from '../../../utils/providers/source-control/types'
 import type { CoreRuntime } from '../../../utils/runtime'
 import { nextId, runtimeRecord } from '../../../utils/runtime-values'
 import { createRecord } from '../../../utils/storage/helpers'
 import type { Result as CoreResult } from '../../../utils/types'
 import type { ResolvedDeliveryHandlerContext, DeliveryWorkHandlerResult } from '../../delivery-work/types'
+import { actionRecord, externalOperationEvidence } from './result'
 
 export type SliceArtifactCreationInput = SourceControlCreateArtifactBranchInput & {
 	deliveryId: string
@@ -71,7 +74,11 @@ async function recordSliceArtifactCreationResult(
 					value: {
 						processedCount: 1,
 						failures: [
-							{ scope: { type: 'slice', sliceId: input.sliceId }, operation: 'create-artifact', summary: creation.summary },
+							{
+								scope: { type: 'slice', sliceId: input.sliceId },
+								operation: 'create-artifact',
+								summary: creation.summary,
+							},
 						],
 					},
 				}
@@ -109,7 +116,10 @@ function sliceArtifactCreationInputForSlice(
 ): CoreResult<SliceArtifactCreationInput, InvariantViolationError> {
 	const deliveryArtifact = context.deliveryContext.deliveryArtifact
 	if (deliveryArtifact === null) {
-		return { ok: false, error: { type: 'invariant-violation', message: 'Slice Artifact creation requires a Delivery Artifact.' } }
+		return {
+			ok: false,
+			error: { type: 'invariant-violation', message: 'Slice Artifact creation requires a Delivery Artifact.' },
+		}
 	}
 
 	const sliceBranch = sourceControlSliceBranchName(context.deliveryContext.delivery.id, slice.id)
@@ -157,11 +167,16 @@ if (import.meta.vitest) {
 			const input = sliceArtifactCreationInputForSlice(context, context.deliveryContext.slices[0]!.slice)
 			if (!input.ok) throw new Error('Expected input.')
 
-			const result = await recordSliceArtifactCreationResult(context, { type: 'slices-incomplete' }, input.value, {
-				type: 'passed',
-				mode: 'created',
-				summary: 'created',
-			})
+			const result = await recordSliceArtifactCreationResult(
+				context,
+				{ type: 'slices-incomplete' },
+				input.value,
+				{
+					type: 'passed',
+					mode: 'created',
+					summary: 'created',
+				},
+			)
 
 			expect(result).toEqual({ ok: true, value: { processedCount: 1, failures: [] } })
 			expect(context.tx.sliceArtifacts.records.get('01k00000000000000000010001')).toEqual({
@@ -169,7 +184,8 @@ if (import.meta.vitest) {
 				sliceId: '01k00000000000000000000042',
 				config: {
 					type: 'source-control',
-					sliceBranch: 'gorchestra/deliveries/d-MDFrMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDg/slices/s-MDFrMDAwMDAwMDAwMDAwMDAwMDAwMDAwNDI',
+					sliceBranch:
+						'gorchestra/deliveries/d-MDFrMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDg/slices/s-MDFrMDAwMDAwMDAwMDAwMDAwMDAwMDAwNDI',
 				},
 				created: { at: '2026-06-10T12:00:00.000Z' },
 			})
@@ -186,11 +202,16 @@ if (import.meta.vitest) {
 			const input = sliceArtifactCreationInputForSlice(context, context.deliveryContext.slices[0]!.slice)
 			if (!input.ok) throw new Error('Expected input.')
 
-			const result = await recordSliceArtifactCreationResult(context, { type: 'slices-incomplete' }, input.value, {
-				type: 'failed',
-				reason: { type: 'artifact-branch-diverged', branch: 'slice', sourceBranch: 'delivery' },
-				summary: 'GitHub artifact branch diverged from its source branch.',
-			})
+			const result = await recordSliceArtifactCreationResult(
+				context,
+				{ type: 'slices-incomplete' },
+				input.value,
+				{
+					type: 'failed',
+					reason: { type: 'artifact-branch-diverged', branch: 'slice', sourceBranch: 'delivery' },
+					summary: 'GitHub artifact branch diverged from its source branch.',
+				},
+			)
 
 			expect(result).toEqual({
 				ok: true,

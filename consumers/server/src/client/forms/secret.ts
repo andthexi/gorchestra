@@ -30,7 +30,11 @@ type SecretValueReplacementFormModel = {
 const secretNamePipe = v.string().pipe(v.min<string>(1, 'Enter a Secret name'))
 const secretValuePipe = v.string().pipe(v.min<string>(1, 'Enter a Secret value'))
 
-export class SecretCreationFormDraft extends FormDraft<SecretCreationFormModel, SecretCreationFormModel, SecretCreationFormFields> {
+export class SecretCreationFormDraft extends FormDraft<
+	SecretCreationFormModel,
+	SecretCreationFormModel,
+	SecretCreationFormFields
+> {
 	protected readonly rules = {
 		name: secretNamePipe,
 		value: secretValuePipe,
@@ -48,7 +52,11 @@ export class SecretCreationFormDraft extends FormDraft<SecretCreationFormModel, 
 	}
 }
 
-export class SecretMetadataFormDraft extends FormDraft<SecretMetadataFormModel, SecretMetadataFormModel, SecretMetadataFormFields> {
+export class SecretMetadataFormDraft extends FormDraft<
+	SecretMetadataFormModel,
+	SecretMetadataFormModel,
+	SecretMetadataFormFields
+> {
 	protected readonly rules = {
 		name: secretNamePipe,
 	}

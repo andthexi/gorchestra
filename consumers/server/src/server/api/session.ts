@@ -1,5 +1,3 @@
-import type { ServerApiContext } from './context'
-import { moduleCookiesToResponseCookies, optionalCookiePipe } from './http'
 import { buildDeleteSelectionCookie } from '../modules/selection-cookie'
 import {
 	buildDeleteSessionCookie,
@@ -11,6 +9,8 @@ import {
 	type ServerSession,
 	type VerifySessionTokenResult,
 } from '../modules/sessions'
+import type { ServerApiContext } from './context'
+import { moduleCookiesToResponseCookies, optionalCookiePipe } from './http'
 
 export const sessionCookieSchema = optionalCookiePipe(sessionCookieName)
 
@@ -23,7 +23,10 @@ export type ApiSessionAuthentication =
 	  }
 	| { authenticated: false; reason: Extract<VerifySessionTokenResult, { authenticated: false }>['reason'] }
 
-export async function authenticateApiSession(context: ServerApiContext, token?: string | null): Promise<ApiSessionAuthentication> {
+export async function authenticateApiSession(
+	context: ServerApiContext,
+	token?: string | null,
+): Promise<ApiSessionAuthentication> {
 	const result = await verifySessionToken({
 		serverCache: context.serverCache,
 		token: token ?? null,
@@ -39,7 +42,10 @@ export async function authenticateApiSession(context: ServerApiContext, token?: 
 	}
 }
 
-export async function refreshApiSession(context: ServerApiContext, token?: string | null): Promise<RefreshSessionTokenResult> {
+export async function refreshApiSession(
+	context: ServerApiContext,
+	token?: string | null,
+): Promise<RefreshSessionTokenResult> {
 	if (!token) return { refreshed: false, reason: 'not-authenticated' }
 	return refreshSessionToken({
 		serverCache: context.serverCache,
@@ -51,7 +57,8 @@ export async function refreshApiSession(context: ServerApiContext, token?: strin
 
 export async function revokeApiSessionIfAuthenticated(context: ServerApiContext, token?: string | null): Promise<void> {
 	const authentication = await authenticateApiSession(context, token)
-	if (authentication.authenticated) await revokeSession({ serverCache: context.serverCache, userId: authentication.session.userId })
+	if (authentication.authenticated)
+		await revokeSession({ serverCache: context.serverCache, userId: authentication.session.userId })
 }
 
 export function getSessionToken(cookies: Record<string, string | undefined>): string | undefined {

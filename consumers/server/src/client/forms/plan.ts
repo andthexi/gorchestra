@@ -17,8 +17,16 @@ const planTitlePipe = v.string().pipe(v.min<string>(1, 'Enter a Plan title'))
 const initialMessagePipe = v.string().pipe(v.min<string>(1, 'Enter an initial planning message'))
 const agentRunProfileIdPipe = v.string().pipe(v.asTrimmed(), v.min<string>(1, 'Select an Agent Run Profile'))
 
-export class PlanCreationFormDraft extends FormDraft<PlanCreationFormModel, PlanCreationFormModel, PlanCreationFormFields> {
-	protected readonly rules = { title: planTitlePipe, initialMessage: initialMessagePipe, agentRunProfileId: agentRunProfileIdPipe }
+export class PlanCreationFormDraft extends FormDraft<
+	PlanCreationFormModel,
+	PlanCreationFormModel,
+	PlanCreationFormFields
+> {
+	protected readonly rules = {
+		title: planTitlePipe,
+		initialMessage: initialMessagePipe,
+		agentRunProfileId: agentRunProfileIdPipe,
+	}
 
 	constructor() {
 		super({ title: '', initialMessage: '', agentRunProfileId: '' })

@@ -1,23 +1,29 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { idPipe } from '../domain/commons'
 import type { ValidationEvidence } from '../domain/evidence'
 import type { Repository } from '../domain/repository'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import type { ResolvableSecretValue } from '../services'
 import { buildCommandHandler } from '../utils/command-handler'
 import { getRequired } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import { validateActiveSecret } from '../utils/secrets'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const preflightRepositoryInputPipe = v.object({ repositoryId: idPipe })
 export type Input = PipeOutput<typeof preflightRepositoryInputPipe>
 
 export type Result = ValidationEvidence
 
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 
 export type Operation = (input: Input, context: CommandContext) => Promise<CoreResult<Result, Error>>
 
@@ -38,10 +44,16 @@ export function createPreflightRepositoryCommand(runtime: CoreRuntime): Operatio
 				if (!secret.ok) {
 					const error = secret.error
 					if (error.type === 'not-found' && error.resource === 'secret') {
-						return { ok: true, value: { type: 'failed', summary: 'GitHub repository access Secret is missing.' } }
+						return {
+							ok: true,
+							value: { type: 'failed', summary: 'GitHub repository access Secret is missing.' },
+						}
 					}
 					if (error.type === 'resource-archived') {
-						return { ok: true, value: { type: 'failed', summary: 'GitHub repository access Secret is not active.' } }
+						return {
+							ok: true,
+							value: { type: 'failed', summary: 'GitHub repository access Secret is not active.' },
+						}
 					}
 					return { ok: false, error }
 				}
@@ -90,7 +102,8 @@ export function createPreflightRepositoryCommand(runtime: CoreRuntime): Operatio
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
 	const { createSourceControlProviders } = await import('../utils/providers/source-control')
-	const { context, createTestCoreRuntime, createTestCoreServices, seedSecret, stamp } = await import('../utils/test-helpers')
+	const { context, createTestCoreRuntime, createTestCoreServices, seedSecret, stamp } =
+		await import('../utils/test-helpers')
 
 	describe('preflightRepository command', () => {
 		it('validates input before reading storage', async () => {
@@ -109,12 +122,17 @@ if (import.meta.vitest) {
 
 			const result = await command({ repositoryId: '01k00000000000000000000034' }, context)
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'repository', id: '01k00000000000000000000034' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'repository', id: '01k00000000000000000000034' },
+			})
 		})
 
 		it('returns failed evidence when the repository access Secret is missing', async () => {
 			const options = repositoryFixture()
-			const command = createPreflightRepositoryCommand(createTestCoreRuntime(options, { providers: neverCalledProviders(options) }))
+			const command = createPreflightRepositoryCommand(
+				createTestCoreRuntime(options, { providers: neverCalledProviders(options) }),
+			)
 
 			const result = await command({ repositoryId: '01k00000000000000000000034' }, context)
 
@@ -127,7 +145,9 @@ if (import.meta.vitest) {
 		it('returns failed evidence when the repository access Secret is inactive', async () => {
 			const options = repositoryFixture()
 			seedSecret(options.tx, '01k00000000000000000000040', true)
-			const command = createPreflightRepositoryCommand(createTestCoreRuntime(options, { providers: neverCalledProviders(options) }))
+			const command = createPreflightRepositoryCommand(
+				createTestCoreRuntime(options, { providers: neverCalledProviders(options) }),
+			)
 
 			const result = await command({ repositoryId: '01k00000000000000000000034' }, context)
 
@@ -163,7 +183,10 @@ if (import.meta.vitest) {
 
 			const result = await command({ repositoryId: '01k00000000000000000000034' }, context)
 
-			expect(result).toEqual({ ok: true, value: repositoryPreflightEvidence(true, 'GitHub repository preflight passed.') })
+			expect(result).toEqual({
+				ok: true,
+				value: repositoryPreflightEvidence(true, 'GitHub repository preflight passed.'),
+			})
 			expect(providerTransactionCalls).toBe(1)
 		})
 
@@ -174,7 +197,8 @@ if (import.meta.vitest) {
 			const providers = {
 				sourceControl: createSourceControlProviders(options, {
 					github: {
-						preflightRepository: () => Promise.resolve({ type: 'failed', reason: { type: 'provider-repository-not-found' } }),
+						preflightRepository: () =>
+							Promise.resolve({ type: 'failed', reason: { type: 'provider-repository-not-found' } }),
 						createArtifactBranch() {
 							throw new Error('GitHub provider should not be called.')
 						},
@@ -189,7 +213,10 @@ if (import.meta.vitest) {
 
 			const result = await command({ repositoryId: '01k00000000000000000000034' }, context)
 
-			expect(result).toEqual({ ok: true, value: repositoryPreflightEvidence(false, 'GitHub repository was not found.') })
+			expect(result).toEqual({
+				ok: true,
+				value: repositoryPreflightEvidence(false, 'GitHub repository was not found.'),
+			})
 		})
 
 		it('returns invalid Core Service Output from Secret value resolution', async () => {

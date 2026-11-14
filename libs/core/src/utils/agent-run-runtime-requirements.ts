@@ -93,7 +93,10 @@ export const ensureGitRequirement: AgentRunRunCommandRuntimeRequirement = {
 	commandSecretEnv: {},
 }
 
-export function sandboxPathFromSegments(segments: string[], joiner: '/' | '-'): Result<SandboxPath, InvariantViolationError> {
+export function sandboxPathFromSegments(
+	segments: string[],
+	joiner: '/' | '-',
+): Result<SandboxPath, InvariantViolationError> {
 	const normalizedSegments = segments.map(normalizeSandboxPathSegment).filter((segment) => segment.length > 0)
 	const path = normalizedSegments.length === 0 ? '/workspace' : `/workspace/${normalizedSegments.join(joiner)}`
 	const parsed = v.validate(sandboxPathPipe, path)
@@ -121,7 +124,11 @@ if (import.meta.vitest) {
 				'Verify POSIX shell is available',
 				'Ensure rg and fd are available',
 			])
-			expect(globalRuntimeRequirements.every((requirement) => requirement.type === 'run-command' && requirement.root)).toBe(true)
+			expect(
+				globalRuntimeRequirements.every(
+					(requirement) => requirement.type === 'run-command' && requirement.root,
+				),
+			).toBe(true)
 			expect(globalRuntimeRequirements[0]).toMatchObject({
 				type: 'run-command',
 				label: 'Verify POSIX shell is available',
@@ -132,7 +139,11 @@ if (import.meta.vitest) {
 			expect(globalRuntimeRequirements[1]?.command.args[1]).toContain('apt-get install -y ripgrep fd-find')
 			expect(globalRuntimeRequirements[1]?.command.args[1]).toContain('command -v rg >/dev/null')
 			expect(globalRuntimeRequirements[1]?.command.args[1]).toContain('command -v fd >/dev/null')
-			expect(ensureGitRequirement).toMatchObject({ type: 'run-command', label: 'Ensure Git is available', root: true })
+			expect(ensureGitRequirement).toMatchObject({
+				type: 'run-command',
+				label: 'Ensure Git is available',
+				root: true,
+			})
 			expect(ensureGitRequirement.command.args[1]).toContain('apk add --no-cache git')
 			expect(ensureGitRequirement.command.args[1]).toContain('apt-get install -y git')
 			expect(ensureGitRequirement.command.args[1]).toContain('command -v git >/dev/null')
@@ -143,7 +154,10 @@ if (import.meta.vitest) {
 				ok: true,
 				value: '/workspace/Owner-Repo-01k00000000000000000000034',
 			})
-			expect(sandboxPathFromSegments(['repos', 'Repo'], '/')).toEqual({ ok: true, value: '/workspace/repos/Repo' })
+			expect(sandboxPathFromSegments(['repos', 'Repo'], '/')).toEqual({
+				ok: true,
+				value: '/workspace/repos/Repo',
+			})
 			expect(sandboxPathFromSegments([' weird/repo ', 'name💥'], '-')).toEqual({
 				ok: true,
 				value: '/workspace/weird-repo-name',

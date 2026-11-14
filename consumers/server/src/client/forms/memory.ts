@@ -41,7 +41,11 @@ export class MemoryCreationFormDraft extends FormDraft<CreateMemoryInput, Create
 	}
 }
 
-export class MemoryRevisionFormDraft extends FormDraft<MemoryRevisionFormEntity, CreateMemoryRevisionInput, MemoryRevisionFormFields> {
+export class MemoryRevisionFormDraft extends FormDraft<
+	MemoryRevisionFormEntity,
+	CreateMemoryRevisionInput,
+	MemoryRevisionFormFields
+> {
 	protected readonly rules = {
 		expectedCurrentRevisionId: v.string(),
 		title: memoryTitlePipe,
@@ -122,7 +126,11 @@ if (import.meta.vitest) {
 			draft.title = ' Updated '
 
 			expect(draft.dirty).toBe(true)
-			expect(draft.toModel()).toEqual({ expectedCurrentRevisionId: 'revision-current', title: ' Updated ', body: ' Body ' })
+			expect(draft.toModel()).toEqual({
+				expectedCurrentRevisionId: 'revision-current',
+				title: ' Updated ',
+				body: ' Body ',
+			})
 		})
 
 		it('tracks loaded content as clean until title or body changes', () => {

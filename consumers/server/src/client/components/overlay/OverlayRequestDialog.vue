@@ -4,12 +4,15 @@
 		class="m-0 h-dvh max-h-none w-dvw max-w-none border-0 bg-transparent p-4 text-body outline-none"
 		aria-modal="true"
 		@click="handleBackdropClick"
-		@cancel="handleCancel">
+		@cancel="handleCancel"
+	>
 		<OverlayToastStack v-if="isTop" />
 		<section class="w-[min(520px,calc(100vw-32px))] border border-dimmer bg-card text-card-contrast shadow-panel">
 			<header class="border-b border-dimmer px-4 py-3">
 				<UiHeading as="h2" size="subsection">{{ request.title }}</UiHeading>
-				<UiText v-if="request.body" class="m-0 mt-1 whitespace-pre-line" tone="muted" size="helper">{{ request.body }}</UiText>
+				<UiText v-if="request.body" class="m-0 mt-1 whitespace-pre-line" tone="muted" size="helper">{{
+					request.body
+				}}</UiText>
 			</header>
 
 			<template v-if="request.type === 'confirm'">
@@ -19,14 +22,16 @@
 						:data-overlay-initial-focus="true"
 						:variant="request.cancel.variant"
 						:tone="request.cancel.tone"
-						@click="resolveRequest(request.id, false)">
+						@click="resolveRequest(request.id, false)"
+					>
 						{{ request.cancel.label }}
 					</UiButton>
 					<UiButton
 						type="button"
 						:variant="request.confirm.variant"
 						:tone="request.confirm.tone"
-						@click="resolveRequest(request.id, true)">
+						@click="resolveRequest(request.id, true)"
+					>
 						{{ request.confirm.label }}
 					</UiButton>
 				</footer>
@@ -34,7 +39,7 @@
 
 			<UiForm v-else class="grid gap-0" @submit.prevent="submitPrompt()">
 				<section class="border-b border-dimmer px-4 py-3">
-					<UiFormGroup :label="request.input.label" :for-id="promptInputId" :error="promptValueError">
+					<UiFormGroup :label="request.input.label" :forId="promptInputId" :error="promptValueError">
 						<UiTextarea
 							v-if="request.input.type === 'textarea'"
 							:id="promptInputId"
@@ -42,14 +47,16 @@
 							:data-overlay-initial-focus="true"
 							:placeholder="request.input.placeholder"
 							:rows="request.input.rows"
-							:invalid="!!promptValueError" />
+							:invalid="!!promptValueError"
+						/>
 						<UiInput
 							v-else
 							:id="promptInputId"
 							v-model="promptForm.value"
 							:data-overlay-initial-focus="true"
 							:placeholder="request.input.placeholder"
-							:invalid="!!promptValueError" />
+							:invalid="!!promptValueError"
+						/>
 					</UiFormGroup>
 				</section>
 				<footer class="flex justify-end gap-2 px-4 py-3">
@@ -57,7 +64,8 @@
 						type="button"
 						:variant="request.cancel.variant"
 						:tone="request.cancel.tone"
-						@click="resolveRequest(request.id, null)">
+						@click="resolveRequest(request.id, null)"
+					>
 						{{ request.cancel.label }}
 					</UiButton>
 					<UiButton type="submit" :variant="request.confirm.variant" :tone="request.confirm.tone">
@@ -104,7 +112,9 @@ const promptForm =
 			})
 		: new OverlayPromptFormDraft({ required: false })
 
-const promptValueError = computed(() => promptForm.errors.value || (promptSubmitAttempted.value ? promptForm.valueError : ''))
+const promptValueError = computed(
+	() => promptForm.errors.value || (promptSubmitAttempted.value ? promptForm.valueError : ''),
+)
 
 onMounted(() => {
 	const element = dialog.value

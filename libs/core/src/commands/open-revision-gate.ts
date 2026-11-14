@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import type { AgentRun } from '../domain/agent-run'
 import { idPipe } from '../domain/commons'
 import type { FetchedFeedback, ReviewSurface } from '../domain/review-surface'
@@ -9,9 +8,17 @@ import type { InvalidInputError, ResourceArchivedError, ReviewSurfaceAlreadyMerg
 import { createModelAgentRunAndRequestPreparation } from '../utils/agent-runs'
 import type { ConfigCommandReferenceError, ConfigCommandStorageError } from '../utils/command-errors'
 import { buildCommandHandler } from '../utils/command-handler'
-import { auditStamp, createRecordValue, getRequired, loadSelectableAgentRunProfile, nextId, runtimeRecord } from '../utils/command-storage'
+import {
+	auditStamp,
+	createRecordValue,
+	getRequired,
+	loadSelectableAgentRunProfile,
+	nextId,
+	runtimeRecord,
+} from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const openRevisionGateInputPipe = v.object({ reviewSurfaceId: idPipe, agentRunProfileId: idPipe })
 export type Input = PipeOutput<typeof openRevisionGateInputPipe>
@@ -45,81 +52,91 @@ export function createOpenRevisionGateCommand(runtime: CoreRuntime): Operation {
 		const started = runtimeRecord(runtime.values)
 		if (!started.ok) return started
 
-		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(async ({ storage, notifications, dispatch }) => {
-			const reviewSurface = await getRequired('review-surface', storage, input.reviewSurfaceId)
-			if (!reviewSurface.ok) return reviewSurface
-			if (reviewSurface.value.closed?.type === 'merged') {
-				return {
-					ok: false,
-					error: { type: 'review-surface-already-merged', reviewSurfaceId: reviewSurface.value.id },
-				}
-			}
-
-			let projectId: string
-			switch (reviewSurface.value.scope.type) {
-				case 'delivery': {
-					const delivery = await getRequired('delivery', storage, reviewSurface.value.scope.deliveryId)
-					if (!delivery.ok) return delivery
-					projectId = delivery.value.projectId
-					break
-				}
-				case 'slice': {
-					const slice = await getRequired('slice', storage, reviewSurface.value.scope.sliceId)
-					if (!slice.ok) return slice
-					const sliceDelivery = await getRequired('delivery', storage, slice.value.deliveryId)
-					if (!sliceDelivery.ok) return sliceDelivery
-					projectId = sliceDelivery.value.projectId
-					break
-				}
-				default:
-					throw new Error(`Unrecognized review surface scope type: ${String(reviewSurface.value.scope satisfies never)}`)
-			}
-
-			const project = await getRequired('project', storage, projectId)
-			if (!project.ok) return project
-
-			const profile = await loadSelectableAgentRunProfile(storage, input.agentRunProfileId)
-			if (!profile.ok) return profile
-
-			let revisionScope: RevisionGate['scope']
-			switch (reviewSurface.value.scope.type) {
-				case 'delivery':
-					revisionScope = {
-						type: 'delivery-artifact',
-						deliveryId: reviewSurface.value.scope.deliveryId,
-						deliveryArtifactId: reviewSurface.value.scope.deliveryArtifactId,
+		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(
+			async ({ storage, notifications, dispatch }) => {
+				const reviewSurface = await getRequired('review-surface', storage, input.reviewSurfaceId)
+				if (!reviewSurface.ok) return reviewSurface
+				if (reviewSurface.value.closed?.type === 'merged') {
+					return {
+						ok: false,
+						error: { type: 'review-surface-already-merged', reviewSurfaceId: reviewSurface.value.id },
 					}
-					break
-				case 'slice':
-					revisionScope = {
-						type: 'slice-artifact',
-						sliceId: reviewSurface.value.scope.sliceId,
-						sliceArtifactId: reviewSurface.value.scope.sliceArtifactId,
+				}
+
+				let projectId: string
+				switch (reviewSurface.value.scope.type) {
+					case 'delivery': {
+						const delivery = await getRequired('delivery', storage, reviewSurface.value.scope.deliveryId)
+						if (!delivery.ok) return delivery
+						projectId = delivery.value.projectId
+						break
 					}
-					break
-				default:
-					throw new Error(`Unexpected Review Surface Scope: ${String(reviewSurface.value.scope satisfies never)}`)
-			}
+					case 'slice': {
+						const slice = await getRequired('slice', storage, reviewSurface.value.scope.sliceId)
+						if (!slice.ok) return slice
+						const sliceDelivery = await getRequired('delivery', storage, slice.value.deliveryId)
+						if (!sliceDelivery.ok) return sliceDelivery
+						projectId = sliceDelivery.value.projectId
+						break
+					}
+					default:
+						throw new Error(
+							`Unrecognized review surface scope type: ${String(reviewSurface.value.scope satisfies never)}`,
+						)
+				}
 
-			const revisionGate = await createRecordValue('revision-gate', storage, {
-				id: revisionGateId.value,
-				agentRunId: agentRunId.value,
-				scope: revisionScope,
-				reviewSurfaceId: reviewSurface.value.id,
-				opened: stamp.value,
-				closed: null,
-			})
-			if (!revisionGate.ok) return revisionGate
+				const project = await getRequired('project', storage, projectId)
+				if (!project.ok) return project
 
-			const created = await createModelAgentRunAndRequestPreparation({ values: runtime.values, dispatch, notifications }, storage, {
-				agentRunId: agentRunId.value,
-				purpose: { type: 'revision-planning', revisionGateId: revisionGate.value.id },
-				started: started.value,
-				agentRunProfile: profile.value,
-				project: project.value,
-			})
-			return created.ok ? { ok: true, value: { revisionGate: revisionGate.value, feedback: [] } } : created
-		})
+				const profile = await loadSelectableAgentRunProfile(storage, input.agentRunProfileId)
+				if (!profile.ok) return profile
+
+				let revisionScope: RevisionGate['scope']
+				switch (reviewSurface.value.scope.type) {
+					case 'delivery':
+						revisionScope = {
+							type: 'delivery-artifact',
+							deliveryId: reviewSurface.value.scope.deliveryId,
+							deliveryArtifactId: reviewSurface.value.scope.deliveryArtifactId,
+						}
+						break
+					case 'slice':
+						revisionScope = {
+							type: 'slice-artifact',
+							sliceId: reviewSurface.value.scope.sliceId,
+							sliceArtifactId: reviewSurface.value.scope.sliceArtifactId,
+						}
+						break
+					default:
+						throw new Error(
+							`Unexpected Review Surface Scope: ${String(reviewSurface.value.scope satisfies never)}`,
+						)
+				}
+
+				const revisionGate = await createRecordValue('revision-gate', storage, {
+					id: revisionGateId.value,
+					agentRunId: agentRunId.value,
+					scope: revisionScope,
+					reviewSurfaceId: reviewSurface.value.id,
+					opened: stamp.value,
+					closed: null,
+				})
+				if (!revisionGate.ok) return revisionGate
+
+				const created = await createModelAgentRunAndRequestPreparation(
+					{ values: runtime.values, dispatch, notifications },
+					storage,
+					{
+						agentRunId: agentRunId.value,
+						purpose: { type: 'revision-planning', revisionGateId: revisionGate.value.id },
+						started: started.value,
+						agentRunProfile: profile.value,
+						project: project.value,
+					},
+				)
+				return created.ok ? { ok: true, value: { revisionGate: revisionGate.value, feedback: [] } } : created
+			},
+		)
 	})
 }
 
@@ -166,7 +183,9 @@ if (import.meta.vitest) {
 			expect(result).toEqual({ ok: true, value: { revisionGate: expectedGate, feedback: [] } })
 			expect(options.tx.revisionGates.records.get('01k00000000000000000010001')).toEqual(expectedGate)
 			expect(options.tx.agentRuns.records.get('01k00000000000000000010002')).toEqual(expectedAgentRun)
-			expect(options.tx.agentRunEvents.records.get('01k00000000000000000010003')?.body).toEqual(revisionPlanningInstructionBody())
+			expect(options.tx.agentRunEvents.records.get('01k00000000000000000010003')?.body).toEqual(
+				revisionPlanningInstructionBody(),
+			)
 		})
 
 		it('persists only Agent Run preparation and wakes after commit', async () => {
@@ -188,7 +207,9 @@ if (import.meta.vitest) {
 				{ type: 'agent-run-preparation', agentRunId: '01k00000000000000000010002' },
 			])
 			expect(wakes).toEqual(['wake'])
-			expect(options.tx.agentRunEvents.records.get('01k00000000000000000010003')?.body).toEqual(revisionPlanningInstructionBody())
+			expect(options.tx.agentRunEvents.records.get('01k00000000000000000010003')?.body).toEqual(
+				revisionPlanningInstructionBody(),
+			)
 		})
 
 		it('opens a Slice Revision Gate with empty fetched feedback until provider feedback fetching exists', async () => {
@@ -352,7 +373,11 @@ if (import.meta.vitest) {
 	function deliveryReviewSurface(): ReviewSurface {
 		return {
 			id: '01k00000000000000000000037',
-			scope: { type: 'delivery', deliveryId: '01k00000000000000000000008', deliveryArtifactId: '01k00000000000000000000010' },
+			scope: {
+				type: 'delivery',
+				deliveryId: '01k00000000000000000000008',
+				deliveryArtifactId: '01k00000000000000000000010',
+			},
 			config: {
 				provider: 'github',
 				pullRequestNumber: 1,
@@ -369,7 +394,11 @@ if (import.meta.vitest) {
 	function sliceReviewSurface(): ReviewSurface {
 		return {
 			id: '01k00000000000000000000037',
-			scope: { type: 'slice', sliceId: '01k00000000000000000000042', sliceArtifactId: '01k00000000000000000000045' },
+			scope: {
+				type: 'slice',
+				sliceId: '01k00000000000000000000042',
+				sliceArtifactId: '01k00000000000000000000045',
+			},
 			config: {
 				provider: 'github',
 				pullRequestNumber: 1,

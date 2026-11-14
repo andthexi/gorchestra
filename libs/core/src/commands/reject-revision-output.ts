@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import type { AgentRunEvent } from '../domain/agent-run-event'
 import { freeFormStringPipe, idPipe } from '../domain/commons'
 import type {
@@ -20,6 +19,7 @@ import { auditStamp, getRequired } from '../utils/command-storage'
 import { getPendingProposalForAgentRunPurpose, proposalRejectedProjectedParts } from '../utils/proposals'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const rejectRevisionOutputInputPipe = v.object({ proposalEventId: idPipe, reason: v.nullable(freeFormStringPipe) })
 export type Input = PipeOutput<typeof rejectRevisionOutputInputPipe>
@@ -43,29 +43,39 @@ export function createRejectRevisionOutputCommand(runtime: CoreRuntime): Operati
 		const stamp = auditStamp(runtime.values, context)
 		if (!stamp.ok) return stamp
 
-		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(async ({ storage, notifications }) => {
-			const proposal = await getPendingProposalForAgentRunPurpose(
-				storage,
-				input.proposalEventId,
-				'proposed-revision-output',
-				'revision-planning',
-			)
-			if (!proposal.ok) return proposal
+		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(
+			async ({ storage, notifications }) => {
+				const proposal = await getPendingProposalForAgentRunPurpose(
+					storage,
+					input.proposalEventId,
+					'proposed-revision-output',
+					'revision-planning',
+				)
+				if (!proposal.ok) return proposal
 
-			const gate = await getRequired('revision-gate', storage, proposal.value.agentRun.purpose.revisionGateId)
-			if (!gate.ok) return gate
-			if (gate.value.closed !== null) {
-				return { ok: false, error: { type: 'agent-run-not-active', agentRunId: proposal.value.agentRun.id } }
-			}
+				const gate = await getRequired('revision-gate', storage, proposal.value.agentRun.purpose.revisionGateId)
+				if (!gate.ok) return gate
+				if (gate.value.closed !== null) {
+					return {
+						ok: false,
+						error: { type: 'agent-run-not-active', agentRunId: proposal.value.agentRun.id },
+					}
+				}
 
-			return appendAgentRunEvent({ values: runtime.values, notifications }, storage, proposal.value.proposal.agentRunId, {
-				type: 'proposal-rejected',
-				proposalEventId: proposal.value.proposal.id,
-				authorized: stamp.value,
-				reason: input.reason,
-				projectedParts: proposalRejectedProjectedParts(proposal.value.proposal.id, input.reason),
-			})
-		})
+				return appendAgentRunEvent(
+					{ values: runtime.values, notifications },
+					storage,
+					proposal.value.proposal.agentRunId,
+					{
+						type: 'proposal-rejected',
+						proposalEventId: proposal.value.proposal.id,
+						authorized: stamp.value,
+						reason: input.reason,
+						projectedParts: proposalRejectedProjectedParts(proposal.value.proposal.id, input.reason),
+					},
+				)
+			},
+		)
 	})
 }
 
@@ -109,7 +119,9 @@ if (import.meta.vitest) {
 				proposalEventId,
 				authorized: localStamp(),
 				reason: 'Needs changes.',
-				projectedParts: [{ type: 'text', text: `Proposal ${proposalEventId} rejected. Needs changes.`, metadata: null }],
+				projectedParts: [
+					{ type: 'text', text: `Proposal ${proposalEventId} rejected. Needs changes.`, metadata: null },
+				],
 			})
 		})
 	})

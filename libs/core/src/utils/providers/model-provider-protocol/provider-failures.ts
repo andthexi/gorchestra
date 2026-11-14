@@ -46,9 +46,13 @@ export function safeProviderErrorSummary(reason: ModelProviderGenerationFailureR
 }
 
 function statusCode(error: unknown): number | null {
-	const status = typeof error === 'object' && error !== null ? (error as { status?: unknown; statusCode?: unknown }).status : null
+	const status =
+		typeof error === 'object' && error !== null
+			? (error as { status?: unknown; statusCode?: unknown }).status
+			: null
 	if (typeof status === 'number') return status
 
-	const statusCodeValue = typeof error === 'object' && error !== null ? (error as { statusCode?: unknown }).statusCode : null
+	const statusCodeValue =
+		typeof error === 'object' && error !== null ? (error as { statusCode?: unknown }).statusCode : null
 	return typeof statusCodeValue === 'number' ? statusCodeValue : null
 }

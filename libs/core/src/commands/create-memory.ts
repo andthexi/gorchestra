@@ -9,11 +9,11 @@ import type {
 	ResourceNotFoundError,
 	StorageOperationFailedError,
 } from '../errors'
-import type { CommandContext } from './types'
 import { buildCommandHandler } from '../utils/command-handler'
 import { auditStamp, createRecordValue, getRequired, nextId } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 export const inputPipe = v.object({ parentId: v.nullable(v.string()), title: memoryTitlePipe, body: memoryBodyPipe })
 export type Input = PipeOutput<typeof inputPipe>
@@ -72,7 +72,8 @@ export function createCreateMemoryCommand(runtime: CoreRuntime): Operation {
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { context, createTestCoreRuntime, createTestCoreServices, localStamp, stamp } = await import('../utils/test-helpers')
+	const { context, createTestCoreRuntime, createTestCoreServices, localStamp, stamp } =
+		await import('../utils/test-helpers')
 
 	describe('createMemory command', () => {
 		it('validates input before opening storage', async () => {
@@ -117,7 +118,9 @@ if (import.meta.vitest) {
 				},
 			})
 			expect(options.tx.memoryRevisions.records.get(revision.id)).toEqual(revision)
-			expect(options.tx.memories.records.get('01k00000000000000000010001')).toEqual(result.ok ? result.value : null)
+			expect(options.tx.memories.records.get('01k00000000000000000010001')).toEqual(
+				result.ok ? result.value : null,
+			)
 		})
 
 		it('creates a child Memory after validating the parent exists', async () => {
@@ -127,7 +130,10 @@ if (import.meta.vitest) {
 
 			const result = await command({ parentId: '01k00000000000000000010020', title: 'Child', body: '' }, context)
 
-			expect(result).toMatchObject({ ok: true, value: { id: '01k00000000000000000010001', parentId: '01k00000000000000000010020' } })
+			expect(result).toMatchObject({
+				ok: true,
+				value: { id: '01k00000000000000000010001', parentId: '01k00000000000000000010020' },
+			})
 		})
 
 		it('rejects missing parent Memories before generating ids', async () => {
@@ -136,7 +142,10 @@ if (import.meta.vitest) {
 
 			const result = await command({ parentId: '01k00000000000000000100054', title: 'Child', body: '' }, context)
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'memory', id: '01k00000000000000000100054' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'memory', id: '01k00000000000000000100054' },
+			})
 			expect(options.tx.memoryRevisions.records.size).toBe(0)
 			expect(options.tx.memories.records.size).toBe(0)
 		})

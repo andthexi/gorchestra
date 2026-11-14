@@ -78,7 +78,8 @@ export function createWorkspaceApiRouter(context: ServerApiContext) {
 			userId: authentication.session.userId,
 			workspaceId: req.params.workspaceId,
 		})
-		if (!access.authorized) throwNotAuthorized('Workspace Owner authority is required to create Portfolios for this Workspace')
+		if (!access.authorized)
+			throwNotAuthorized('Workspace Owner authority is required to create Portfolios for this Workspace')
 
 		return await createPortfolioForWorkspace({
 			serverStorage: context.serverStorage,

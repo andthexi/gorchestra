@@ -1,16 +1,19 @@
 import { v, type Pipe } from 'valleyed'
 
+import { nonEmptyRawStringPipe, positiveIntegerPipe } from '../../../../domain/commons'
+import type { CoreAgentRunToolContext } from '../types'
 import { commandToolOutput, runNonRootWorkspaceShell } from './command'
 import type { CoreAgentRunToolDefinition } from './registry'
 import { failInvalidInput, failToolExecution } from './results'
-import { nonEmptyRawStringPipe, positiveIntegerPipe } from '../../../../domain/commons'
-import type { CoreAgentRunToolContext } from '../types'
 
 const defaultShellTimeoutSeconds = 600
 const maxShellTimeoutSeconds = 600
 
 type ShInput = { command: string; timeout: number | undefined }
-const shInputPipe: Pipe<unknown, ShInput> = v.object({ command: nonEmptyRawStringPipe, timeout: v.optional(positiveIntegerPipe) })
+const shInputPipe: Pipe<unknown, ShInput> = v.object({
+	command: nonEmptyRawStringPipe,
+	timeout: v.optional(positiveIntegerPipe),
+})
 
 export function shTool(): CoreAgentRunToolDefinition<ShInput> {
 	return {
@@ -32,7 +35,12 @@ export function shTool(): CoreAgentRunToolDefinition<ShInput> {
 
 async function executeShell(input: ShInput, context: CoreAgentRunToolContext) {
 	const timeoutMs = timeoutMsFromInput(input.timeout)
-	const output = await runNonRootWorkspaceShell({ context, label: 'Agent Run sh tool', script: input.command, timeoutMs })
+	const output = await runNonRootWorkspaceShell({
+		context,
+		label: 'Agent Run sh tool',
+		script: input.command,
+		timeoutMs,
+	})
 	const projected = commandToolOutput(output)
 	await context.onUpdate({ type: 'structured', value: { exitCode: output.exitCode } })
 	if (output.exitCode !== 0) failToolExecution({ type: 'command-exit', exitCode: output.exitCode }, projected)
@@ -41,7 +49,8 @@ async function executeShell(input: ShInput, context: CoreAgentRunToolContext) {
 
 function timeoutMsFromInput(timeout: number | undefined): number {
 	const seconds = timeout ?? defaultShellTimeoutSeconds
-	if (seconds > maxShellTimeoutSeconds) failInvalidInput(`sh timeout cannot exceed ${maxShellTimeoutSeconds} seconds.`)
+	if (seconds > maxShellTimeoutSeconds)
+		failInvalidInput(`sh timeout cannot exceed ${maxShellTimeoutSeconds} seconds.`)
 	return seconds * 1000
 }
 
@@ -52,8 +61,17 @@ if (import.meta.vitest) {
 	describe('sh tool', () => {
 		it('executes exact sh -c commands as non-root in /workspace with the default timeout', async () => {
 			const fixture = commandToolFixture({ exitCode: 0, summary: 'ok', stdout: 'done', stderr: null })
-			await expect(shTool().execute({ command: 'pnpm test', timeout: undefined }, fixture.context)).resolves.toEqual({
-				output: { type: 'command', exitCode: 0, stdout: 'done', stderr: null, stdoutTruncation: null, stderrTruncation: null },
+			await expect(
+				shTool().execute({ command: 'pnpm test', timeout: undefined }, fixture.context),
+			).resolves.toEqual({
+				output: {
+					type: 'command',
+					exitCode: 0,
+					stdout: 'done',
+					stderr: null,
+					stdoutTruncation: null,
+					stderrTruncation: null,
+				},
 				truncation: null,
 			})
 			expect(fixture.commands).toEqual([

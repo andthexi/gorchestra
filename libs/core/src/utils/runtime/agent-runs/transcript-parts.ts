@@ -1,10 +1,16 @@
 import type { ContentPart, ToolSet } from 'ai'
 
-import type { TurnModelUse } from './turn-model-use'
-import type { AgentRunAssistantTranscriptPart, AgentRunEvent, AgentRunToolResultOutput } from '../../../domain/agent-run-event'
+import type {
+	AgentRunAssistantTranscriptPart,
+	AgentRunEvent,
+	AgentRunToolResultOutput,
+} from '../../../domain/agent-run-event'
 import { modelProviderProtocolForSource } from '../../../domain/model-provider'
+import type { TurnModelUse } from './turn-model-use'
 
-export function assistantMessageModel(turnModelUse: TurnModelUse): Extract<AgentRunEvent['body'], { type: 'assistant-message' }>['model'] {
+export function assistantMessageModel(
+	turnModelUse: TurnModelUse,
+): Extract<AgentRunEvent['body'], { type: 'assistant-message' }>['model'] {
 	return {
 		modelId: turnModelUse.model.id,
 		thinkingLevel: turnModelUse.thinking?.level ?? 'none',
@@ -14,7 +20,9 @@ export function assistantMessageModel(turnModelUse: TurnModelUse): Extract<Agent
 	}
 }
 
-export function assistantPartsFromAIContent(content: ReadonlyArray<ContentPart<ToolSet>>): AgentRunAssistantTranscriptPart[] {
+export function assistantPartsFromAIContent(
+	content: ReadonlyArray<ContentPart<ToolSet>>,
+): AgentRunAssistantTranscriptPart[] {
 	return content.flatMap((part) => {
 		switch (part.type) {
 			case 'text':
@@ -169,7 +177,10 @@ export function toAISDKToolOutput(output: AgentRunToolResultOutput): unknown {
 function normalizeCommandOutput(output: Record<string, unknown>): AgentRunToolResultOutput {
 	return {
 		type: 'command',
-		exitCode: typeof output.exitCode === 'number' && Number.isInteger(output.exitCode) && output.exitCode >= 0 ? output.exitCode : 0,
+		exitCode:
+			typeof output.exitCode === 'number' && Number.isInteger(output.exitCode) && output.exitCode >= 0
+				? output.exitCode
+				: 0,
 		stdout: typeof output.stdout === 'string' ? output.stdout : null,
 		stderr: typeof output.stderr === 'string' ? output.stderr : null,
 		stdoutTruncation: null,
@@ -180,7 +191,10 @@ function normalizeCommandOutput(output: Record<string, unknown>): AgentRunToolRe
 function normalizeImageOutput(output: Record<string, unknown>): AgentRunToolResultOutput {
 	return {
 		type: 'image',
-		mimeType: typeof output.mimeType === 'string' && output.mimeType.length > 0 ? output.mimeType : 'application/octet-stream',
+		mimeType:
+			typeof output.mimeType === 'string' && output.mimeType.length > 0
+				? output.mimeType
+				: 'application/octet-stream',
 		dataBase64: typeof output.dataBase64 === 'string' ? output.dataBase64 : '',
 		note: typeof output.note === 'string' ? output.note : null,
 	}
@@ -209,7 +223,9 @@ function commandStreamSection(
 	truncation: Extract<AgentRunToolResultOutput, { type: 'command' }>['stdoutTruncation'],
 ): string {
 	const body = text === null || text.length === 0 ? '(empty)' : text
-	return truncation === null || !truncation.truncated ? `${label}:\n${body}` : `${label}:\n${truncationNotice(truncation)}\n\n${body}`
+	return truncation === null || !truncation.truncated
+		? `${label}:\n${body}`
+		: `${label}:\n${truncationNotice(truncation)}\n\n${body}`
 }
 
 function imageToolOutput(output: Extract<AgentRunToolResultOutput, { type: 'image' }>): unknown {
@@ -217,17 +233,28 @@ function imageToolOutput(output: Extract<AgentRunToolResultOutput, { type: 'imag
 		type: 'content',
 		value: [
 			...(output.note === null ? [] : [{ type: 'text' as const, text: output.note }]),
-			{ type: 'file' as const, data: { type: 'data' as const, data: output.dataBase64 }, mediaType: output.mimeType },
+			{
+				type: 'file' as const,
+				data: { type: 'data' as const, data: output.dataBase64 },
+				mediaType: output.mimeType,
+			},
 		],
 	}
 }
 
 function diffOutputText(output: Extract<AgentRunToolResultOutput, { type: 'diff' }>): string {
-	return [output.summary, `Diff:\n${output.diff}`, ...(output.patch === null ? [] : [`Patch:\n${output.patch}`])].join('\n\n')
+	return [
+		output.summary,
+		`Diff:\n${output.diff}`,
+		...(output.patch === null ? [] : [`Patch:\n${output.patch}`]),
+	].join('\n\n')
 }
 
-function truncationNotice(truncation: NonNullable<Extract<AgentRunToolResultOutput, { type: 'command' }>['stdoutTruncation']>): string {
-	const original = truncation.originalLines === null ? 'unknown original line count' : `${truncation.originalLines} original lines`
+function truncationNotice(
+	truncation: NonNullable<Extract<AgentRunToolResultOutput, { type: 'command' }>['stdoutTruncation']>,
+): string {
+	const original =
+		truncation.originalLines === null ? 'unknown original line count' : `${truncation.originalLines} original lines`
 	const shown = truncation.outputLines === null ? 'stored output' : `${truncation.outputLines} stored lines`
 	return `[Tool output truncated using ${truncation.strategy}: ${shown} from ${original}.]`
 }
@@ -273,7 +300,14 @@ if (import.meta.vitest) {
 		})
 
 		it('projects image output as content with a file part', () => {
-			expect(toAISDKToolOutput({ type: 'image', mimeType: 'image/png', dataBase64: 'aW1hZ2U=', note: 'Rendered preview.' })).toEqual({
+			expect(
+				toAISDKToolOutput({
+					type: 'image',
+					mimeType: 'image/png',
+					dataBase64: 'aW1hZ2U=',
+					note: 'Rendered preview.',
+				}),
+			).toEqual({
 				type: 'content',
 				value: [
 					{ type: 'text', text: 'Rendered preview.' },
@@ -283,7 +317,14 @@ if (import.meta.vitest) {
 		})
 
 		it('projects diff output as summary plus diff and patch text', () => {
-			expect(toAISDKToolOutput({ type: 'diff', summary: 'Updated file.', diff: '- old\n+ new', patch: 'patch body' })).toEqual({
+			expect(
+				toAISDKToolOutput({
+					type: 'diff',
+					summary: 'Updated file.',
+					diff: '- old\n+ new',
+					patch: 'patch body',
+				}),
+			).toEqual({
 				type: 'text',
 				value: 'Updated file.\n\nDiff:\n- old\n+ new\n\nPatch:\npatch body',
 			})

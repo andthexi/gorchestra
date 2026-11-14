@@ -6,7 +6,10 @@ export interface NotificationEmitter {
 	emit(data: Notification['data']): void
 }
 
-export function createNotificationEmitter(values: CoreRuntimeValues, service: CoreNotificationsService | undefined): NotificationEmitter {
+export function createNotificationEmitter(
+	values: CoreRuntimeValues,
+	service: CoreNotificationsService | undefined,
+): NotificationEmitter {
 	return {
 		emit: (data) => {
 			if (service === undefined) return
@@ -52,7 +55,12 @@ if (import.meta.vitest) {
 			emitter.emit(testNotificationData())
 			emitter.emit(testNotificationData())
 
-			expect(calls).toEqual(['id', 'publish:01k00000000000000000000001', 'id', 'publish:01k00000000000000000000002'])
+			expect(calls).toEqual([
+				'id',
+				'publish:01k00000000000000000000001',
+				'id',
+				'publish:01k00000000000000000000002',
+			])
 		})
 
 		it('does not let a Notifications publisher failure escape into Core work', () => {

@@ -1,8 +1,8 @@
 import { v, type PipeOutput } from 'valleyed'
 
+import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 import { auditStampPipe, idPipe } from './commons'
 import { instructionSourcePipe, revisionDispositionPipe } from './proposals'
-import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 export { revisionDispositionPipe, revisionOutputProposalPipe } from './proposals'
 export type { RevisionDisposition, RevisionOutputProposal } from './proposals'
 

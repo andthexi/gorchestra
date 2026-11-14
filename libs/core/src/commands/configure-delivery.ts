@@ -1,6 +1,5 @@
 import { v, type PipeInput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { idPipe } from '../domain/commons'
 import { deliveryConfigPipe } from '../domain/config'
 import type { Delivery, DeliveryWorkState } from '../domain/delivery'
@@ -18,6 +17,7 @@ import {
 import { buildDeliveryContext, getDeliveryState } from '../utils/delivery-context'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const configureDeliveryInputPipe = v.object({ deliveryId: idPipe, config: deliveryConfigPipe })
 export type Input = PipeInput<typeof configureDeliveryInputPipe>
@@ -49,7 +49,10 @@ export function createConfigureDeliveryCommand(runtime: CoreRuntime): Operation 
 			}
 
 			const config = normalizeDeliveryConfigRecord(input.config, stampResult.value)
-			const profileValidation = await validateSelectableAgentRunProfiles(storage, agentRunProfileIdsFromDeliveryConfigRecord(config))
+			const profileValidation = await validateSelectableAgentRunProfiles(
+				storage,
+				agentRunProfileIdsFromDeliveryConfigRecord(config),
+			)
 			if (!profileValidation.ok) return profileValidation
 
 			return updateRecordValue('delivery', storage, deliveryContext.value.delivery.id, { config })
@@ -103,7 +106,10 @@ if (import.meta.vitest) {
 
 			const result = await command({ deliveryId: '01k00000000000000000010019', config: { work: null } }, context)
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'delivery', id: '01k00000000000000000010019' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'delivery', id: '01k00000000000000000010019' },
+			})
 		})
 
 		it('sets Delivery config and validates referenced Agent Run Profiles are selectable', async () => {
@@ -122,7 +128,9 @@ if (import.meta.vitest) {
 					config: { configured: localStamp(), value: config },
 				},
 			})
-			expect(options.tx.deliveries.records.get('01k00000000000000000000008')).toEqual(result.ok ? result.value : null)
+			expect(options.tx.deliveries.records.get('01k00000000000000000000008')).toEqual(
+				result.ok ? result.value : null,
+			)
 		})
 
 		it('folds a cleared Delivery config override to a retained null config record', async () => {
@@ -141,7 +149,10 @@ if (import.meta.vitest) {
 			const { command } = configureFixture()
 
 			const result = await command(
-				{ deliveryId: '01k00000000000000000000008', config: { work: defaultDeliveryWorkConfig('01k00000000000000000010020') } },
+				{
+					deliveryId: '01k00000000000000000000008',
+					config: { work: defaultDeliveryWorkConfig('01k00000000000000000010020') },
+				},
 				context,
 			)
 
@@ -153,10 +164,15 @@ if (import.meta.vitest) {
 
 		it('rejects archived Delivery Agent Run Profile references', async () => {
 			const { command, options } = configureFixture()
-			seedAgentRunProfile(options.tx, '01k00000000000000000000007', '01k00000000000000000000024', { archived: true })
+			seedAgentRunProfile(options.tx, '01k00000000000000000000007', '01k00000000000000000000024', {
+				archived: true,
+			})
 
 			const result = await command(
-				{ deliveryId: '01k00000000000000000000008', config: { work: defaultDeliveryWorkConfig('01k00000000000000000000007') } },
+				{
+					deliveryId: '01k00000000000000000000008',
+					config: { work: defaultDeliveryWorkConfig('01k00000000000000000000007') },
+				},
 				context,
 			)
 
@@ -200,7 +216,9 @@ if (import.meta.vitest) {
 			const result = await command({ deliveryId: '01k00000000000000000000008', config: { work: null } }, context)
 
 			expectNullDeliveryConfig(result)
-			expect(options.tx.actions.records.get('preflight-failed')).toMatchObject({ result: { type: 'validate-preflight' } })
+			expect(options.tx.actions.records.get('preflight-failed')).toMatchObject({
+				result: { type: 'validate-preflight' },
+			})
 		})
 	})
 
