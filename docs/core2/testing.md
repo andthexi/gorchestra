@@ -50,6 +50,14 @@ The following policy applies only to `libs/core2`. Existing Core and Consumer su
 
 The adapter-selection runtime cases use two real InMemory subclasses with distinct required configuration inputs. Their consumer-side helper narrows the adapter union with an exhaustive switch before each public factory call, then exercises setup and shutdown for both branches. Ordinary compilation checks the branch-specific resolver types and nongeneric results. Union rejection is a static input policy, not a runtime check of an erased TypeScript union; explicit casts and already-erased subtype information are outside that guarantee.
 
+## Foundation handoff verification
+
+The shared-boundary suite has 379 tests across 24 files after Task 12. It retains all operation, failure and overlap cases and adds explicit zero schema/history-I/O assertions plus unbranded abort-wrapper rejection. Both additions passed immediately; they strengthen coverage rather than fix production behavior.
+
+The lifecycle test imports its public classes and types from `@gorchestra/core2`, exercising the real package export rather than only a relative barrel; the 85-case lifecycle file passes through that import. All 17 operation leaves have matching usage entries and behavior tests. Final handoff checks rerun the full Core2 suite, ordinary types, workspace/Core/Server compilation, lint, formatting, dependency resolution and the unchanged Fallow baseline. Existing Core/Server runtime suites remain excluded under the user's explicit verification scope.
+
+Consumers still own storage isolation, authorization and quiescent maintenance. The prerelease has no clients with old-format migrations; backward conversion is not a handoff gate and no compatibility measures are added. Expedition/downstream implementation, Consumer cutover, live migration and persistent-backend certification remain excluded.
+
 ## Equipped 5.3.7 verification record
 
 The parent rerun passed 377 Core2 tests in 24 files, forced workspace TypeScript, explicit Core/Server TypeScript JS and declaration emission, and workspace ESLint. Emitted scratch artifacts were counted: 243 Core JS/declaration pairs and 107 Server pairs. Native InMemory overlap and configured-ledger cases passed without adding a Core mutex. Fallow retained the same five cycles and one clone; its baseline exit 1 is not a clean audit exit. Independent source review passed with no blocking findings; it did not rerun runtime checks. Whole-foundation completion remains a separate gate.

@@ -4,21 +4,23 @@ Private ESM workspace package for the parallel Core foundation. The Server Consu
 
 The dependency boundary checks the concrete adapter and its resolver together; Core's internals use a fixed storage contract rather than exposing adapter-specific capabilities. Native catalog construction needs no type assertion.
 
-**Equipped 5.3.7 overlap regressions pass.** The parent rerun passed 377 Core tests in 24 files, including the held missing-Project lookup versus independent create and three overlapping Revision-append outcomes. This release supplies the [native root-session isolation fix](https://github.com/andthexi/equipped/pull/178); the compatibility update adapts logical-name resolvers, explicit migration locking and configured ledger access. No Core mutex or weakened rollback contract is supplied. Independent source review passed; final foundation qualification remains separate.
+**Equipped 5.3.7 overlap regressions pass.** The recorded upgrade rerun passed 377 Core tests in 24 files, including the held missing-Project lookup versus independent create and three overlapping Revision-append outcomes. This release supplies the [native root-session isolation fix](https://github.com/andthexi/equipped/pull/178); the compatibility update adapts logical-name resolvers, explicit migration locking and configured ledger access. No Core mutex or weakened rollback contract is supplied. Independent source review passed; see the [testing guide](../../docs/core2/testing.md) for final foundation verification and scope.
 
 This prerelease has no client migrations applied using the old ledger format. Backward conversion of that format is out of scope, not a delivery or deployment prerequisite.
 
 ## Public surface
 
-`PortfolioClient.new(dependencies)` returns a `Result` containing one privately constructed lifecycle view:
+`PortfolioClient.new(dependencies)` returns a `Promise<Result<…>>` containing one privately constructed lifecycle view:
 
 - `PortfolioSetup`: `state: 'uninitialized'`, `setup()` and `shutdown()`.
 - `PortfolioClient`: `state: 'ready'`, synchronous `as({ by, cid })` and `shutdown()`.
 - `PortfolioMigration`: `state: 'migration'`, explicit `migrate()` and `shutdown()`. A proper nonempty prefix needs multiple released migrations; the current catalog has one entry, so upgrade tests use a private test-owned catalog.
 
-`as()` returns a `Result` containing a privately constructed `Portfolio` with bound Project/Secret create/find/list, Secret value replacement/usages, Project-scoped Asset create/find/list, Memory create/find/list and Revision create/find/list. The Portfolio has no lifecycle controls or rebinding method. All foundation operation leaves are implemented; public InMemory overlap regressions and independent source review pass, while final foundation qualification remains pending. Secret creation and value replacement invoke the required Consumer encoder; metadata reads, Asset/Memory operations and Secret usages never invoke codecs. Internal definitions, schemas, Repo, codec helpers, migration injection and owner controls are not Consumer APIs.
+`as()` returns a `Result` containing a privately constructed `Portfolio` with bound Project/Secret create/find/list, Secret value replacement/usages, Project-scoped Asset create/find/list, Memory create/find/list and Revision create/find/list. The Portfolio has no lifecycle controls or rebinding method. All 17 foundation operation leaves are implemented; the tested scope is the native InMemory contract, not a Consumer cutover or certification of every adapter. Secret creation and value replacement invoke the required Consumer encoder; metadata reads, Asset/Memory operations and Secret usages never invoke codecs. Internal definitions, schemas, Repo, codec helpers, migration injection and owner controls are not Consumer APIs.
 
 Public types include `CoreDependencies<A>`, `FactoryError`, `SetupError`, `MigrationError`, `InvalidInputError`, `StorageOperationFailedError`, `Result<T, E>`, `SharedOperationError`, `Id`, `AuditStamp`, and the schema-derived `Project`, `Asset`, `Secret`, `Memory` and `MemoryRevision` records. `Secret` contains only safe metadata, never `valueRef` or raw values. Source owns the exact [dependency signatures](src/dependencies.ts), [lifecycle API](src/portfolio-client/index.ts) and [error unions](src/errors.ts).
+
+`new`, `setup`, `migrate`, `shutdown` and every domain operation are asynchronous; `as` returns a synchronous Result. Results are `{ ok: true, value }` or `{ ok: false, error }`; successful shutdown has `value: undefined`. An operation takes either no arguments or one required input object as listed below—never a dummy argument, caller context or metadata object. Expected failures are values; callers must inspect `ok`.
 
 ## Open, explicitly initialize, and close
 
@@ -74,6 +76,8 @@ The resolver receives a logical name string, including `_equipped_migrations` fo
 
 Required native methods, a nonempty array of recognized primitive field-type names, and both callbacks are checked before startup without calling the resolver or codecs. Missing, malformed and empty declarations return `invalid-input`; the adapter and its declaration are not copied or rewritten. Equipped's native builder still checks the actual catalog against declared support, and its construction failures follow existing cleanup/error handling. These checks do not certify an adapter's implementation or transaction isolation. Optional adapter `connect()`/`disconnect()` are called directly; global Equipped startup/shutdown is not used.
 
+Consumers must provide one isolated Portfolio boundary covering application CRUD, migration DDL, the native ledger and introspection. Prefixes or sharing an adapter object alone do not prove that isolation; Core neither detects it nor supplies a cross-process online-migration guard. Quiesce operations for maintenance, retire prior handles and reopen afterward. See [Portfolio isolation](../../docs/core2/adr/2026-11-12-0140-portfolio-authority.md) and [explicit schema transitions](../../docs/core2/adr/2026-11-12-0140-explicit-schema-transitions.md).
+
 Opening reads and validates the native ledger. Valid empty history requires native inspection to find no application containers: even a metadata-only table or CRUD-created table is `storage-not-empty`. Opening never applies migrations or creates application tables. Malformed and unrecognized history precede storage-state refusals and are never repaired.
 
 `setup()` rechecks history and emptiness inside one outer native Repo session, applies the entire catalog, then validates the raw ledger as complete before permitting commit. Only successful commit returns a fresh ready client sharing the original owner. The retained setup view stays uninitialized and refuses another setup with `storage-already-initialized`. Setup failures unwind the transaction; native I/O failures are `storage-operation-failed`, unexpected authoring failures are `internal-error`, and history errors remain type-only. A resolved migration run with an incomplete or invalid ledger is a protocol failure: it aborts the outer transaction and keeps admission closed, while shutdown remains available. An ordinary post-run ledger read failure permits explicit setup retry after successful rollback.
@@ -86,7 +90,9 @@ All views share shutdown admission and cleanup. Shutdown closes admission synchr
 
 ## Attributed Project operations
 
-Given a ready `client`, binding validates and copies attribution synchronously without storage I/O. `by` is required; `cid` may be omitted or null. Both preserve exact strings, including empty strings and whitespace. Later mutation of the caller's object does not change bound attribution.
+[Project operation source](src/operations/projects/index.ts).
+
+Given a ready `client`, binding validates and copies attribution synchronously without storage I/O. `by` is required; `cid` may be omitted or null. Both preserve exact strings, including empty strings and whitespace. Later mutation of the caller's object does not change bound attribution. `by` and `cid` are attribution/correlation, not authorization or idempotency keys; the Consumer authorizes access before binding.
 
 ```ts
 const bound = client.as({ by: 'consumer-authorized-actor', cid: 'request-reference' })
@@ -107,9 +113,11 @@ const listed = await list() // Detached calls retain the Portfolio binding.
 
 Creation generates one ID and one Core UTC audit stamp, trims the title and creates no implicit children. The [definition tree](src/operations/index.ts) supplies the actual runtime binding and inferred signatures; callers pass neither handler context nor metadata. Namespace and function properties are TypeScript-readonly, not runtime-frozen.
 
-Each operation parses input before admission, runs its full handler using native Repo in one transaction, and validates the complete Result before commit. Parsed success returns only after commit. Stored reads are validated before use; malformed rows fail the whole read/list rather than being skipped or repaired. Shared errors distinguish `invalid-input`, `invalid-storage-output`, `invalid-output`, `internal-error` and `storage-operation-failed`. A valid failure rolls back with an invocation-local signal; an unrecognized unwind or skipped/swallowed session protocol closes admission. Ordinary domain operations do not reread migration history or inspect the schema.
+Each operation parses input before admission, runs its full handler using native Repo in one transaction, and validates the complete Result before commit. Parsed success returns only after commit. Stored reads are validated before use; malformed rows fail the whole read/list rather than being skipped or repaired. Shared errors distinguish `invalid-input`, `invalid-storage-output`, `invalid-output`, `internal-error` and `storage-operation-failed`. A valid failure rolls back with an invocation-local signal; an unrecognized unwind or skipped/swallowed session protocol closes admission. Ordinary domain operations do not reread migration history or inspect the schema. There is no write-replay or operation-status API: resubmission is a new invocation, and an uncertain response does not establish that the earlier write rolled back.
 
 ## Secret metadata and protection
+
+[Secret operation source](src/operations/secrets/index.ts).
 
 | Operation             | Input                 | Success value                          | Specific failure beyond shared errors                                             |
 | --------------------- | --------------------- | -------------------------------------- | --------------------------------------------------------------------------------- |
@@ -122,7 +130,7 @@ Secret metadata returned by create/find/list/updateValue contains only `id`, `ti
 
 `find` and `list` validate the full stored record, including its protected reference, before safe projection; a corrupt reference cannot be hidden by dropping that field. One malformed member fails the whole list. Reads and Project operations do not invoke either codec. Detached Secret methods retain their Portfolio binding.
 
-[`updateValue`](src/operations/secrets/update-value.ts) requires and validates the complete existing Secret before calling the encoder with the same ID and exact new raw value. It writes only the new `valueRef` and invocation's `valueUpdated` stamp; identity, title, creation attribution and Asset references stay unchanged. Repeating the same accepted value still invokes the encoder and records the operation—there is no equality-based no-op. Empty raw values are invalid; whitespace-only values remain valid. Missing/corrupt records fail before encoding, and encoder failures leave the old database row unchanged. Null or malformed native update output fails as `invalid-output` rather than returning fabricated metadata. The existing transaction boundary validates the Result before commit and waits for commit/rollback before settling.
+[`updateValue`](src/operations/secrets/update-value.ts) requires and validates the complete existing Secret before calling the encoder with the same ID and exact new raw value. It writes only the new `valueRef` and invocation's `valueUpdated` stamp; identity, title, creation attribution and Asset references stay unchanged. Repeating the same accepted value still invokes the encoder and records the operation—there is no equality-based no-op. Empty raw values are invalid; whitespace-only values remain valid. Missing/corrupt records fail before encoding, and encoder failures leave the old database row unchanged. Null or malformed native update output fails as `invalid-output` rather than returning fabricated metadata. The existing transaction boundary validates the Result before commit and waits for commit/rollback before settling. There is no expected-old-value/version guard: the last successful commit wins, so stale-screen replacement can overwrite a newer value.
 
 Given a bound `portfolio`, an existing `secretId`, and a Consumer-supplied `newValue`:
 
@@ -139,6 +147,8 @@ Decoder response data must have exactly the requested own enumerable string keys
 Shutdown waits for an already-admitted encoder and its transaction to settle before cleanup, on both success and failure. Callbacks must not reenter operations or shutdown on the same owner.
 
 ## Project Assets and Secret usages
+
+[Asset operation source](src/operations/projects/assets/index.ts) and [Secret usages](src/operations/secrets/usages.ts).
 
 | Operation                | Input                    | Success value                                      | Specific failure beyond shared errors                                                |
 | ------------------------ | ------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -172,6 +182,8 @@ Asset find first requires the Project, validates the full Asset, then checks own
 Native scoped queries select the relevant rows; Core validates every returned row before sorting or use, and one malformed row fails the whole list. This is not a scan for corruption in unrelated rows excluded by the predicate. Lists are complete plain arrays without pagination or implicit limits. All four leaves use the existing whole-operation transaction and parsed Result boundary.
 
 ## Memory hierarchy and immutable revision reads
+
+[Memory operation source](src/operations/memories/index.ts) and [Revision operation source](src/operations/memories/revisions/index.ts).
 
 | Operation                 | Required input              | Success value                                 | Specific failure beyond shared errors   |
 | ------------------------- | --------------------------- | --------------------------------------------- | --------------------------------------- |

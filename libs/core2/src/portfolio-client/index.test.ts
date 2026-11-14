@@ -4,7 +4,8 @@ import { InMemoryAdapter } from 'equipped/orm/adapters/in-memory'
 import { v, PipeError } from 'valleyed'
 import { expect, it } from 'vitest'
 
-import { PortfolioClient, type CoreDependencies, type PortfolioSetup, type PortfolioMigration, type Result } from '../index'
+import { PortfolioClient, type CoreDependencies, type PortfolioSetup, type PortfolioMigration, type Result } from '@gorchestra/core2'
+
 import { createTestDependencies, requireSuccess } from '../testing/fixtures'
 
 it.each([false, true])('drains a pending Secret encoder before cleanup (encoder fails: %s)', async (fail) => {
