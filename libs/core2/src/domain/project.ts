@@ -14,7 +14,7 @@ export const projectSchema = Schema.from('projects')
 	.field('created', auditStampPipe)
 	.build()
 
-const projectPipe = schemaPipe(projectSchema)
+export const projectPipe = schemaPipe(projectSchema)
 export type Project = PipeOutput<typeof projectPipe>
 
 if (import.meta.vitest) {
