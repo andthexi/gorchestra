@@ -12,8 +12,8 @@ export const secretSchema = Schema.from('secrets')
 	.field('valueUpdated', auditStampPipe)
 	.build()
 
-const secretPipe = schemaPipe(secretSchema)
-const publicSecretPipe = v.object({
+export const secretPipe = schemaPipe(secretSchema)
+export const publicSecretPipe = v.object({
 	id: secretSchema.fields.id.pipe,
 	title: secretSchema.fields.title.pipe,
 	created: secretSchema.fields.created.pipe,
@@ -45,6 +45,26 @@ if (import.meta.vitest) {
 			expect(v.validate(publicSecretPipe, value).valid).toBe(false)
 		}
 		expect(v.validate(secretPipe, { ...input, id: `${input.id}\n` }).valid).toBe(false)
+	})
+
+	it('does not evaluate undeclared protected getters when projecting safe metadata', () => {
+		const stamp = { src: 'local', at: '2026-11-11T00:00:00.000Z', by: '', cid: null }
+		const input = {
+			id: '01k00000000000000000000001',
+			title: 'Safe',
+			created: stamp,
+			valueUpdated: stamp,
+			get value() {
+				throw new Error('Must not read raw value')
+			},
+			get valueRef() {
+				throw new Error('Must not read protected reference')
+			},
+		}
+		expect(v.validate(publicSecretPipe, input)).toEqual({
+			valid: true,
+			value: { id: input.id, title: 'Safe', created: stamp, valueUpdated: stamp },
+		})
 	})
 
 	it('projects only safe Secret metadata from the storage record', () => {

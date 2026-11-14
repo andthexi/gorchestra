@@ -1,6 +1,7 @@
 import type { Repo } from 'equipped/orm'
 import { v, type Pipe, type PipeInput, type PipeOutput } from 'valleyed'
 
+import type { createSecretHelpers } from './secrets'
 import type { StorageAdapter } from '../dependencies'
 import type { AuditStamp } from '../domain/commons'
 import { sharedOperationErrorPipe, type Result } from '../errors'
@@ -8,6 +9,7 @@ import { sharedOperationErrorPipe, type Result } from '../errors'
 export type OperationContext = {
 	readonly storage: Repo<StorageAdapter>
 	readonly stamp: AuditStamp
+	readonly secrets: ReturnType<typeof createSecretHelpers>
 }
 
 export type Operation<I extends Pipe<unknown, unknown>, O extends Pipe<unknown, unknown>, E extends Pipe<unknown, unknown>> = {

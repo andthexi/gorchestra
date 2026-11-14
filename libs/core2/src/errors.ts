@@ -54,7 +54,7 @@ const revisionConflictPipe = v.object({
 	expectedVersion: revisionVersionPipe,
 })
 
-const secretEncodingFailedPipe = v.object({ type: v.is('secret-encoding-failed', 'Invalid input.') })
+export const secretEncodingFailedPipe = v.object({ type: v.is('secret-encoding-failed', 'Invalid input.') })
 const revisionVersionExhaustedPipe = v.object({ type: v.is('revision-version-exhausted', 'Invalid input.') })
 const schemaMetadataInvalidPipe = v.object({ type: v.is('schema-metadata-invalid', 'Invalid input.') })
 const schemaVersionUnrecognizedPipe = v.object({ type: v.is('schema-version-unrecognized', 'Invalid input.') })
@@ -67,6 +67,8 @@ const storageNotInitializedPipe = v.object({ type: v.is('storage-not-initialized
 const schemaAlreadyCurrentPipe = v.object({ type: v.is('schema-already-current', 'Invalid input.') })
 
 const secretDecodingFailedPipe = v.object({ type: v.is('secret-decoding-failed', 'Invalid input.'), secretId: idPipe })
+// Internal keyed-map entries do not repeat their Secret identity.
+export const internalSecretDecodingFailedPipe = v.objectPick(secretDecodingFailedPipe, ['type'])
 
 export const factoryErrorPipe = v.or([
 	invalidInputPipe,
@@ -203,6 +205,12 @@ if (import.meta.vitest) {
 		]) {
 			expect(v.validate(pipe, candidate).valid).toBe(false)
 		}
+	})
+
+	it('keeps internal decoding-map failures type-only while public failures require identity', () => {
+		const value = { type: 'secret-decoding-failed', secretId: '01k00000000000000000000001', cause: 'synthetic-PROTECTED' }
+		expect(v.validate(internalSecretDecodingFailedPipe, value)).toEqual({ valid: true, value: { type: 'secret-decoding-failed' } })
+		expect(v.validate(secretDecodingFailedPipe, { type: 'secret-decoding-failed' }).valid).toBe(false)
 	})
 
 	it('limits decoding failures to the validated secret id', () => {
