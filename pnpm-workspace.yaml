@@ -2,12 +2,16 @@ packages:
     - 'libs/*'
     - 'consumers/*'
 
+verifyDepsBeforeRun: error
+autoInstallPeers: false
+nodeVersion: 24.22.3
+engineStrict: true
+
 allowBuilds:
     '@confluentinc/kafka-javascript': true
     '@parcel/watcher': false
     esbuild: true
     msgpackr-extract: true
-    protobufjs: true
     unrs-resolver: true
 
 overrides:
@@ -18,3 +22,4 @@ minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
     - equipped
     - valleyed
+    - xi-configs

@@ -1,1 +1,1 @@
-module.exports = require('@k11/configs/prettier')
+module.exports = require('xi-configs/prettier')

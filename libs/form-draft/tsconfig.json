@@ -3,6 +3,7 @@
 	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
 		"composite": true,
+		"lib": ["ESNext", "DOM", "DOM.Iterable"],
 		"rootDir": "src",
 		"tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/form-draft.tsbuildinfo"
 	},
