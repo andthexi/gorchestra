@@ -1,6 +1,6 @@
 # Gorchestra Core
 
-Core is the reusable Portfolio-level orchestration context. It owns Portfolio data and work rules without taking on Consumer tenancy, authentication or deployment policy. This context describes the current implementation at `libs/core`. No Consumer application is currently implemented. Expedition and downstream execution remain outside the current foundation implementation.
+Core is the reusable Portfolio-level orchestration context. It owns Portfolio data and work rules without taking on Consumer tenancy, authentication or deployment policy. This context describes the accepted domain model for `libs/core`; the [package README](../../libs/core/README.md) owns current implementation status.
 
 ## Language
 
@@ -9,8 +9,16 @@ A first-class grouping and isolated boundary for Projects, reusable knowledge an
 _Avoid_: Workspace, Project Space, tenant
 
 **Consumer**:
-An application layer that provides user experience, authentication, authorization, Portfolio registration and selection, storage configuration, and Secret protection around Core.
+An application layer that provides user experience, authentication, authorization, Portfolio registration and selection, storage configuration, and Secret encryption-key provisioning and safekeeping around Core.
 _Avoid_: Core provider, Portfolio
+
+**Portfolio Snapshot**:
+A Core-produced, passphrase-encrypted representation of Portfolio data, including Secret values, that preserves record identities and relationships and identifies the source migration level. It excludes the Portfolio encryption key and requires the export passphrase for import, including when the source Portfolio stores Secrets in plaintext.
+_Avoid_: Live Portfolio, storage configuration, incremental patch
+
+**Portfolio Import**:
+The operation that atomically replaces a ready destination Portfolio's data with a Portfolio Snapshot rather than merging records, storing imported Secrets under the destination's opening key or plaintext mode. Import neither initializes storage nor selects a replacement key or protection mode; failure leaves the destination's pre-import data unchanged.
+_Avoid_: Merge, append, partial restore
 
 **Project**:
 A continuing undertaking that owns configured Assets and is referenced by independent Expeditions. A Project may exist before any Assets or work are added.
@@ -21,15 +29,19 @@ One identified, immutable Project-owned target configuration. The source-control
 _Avoid_: Repository wrapper, checkout, Artifact
 
 **Secret**:
-A Portfolio-owned credential identity reusable by Assets across Projects. Ordinary Secret metadata excludes both the raw value and its protected reference.
+A Portfolio-owned credential identity reusable by Assets across Projects. Ordinary Secret responses contain metadata only, never plaintext or the stored value, regardless of the Portfolio's protection mode.
 _Avoid_: Provider-specific credential model, plaintext record
 
-**Protected Secret Value Reference**:
-An opaque Consumer-produced value that allows the Consumer to resolve a Secret's plaintext. It may refer to an external store or contain an encrypted envelope; Core does not interpret the protection scheme.
-_Avoid_: Plaintext secret, encryption key, Secret identity
+**Stored Secret Value**:
+The Core-owned persisted representation of a Secret's value, either plaintext or ciphertext according to the Portfolio's Secret Protection. Core owns encryption and internal decryption; the stored value is not public Secret metadata or an external-store reference.
+_Avoid_: Protected Secret Value Reference, Consumer codec output, Secret identity
+
+**Secret Protection**:
+A Portfolio-owned record identifying plaintext or encrypted Secret storage, including key-verification data for encrypted storage but never the encryption key. Its stable identity scopes encrypted values to this Portfolio together with each Secret's identity, and the record exists even when no Secrets do.
+_Avoid_: Per-Secret protection choice, encryption key, Consumer codec
 
 **Secret Value Replacement**:
-Assigning a new protected value to an existing Secret while preserving its identity and all Asset references to it.
+Assigning a new value to an existing Secret under the Portfolio's Secret Protection while preserving its identity and all Asset references to it.
 _Avoid_: Replacement Secret, Asset rebinding, Secret metadata update
 
 **Portfolio Memory**:
@@ -45,7 +57,7 @@ One immutable title and body snapshot belonging to a Memory. Revision identity s
 _Avoid_: Latest pointer, edit-in-place content, global version
 
 **Audit Stamp**:
-Core-recorded operation time paired with exact Consumer-supplied actor and correlation references. It records attribution, not authentication, authorization or idempotency, and original creation attribution remains fixed.
+The original operation time with either local Consumer-supplied actor and correlation references or imported provenance and the latest import time. Import preserves the original operation time, removes source-local attribution and refreshes the import time even for already-imported stamps; attribution is not authentication, authorization or idempotency.
 _Avoid_: User identity, permission, idempotency key
 
 **Expedition**:
@@ -114,11 +126,11 @@ _Avoid_: Deleted flag, generic retirement API
 
 ## Relationships
 
-- **Consumers → Core**: Consumers select and authorize a Portfolio and supply isolated storage and Secret-protection mechanics. Workspace and membership authority remain outside Core.
+- **Consumers → Core**: Consumers select and authorize a Portfolio, supply isolated storage, and provide and safeguard its encryption key or explicitly select plaintext Secret storage. Core owns Secret encryption, decryption and the Portfolio's Secret Protection; Workspace and membership authority remain outside Core.
 - **Projects → Assets → Secrets**: Projects own configured targets; Assets reference reusable Secrets in the same Portfolio. A changed target requires a different Asset, while Secret Value Replacement preserves references.
 - **Memories → Memory Revisions**: Parentage defines the knowledge hierarchy. Each edit appends an immutable revision and atomically updates the Memory's compact current summary; exact citations retain their revision identity.
 - **Expeditions → Blueprints → Deliveries → Slices**: Reviewed planning materializes accepted work without starting it. Deliveries retain independent ownership, and Slices derive their target from their Delivery.
 - **Agent Interactions → domain proposals**: Saving a proposal and accepting its domain changes are separate actions. Runtime completion is not domain completion or acceptance.
 - **Operations → Approvals and Receipts**: Proposed scope, authority and verified external outcome are distinct facts. Domain gates still govern whether requesting work may proceed.
 - Ownership, child collections, usages and work targets derive from relationships rather than synchronized copies. Memory's compact revision summary and fixed original creation attribution are deliberate read-convenience exceptions.
-- Core owns repository-provider behavior; Consumers supply storage, protection and runtime integration. Configuring an Asset does not establish live provider validity or access.
+- Core owns repository-provider behavior and Secret encryption/decryption; Consumers supply storage, encryption-key provisioning and runtime integration. Configuring an Asset does not establish live provider validity or access.
