@@ -9,7 +9,7 @@ import {
 	type CoreStorage,
 	type CoreStorageAdapter as GorchestraCoreStorageAdapter,
 } from '@gorchestra/core'
-import { Migrator, Repo, type AnySchema, type OrmAdapter, type InferAdapterConfig, type RepoSurface } from 'equipped/orm'
+import { Migrator, Repo, type OrmAdapter, type InferAdapterConfig, type RepoSurface } from 'equipped/orm'
 import { v } from 'valleyed'
 
 import { createDefaultCorePortfolioStorageBackend } from './json-adapter'
@@ -37,7 +37,7 @@ export type CorePortfolioStorageAdapter = GorchestraCoreStorageAdapter &
 
 export type CorePortfolioStorageBackend<A extends CorePortfolioStorageAdapter = CorePortfolioStorageAdapter> = {
 	adapter: A
-	resolve: (schema: AnySchema) => InferAdapterConfig<A>
+	resolve: (name: string) => InferAdapterConfig<A>
 }
 
 export type CorePortfolioStorageAdapterFactoryInput = {
@@ -107,7 +107,11 @@ export async function openCorePortfolioStorage(input: OpenCorePortfolioStorageIn
 	const storage = createCorePortfolioStorageRepo(backend)
 	try {
 		await backend.adapter.connect?.()
-		await Migrator.from(storage, backend.adapter).migrations(coreStorageMigrations).build().up()
+		const migrator = Migrator.from(storage).withoutLock().migrations(coreStorageMigrations).build()
+		// Preserve the optional native-lock contract. A failed lock never retries unlocked.
+		if (backend.adapter.acquireMigrationLock)
+			await backend.adapter.acquireMigrationLock(storage.resolveConfig('_equipped_migrations'), () => migrator.up())
+		else await migrator.up()
 		return {
 			adapter: backend.adapter,
 			storage,
@@ -214,7 +218,7 @@ if (import.meta.vitest) {
 
 			const reopened = await openCorePortfolioStorage({ config, coreStorageNamespace })
 			try {
-				expect(await reopened.adapter.loadMigrations()).toEqual([
+				expect(await reopened.adapter.loadMigrations(reopened.storage.resolveConfig('_equipped_migrations'))).toEqual([
 					expect.objectContaining({ id: '2026-06-16-0001-create-core-storage' }),
 					expect.objectContaining({ id: '2026-07-13-0002-durable-dispatch' }),
 				])

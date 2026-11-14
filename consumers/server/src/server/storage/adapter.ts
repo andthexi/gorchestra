@@ -1,4 +1,4 @@
-import type { AnySchema, OrmAdapter, OrmAdapterConfig, OrmAdapterLike } from 'equipped/orm'
+import type { InferAdapterConfig, OrmAdapter, OrmAdapterLike } from 'equipped/orm'
 
 export type ServerStorageAdapter = OrmAdapter &
 	OrmAdapterLike<unknown> &
@@ -17,7 +17,7 @@ export type ServerStorageAdapter = OrmAdapter &
 		>
 	>
 
-export type ServerStorageConfigResolver<A extends ServerStorageAdapter = ServerStorageAdapter> = (schema: AnySchema) => OrmAdapterConfig<A>
+export type ServerStorageConfigResolver<A extends ServerStorageAdapter = ServerStorageAdapter> = (name: string) => InferAdapterConfig<A>
 
 export type ServerStorageBackend<A extends ServerStorageAdapter = ServerStorageAdapter> = {
 	adapter: A

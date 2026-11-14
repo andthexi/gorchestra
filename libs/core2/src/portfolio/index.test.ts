@@ -16,7 +16,7 @@ describe('attributed Portfolio', () => {
 			for (const key of ['as', 'shutdown', 'setup', 'migrate']) expect(portfolio).not.toHaveProperty(key)
 			expect(Object.keys(portfolio.secrets).sort()).toEqual(['create', 'find', 'list', 'updateValue', 'usages'])
 			expect(Object.keys(portfolio.memories).sort()).toEqual(['create', 'find', 'list', 'revisions'])
-			expect(Object.keys(portfolio.memories.revisions).sort()).toEqual(['find', 'list'])
+			expect(Object.keys(portfolio.memories.revisions).sort()).toEqual(['create', 'find', 'list'])
 			expect(Object.isFrozen(portfolio)).toBe(false)
 			expect(Object.isFrozen(portfolio.projects)).toBe(false)
 		})
@@ -102,6 +102,7 @@ describe('attributed Portfolio', () => {
 				await portfolio.memories.list({ parentId: null }),
 				await portfolio.memories.revisions.find({ revisionId: id }),
 				await portfolio.memories.revisions.list({ memoryId: id }),
+				await portfolio.memories.revisions.create({ memoryId: id, expectedVersion: 1, title: 'Closed', body: '' }),
 			])
 				expect(result).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
 			expect(await list({ projectId: 'invalid' })).toEqual({

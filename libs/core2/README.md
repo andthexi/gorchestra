@@ -4,7 +4,9 @@ Private ESM workspace package for the parallel Core foundation. The Server Consu
 
 The dependency boundary checks the concrete adapter and its resolver together; Core's internals use a fixed storage contract rather than exposing adapter-specific capabilities. Native catalog construction needs no type assertion.
 
-**Overlapping-operation acceptance is blocked by the installed Equipped 5.3.6 InMemory rollback defect.** An overlapping missing-Project lookup can roll back its snapshot after a separate Project creation has committed and returned success, deleting that acknowledged creation. This was reproduced through the public Portfolio API and native Repo/InMemory alone. [Equipped #148](https://github.com/andthexi/equipped/issues/148) is closed through merged [PR #178](https://github.com/andthexi/equipped/pull/178), but this installed release predates the fix. Other implementation work continues in draft while release consumption and overlap verification are deferred. Sequential tests do not establish isolation; no Core serialization workaround or weakened rollback contract is supplied.
+**Equipped 5.3.7 overlap regressions pass.** The parent rerun passed 377 Core tests in 24 files, including the held missing-Project lookup versus independent create and three overlapping Revision-append outcomes. This release supplies the [native root-session isolation fix](https://github.com/andthexi/equipped/pull/178); the compatibility update adapts logical-name resolvers, explicit migration locking and configured ledger access. No Core mutex or weakened rollback contract is supplied. Independent source review passed; final foundation qualification remains separate.
+
+This prerelease has no client migrations applied using the old ledger format. Backward conversion of that format is out of scope, not a delivery or deployment prerequisite.
 
 ## Public surface
 
@@ -14,7 +16,7 @@ The dependency boundary checks the concrete adapter and its resolver together; C
 - `PortfolioClient`: `state: 'ready'`, synchronous `as({ by, cid })` and `shutdown()`.
 - `PortfolioMigration`: `state: 'migration'`, explicit `migrate()` and `shutdown()`. A proper nonempty prefix needs multiple released migrations; the current catalog has one entry, so upgrade tests use a private test-owned catalog.
 
-`as()` returns a `Result` containing a privately constructed `Portfolio` with bound Project/Secret create/find/list, Secret value replacement/usages, Project-scoped Asset create/find/list, Memory create/find/list and exact Revision find/list. The Portfolio has no lifecycle controls or rebinding method. Appending later Memory revisions remains unimplemented; no placeholder method is exposed. Secret creation and value replacement invoke the required Consumer encoder; metadata reads, Asset/Memory operations and Secret usages never invoke codecs. Internal definitions, schemas, Repo, codec helpers, migration injection and owner controls are not Consumer APIs.
+`as()` returns a `Result` containing a privately constructed `Portfolio` with bound Project/Secret create/find/list, Secret value replacement/usages, Project-scoped Asset create/find/list, Memory create/find/list and Revision create/find/list. The Portfolio has no lifecycle controls or rebinding method. All foundation operation leaves are implemented; public InMemory overlap regressions and independent source review pass, while final foundation qualification remains pending. Secret creation and value replacement invoke the required Consumer encoder; metadata reads, Asset/Memory operations and Secret usages never invoke codecs. Internal definitions, schemas, Repo, codec helpers, migration injection and owner controls are not Consumer APIs.
 
 Public types include `CoreDependencies<A>`, `FactoryError`, `SetupError`, `MigrationError`, `InvalidInputError`, `StorageOperationFailedError`, `Result<T, E>`, `SharedOperationError`, `Id`, `AuditStamp`, and the schema-derived `Project`, `Asset`, `Secret`, `Memory` and `MemoryRevision` records. `Secret` contains only safe metadata, never `valueRef` or raw values. Source owns the exact [dependency signatures](src/dependencies.ts), [lifecycle API](src/portfolio-client/index.ts) and [error unions](src/errors.ts).
 
@@ -29,7 +31,7 @@ import { PortfolioClient, type CoreDependencies } from '@gorchestra/core2'
 const dependencies: CoreDependencies<InMemoryAdapter> = {
 	storage: {
 		adapter: InMemoryAdapter.create({}),
-		resolveSchema: (schema) => ({ table: schema.name }),
+		resolveSchema: (name) => ({ table: name }),
 	},
 	secrets: {
 		encode: () => Promise.resolve(null),
@@ -66,7 +68,7 @@ try {
 }
 ```
 
-The resolver's return type uses Equipped's schema-config-pipe-first `InferAdapterConfig<A>`; for InMemory it requires `{ table: string }`. The factory infers `A` from the supplied adapter, not its resolver or capability constraint. After dependency admission, a nongeneric owner constructs native `Repo<StorageAdapter>` and `Migrator<StorageAdapter>` directly; the lifecycle views do not carry `A`. The original adapter and resolver remain paired and Core treats configuration results as opaque. Neither an existing Repo nor a catalog is cast to another adapter type.
+The resolver receives a logical name string, including `_equipped_migrations` for native migration history. Its return type uses Equipped's schema-config-pipe-first `InferAdapterConfig<A>`; for InMemory it requires `{ table: string }`. The factory infers `A` from the supplied adapter, not its resolver or capability constraint. After dependency admission, a nongeneric owner constructs native `Repo<StorageAdapter>` and `Migrator<StorageAdapter>` directly; the lifecycle views do not carry `A`. The original adapter and resolver remain paired and Core treats configuration results as opaque. Neither an existing Repo nor a catalog is cast to another adapter type.
 
 `CoreDependencies<A>` admission is capability-based, not a database allowlist. Its type constraint checks the immutable catalog against native `Migration<A>` and requires definite singleton tuple slots for each required field type (currently `string`, `number`, and `object`). Widened arrays cannot establish that support. `A` must be a single adapter type, not a union: when selecting between implementations, narrow the adapter in a branch and construct its matching dependency pair there before calling `PortfolioClient.new`. Otherwise independent adapter and resolver unions could permit mismatched configurations even when both implementations support the catalog. Keep concrete adapter types at this input boundary instead of annotating instances as base `OrmAdapter`. Internally, authored migrations are checked with `satisfies Migration<StorageAdapter>` while retaining their literal definitions; operations use Core's fixed contract, not optional capabilities of a selected implementation.
 
@@ -197,7 +199,28 @@ const history = await portfolio.memories.revisions.list({ memoryId: memory.id })
 
 Memory find/list return compact records without bodies or revision attribution. Exact Revision find needs only `revisionId`, queries that snapshot directly and never follows the latest head or requires a redundant Memory ID. Revision list requires the full valid Memory even when history is empty, and returns all selected full snapshots by version. Every selected row is validated before use or sorting; one malformed row fails the list. Returned data is detached from storage, not a live persistence entity. These operations perform no codec/provider calls or storage repair.
 
-Later revision append, conflict/exhaustion handling and its concurrency acceptance remain pending; no public `memories.revisions.create` method exists yet.
+### Append an immutable revision
+
+`memories.revisions.create({ memoryId, expectedVersion, title, body })` returns the committed `{ memory, revision }` pair. All four fields are required. Alongside shared failures it may return `not-found` for Memory, `revision-conflict` containing only `memoryId` and the submitted `expectedVersion`, or type-only `revision-version-exhausted`.
+
+Keep the version associated with the body being edited, rather than substituting a newer summary version before submission:
+
+```ts
+const appended = await portfolio.memories.revisions.create({
+	memoryId: memory.id,
+	expectedVersion: revision.version,
+	title: 'Updated notes',
+	body: 'New full snapshot',
+})
+if (!appended.ok) throw new Error(appended.error.type)
+// appended.value contains this invocation's committed head and full snapshot.
+```
+
+The [append handler](src/operations/memories/revisions/create.ts) validates the complete Memory, rejects a version mismatch, then rejects a matching maximum safe-integer version before allocating a successor or ID. It updates only the compact `revision` through native many-update with both ID and typed nested `revision.version` equality at the actual write. This avoids the native one-row update path, which discards the version predicate after its read, and the installed `contains` declaration's array-only typing.
+
+The entire returned update list is validated: zero matches is a conflict, malformed or multiple matches are `invalid-storage-output`, and exactly one validated Memory permits the matching full Revision insert in the same transaction. The new snapshot shares the generated ID/version/title with the compact summary and carries the invocation's stamp. Parentage, original Memory creation and all earlier snapshots remain unchanged; identical content still creates a new revision. Failure rolls back the summary and new snapshot subject to actual adapter behavior; there is no automatic retry, latest-head refresh or returned `actualVersion`.
+
+**Public InMemory concurrency regressions pass on Equipped 5.3.7.** Same-version overlapping submissions yield exactly one success and one conflict; a failed first append permits a queued same-version append without a gap; an acknowledged append survives a later queued rollback. Every case checks full immutable contiguous history and rolled-back revision absence. These tests qualify this native InMemory behavior, not every persistent adapter or external side effect.
 
 ## Implemented validation
 
@@ -211,15 +234,15 @@ The model modules own the implemented shapes: [Project](src/domain/project.ts), 
 
 ## Internal migration support
 
-The [initial migration](src/storage/migrations/initial-foundation.ts) snapshots the five logical tables as native Equipped changes under the permanent ID `01m76d124c6e848k2hfvb4mar2`. It does not import current model schemas, flatten nested objects, or add foreign keys or unique indexes. Released IDs and definitions stay unchanged; new migrations append in ID order to the [catalog](src/storage/migrations/index.ts). Native `Migrator.from(repo, adapter).migrations(...).build()` retains responsibility for definition validation and adapter compatibility; there is no second catalog validator or runner.
+The [initial migration](src/storage/migrations/initial-foundation.ts) snapshots the five logical tables as native Equipped changes under the permanent ID `01m76d124c6e848k2hfvb4mar2`. It does not import current model schemas, flatten nested objects, or add foreign keys or unique indexes. Released IDs and definitions stay unchanged; new migrations append in ID order to the [catalog](src/storage/migrations/index.ts). Native `Migrator.from(repo).withLock().migrations(...).build()` retains responsibility for definition validation and adapter compatibility; there is no second catalog validator or runner.
 
 The internal [history classifier](src/storage/history.ts) validates the entire unknown ledger through the shared ID and safe-millisecond pipes before checking duplicates, unknown IDs and contiguous-prefix membership, in that order. It returns `empty`, `migration` or `ready`, or a type-only `schema-metadata-invalid` / `schema-version-unrecognized` error. Entry order and timestamp order do not determine progression; undeclared fields strip normally without input mutation or repair. Its catalog IDs are trusted internal authoring data, not a public input boundary.
 
-Native InMemory tests exercise factory classification, explicit setup and whole-suffix upgrade, DDL/data/ledger rollback, stale transition refusals and shared cleanup. A module-local test catalog establishes a committed prefix and verifies that later authored/declarative failure preserves the earlier Project, schema and full ledger timestamps while removing pending changes. It is not a public migration-injection API and does not add released migrations. Overlap isolation, persistent backends and physical-resolver qualification remain outside this result; neither legacy conversion nor Equipped #148/#149 qualification is supplied by these tests.
+Native InMemory tests exercise factory classification, explicit setup and whole-suffix upgrade, DDL/data/ledger rollback, stale transition refusals and shared cleanup. A module-local test catalog establishes a committed prefix and verifies that later authored/declarative failure preserves the earlier Project, schema and full ledger timestamps while removing pending changes. It is not a public migration-injection API and does not add released migrations. A separate prefixed InMemory resolver test verifies the same physical ledger for load, lock and record, ready reopen without replay, and mapped CRUD. These results do not certify every backend/layout or convert legacy data.
 
 ## Dependencies and verification
 
-Dependency declarations remain `latest`. Global `pnpm-workspace.yaml` overrides select Equipped `5.3.6` and Valleyed `4.5.25`; change versions centrally rather than in individual manifests.
+Dependency declarations remain `latest`. Global `pnpm-workspace.yaml` overrides select Equipped `5.3.7` and Valleyed `4.5.25`; change versions centrally rather than in individual manifests.
 
 From the repository root:
 

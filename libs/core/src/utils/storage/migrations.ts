@@ -1,4 +1,4 @@
-import type { AnyMigration, AnySchemaField, CreateTableChange, FieldSpec, Migration, OrmAdapter, Repo } from 'equipped/orm'
+import type { AnySchemaField, CreateTableChange, FieldSpec, Migration, OrmAdapter, Repo } from 'equipped/orm'
 import type { InMemoryAdapter as InMemoryAdapterType } from 'equipped/orm/adapters/in-memory'
 import { v, type JsonSchema } from 'valleyed'
 
@@ -7,8 +7,10 @@ import { auditStampPipe, idPipe, runtimeRecordPipe } from '../../domain/commons'
 import { dispatchCoordinationId, dispatchCoordinationSchema } from '../../domain/dispatch-coordination'
 import type { CoreStorageAdapter } from '../../services'
 
-type CoreCreateTableChange = CreateTableChange<OrmAdapter>
-type CoreFieldSpec = FieldSpec<OrmAdapter>
+type CoreMigrationAdapter = CoreStorageAdapter & OrmAdapter & Required<Pick<OrmAdapter, 'applyCreateTable'>>
+// Expand native field values so adapter variance does not widen this literal catalog.
+type CoreFieldSpec = { [Key in keyof FieldSpec<OrmAdapter>]: FieldSpec<OrmAdapter>[Key] }
+type CoreCreateTableChange = Omit<CreateTableChange<OrmAdapter>, 'fields'> & { fields: CoreFieldSpec[] }
 
 const migrationActionSchema = coreSchema('actions')
 	.field('deliveryId', idPipe)
@@ -160,7 +162,7 @@ export const coreStorageMigrations = [
 			{ kind: 'execute', up: migrateDurableDispatch },
 		],
 	},
-] as const satisfies readonly AnyMigration[]
+] as const satisfies readonly Migration<CoreMigrationAdapter>[]
 
 async function migrateDurableDispatch<Adapter extends CoreStorageAdapter>(repo: Repo<Adapter>): Promise<void> {
 	const existingCoordination = await repo.on(dispatchCoordinationSchema).one().id(dispatchCoordinationId).find()
@@ -215,12 +217,12 @@ if (import.meta.vitest) {
 	const { actionSchema } = await import('../../domain/action')
 	const { coreStorageSchemas } = await import('./schema-registry')
 	type InMemoryMigration = Migration<InMemoryAdapterType>
-	const inMemoryMigrations = coreStorageMigrations as unknown as readonly InMemoryMigration[]
+	const inMemoryMigrations = coreStorageMigrations satisfies readonly InMemoryMigration[]
 
 	describe('Core storage migrations', () => {
 		it('applies the complete migration chain to fresh storage exactly once', async () => {
-			const { adapter, repo } = migrationTestStorage()
-			const migrator = Migrator.from(repo, adapter).migrations(inMemoryMigrations).build()
+			const { repo } = migrationTestStorage()
+			const migrator = Migrator.from(repo).withLock().migrations(inMemoryMigrations).build()
 
 			expect((await migrator.up()).ran).toEqual(['2026-06-16-0001-create-core-storage', '2026-07-13-0002-durable-dispatch'])
 			expect((await migrator.up()).ran).toEqual([])
@@ -230,17 +232,17 @@ if (import.meta.vitest) {
 		})
 
 		it('applies only durable Dispatch migration when the baseline is recorded', async () => {
-			const { adapter, repo } = migrationTestStorage()
-			await Migrator.from(repo, adapter).migrations([inMemoryMigrations[0]!]).build().up()
+			const { repo } = migrationTestStorage()
+			await Migrator.from(repo).withLock().migrations([inMemoryMigrations[0]]).build().up()
 
-			const result = await Migrator.from(repo, adapter).migrations(inMemoryMigrations).build().up()
+			const result = await Migrator.from(repo).withLock().migrations(inMemoryMigrations).build().up()
 
 			expect(result.ran).toEqual(['2026-07-13-0002-durable-dispatch'])
 		})
 
 		it('removes only legacy transient Dispatch Actions', async () => {
-			const { adapter, repo } = migrationTestStorage()
-			await Migrator.from(repo, adapter).migrations([inMemoryMigrations[0]!]).build().up()
+			const { repo } = migrationTestStorage()
+			await Migrator.from(repo).withLock().migrations([inMemoryMigrations[0]]).build().up()
 			await withExplicitCoreStorageId('01k00000000000000000000001', () =>
 				repo
 					.on(migrationActionSchema)
@@ -319,7 +321,7 @@ if (import.meta.vitest) {
 				)
 			}
 
-			await Migrator.from(repo, adapter).migrations(inMemoryMigrations).build().up()
+			await Migrator.from(repo).withLock().migrations(inMemoryMigrations).build().up()
 
 			expect(await repo.on(actionSchema).one().id('01k00000000000000000000001').find()).toBeNull()
 			expect(await repo.on(actionSchema).one().id('01k00000000000000000000003').find()).toMatchObject({
@@ -353,7 +355,7 @@ if (import.meta.vitest) {
 	function migrationTestStorage() {
 		const adapter = InMemoryAdapter.create({})
 		const repo = Repo.from(adapter)
-			.resolve((schema) => ({ table: schema.name }))
+			.resolve((name) => ({ table: name }))
 			.build()
 		return { adapter, repo }
 	}

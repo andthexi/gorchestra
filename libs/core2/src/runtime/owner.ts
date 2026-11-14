@@ -22,7 +22,7 @@ export class Owner {
 
 	build() {
 		this.#repo = Repo.from<StorageAdapter>(this.dependencies.storage.adapter).resolve(this.dependencies.storage.resolveSchema).build()
-		this.#migrator = Migrator.from<StorageAdapter>(this.#repo, this.dependencies.storage.adapter).migrations(this.catalog).build()
+		this.#migrator = Migrator.from<StorageAdapter>(this.#repo).withLock().migrations(this.catalog).build()
 	}
 
 	get repo() {
@@ -39,7 +39,7 @@ export class Owner {
 		const adapter = this.dependencies.storage.adapter
 		let history: unknown
 		try {
-			history = await adapter.loadMigrations()
+			history = await adapter.loadMigrations(this.repo.resolveConfig('_equipped_migrations'))
 		} catch {
 			return { ok: false, error: { type: 'storage-operation-failed' } }
 		}
@@ -63,7 +63,7 @@ export class Owner {
 	async confirmMigrationRun(): Promise<Result<void, StorageOperationFailedError>> {
 		let history: unknown
 		try {
-			history = await this.dependencies.storage.adapter.loadMigrations()
+			history = await this.dependencies.storage.adapter.loadMigrations(this.repo.resolveConfig('_equipped_migrations'))
 		} catch {
 			// An ordinary read failure can still unwind successfully and permit retry.
 			return { ok: false, error: { type: 'storage-operation-failed' } }
@@ -138,8 +138,8 @@ if (import.meta.vitest) {
 			})
 		}
 		const adapter = ScopedAdapter.create({})
-		const resolveSchema: CoreDependencies<ScopedAdapter>['storage']['resolveSchema'] = (schema) => ({
-			table: schema.name,
+		const resolveSchema: CoreDependencies<ScopedAdapter>['storage']['resolveSchema'] = (name) => ({
+			table: name,
 			scope: 'selected',
 		})
 		const owner = buildOwner(

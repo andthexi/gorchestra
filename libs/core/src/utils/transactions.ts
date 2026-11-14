@@ -1,7 +1,7 @@
 import { acceptDispatchRequest, type DispatchAcceptance, type DispatchAcceptanceError } from '../dispatch/accept'
 import type { DispatchRequestInput } from '../domain/dispatch-request'
 import type { StorageOperationFailedError } from '../errors'
-import type { CoreServices, CoreStorage } from '../services'
+import type { CoreServices, CoreStorage, CoreStorageAdapter } from '../services'
 import type { NotificationEmitter } from './notification-emitter'
 import type { CoreRuntimeValues } from './runtime-values'
 import type { Result } from './types'
@@ -355,17 +355,25 @@ if (import.meta.vitest) {
 				await firstReleased
 				return { ok: true, value: 'first' }
 			})
-			await firstEntered
-			const second = await transactions.run(({ notifications }) => {
-				notifications.emit(testNotificationData('second'))
-				return Promise.resolve({ ok: true, value: 'second' })
-			})
-
-			expect(second).toEqual({ ok: true, value: 'second' })
-			expect(calls).toEqual(['second'])
-			releaseFirst()
-			expect(await first).toEqual({ ok: true, value: 'first' })
-			expect(calls).toEqual(['second', 'first'])
+			const pending: Promise<unknown>[] = [first]
+			try {
+				await firstEntered
+				const second = transactions.run(({ notifications }) => {
+					notifications.emit(testNotificationData('second'))
+					return Promise.resolve({ ok: true, value: 'second' })
+				})
+				pending.push(second)
+				// Root sessions now queue; do not await queued work while holding the first.
+				await new Promise<void>((resolve) => setImmediate(resolve))
+				expect(calls).toEqual([])
+				releaseFirst()
+				expect(await first).toEqual({ ok: true, value: 'first' })
+				expect(await second).toEqual({ ok: true, value: 'second' })
+				expect(calls).toEqual(['first', 'second'])
+			} finally {
+				releaseFirst()
+				await Promise.allSettled(pending)
+			}
 		})
 	})
 
@@ -429,9 +437,9 @@ if (import.meta.vitest) {
 	}
 
 	function testCoreStorage(): CoreStorage {
-		return Repo.from(InMemoryAdapter.create({}))
-			.resolve((schema) => ({ table: schema.name }))
-			.build() as CoreStorage
+		return Repo.from<CoreStorageAdapter>(InMemoryAdapter.create({}))
+			.resolve((name) => ({ table: name }))
+			.build()
 	}
 
 	function createProjectRecord(storage: CoreStorage) {

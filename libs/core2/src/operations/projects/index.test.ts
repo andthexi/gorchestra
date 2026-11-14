@@ -4,6 +4,63 @@ import { PortfolioClient } from '../../index'
 import { createTestDependencies, requireSuccess, withReadyPortfolio } from '../../testing/fixtures'
 
 describe('projects', () => {
+	it('preserves a separately submitted create when a held missing lookup rolls back', async () => {
+		const dependencies = createTestDependencies()
+		const adapter = dependencies.storage.adapter
+		const findMany = adapter.findMany.bind(adapter)
+		const session = adapter.session.bind(adapter)
+		const entered = Promise.withResolvers<void>()
+		const release = Promise.withResolvers<void>()
+		const submitted = Promise.withResolvers<void>()
+		await withReadyPortfolio(async (portfolio) => {
+			const baseline = requireSuccess(await portfolio.projects.create({ title: 'Existing', spec: { type: 'source-control' } }))
+			const missing = '01k00000000000000000000001'
+			let held = false
+			let attempts = 0
+			let createdBeforeRelease = false
+			adapter.findMany = async (...args) => {
+				const rows = await findMany(...args)
+				if (args[0].name === 'projects' && rows.length === 0 && !held) {
+					held = true
+					entered.resolve()
+					await release.promise
+				}
+				return rows
+			}
+			adapter.session = (work) => {
+				if (++attempts === 2) submitted.resolve()
+				return session(work)
+			}
+			const lookup = portfolio.projects.find({ projectId: missing })
+			const pending: Promise<unknown>[] = [lookup]
+			try {
+				await entered.promise
+				const creation = portfolio.projects.create({ title: 'Independent', spec: { type: 'source-control' } }).then((result) => {
+					createdBeforeRelease = true
+					return result
+				})
+				pending.push(creation)
+				await submitted.promise
+				// Drain promise-only native work without awaiting a queued transaction.
+				await new Promise<void>((resolve) => setImmediate(resolve))
+				const settledWhileHeld = createdBeforeRelease
+				release.resolve()
+				expect(await lookup).toEqual({ ok: false, error: { type: 'not-found', resource: 'project', id: missing } })
+				const created = requireSuccess(await creation)
+				expect(await portfolio.projects.find({ projectId: created.id })).toEqual({ ok: true, value: created })
+				expect(await portfolio.projects.find({ projectId: baseline.id })).toEqual({ ok: true, value: baseline })
+				expect(requireSuccess(await portfolio.projects.list())).toEqual(
+					[baseline, created].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
+				)
+				expect(settledWhileHeld).toBe(false)
+			} finally {
+				release.resolve()
+				await Promise.allSettled(pending)
+				adapter.findMany = findMany
+				adapter.session = session
+			}
+		}, dependencies)
+	})
 	it('rolls back a malformed native create result as invalid-output', async () => {
 		const dependencies = createTestDependencies()
 		const adapter = dependencies.storage.adapter

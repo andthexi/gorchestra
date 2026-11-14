@@ -259,7 +259,11 @@ if (import.meta.vitest) {
 			if (!portfolio.ok) throw new Error('Expected Portfolio')
 			const project = await portfolio.value.projects.create({ title: 'Existing project', spec: { type: 'source-control' } })
 			if (!project.ok) throw new Error('Expected Project')
-			const before = { schema: await adapter.introspect(), ledger: await adapter.loadMigrations(), project: project.value }
+			const before = {
+				schema: await adapter.introspect(),
+				ledger: await adapter.loadMigrations({ table: '_equipped_migrations' }),
+				project: project.value,
+			}
 			expect(await client.value.shutdown()).toEqual({ ok: true, value: undefined })
 			const opened = await openWithCatalog(dependencies, catalog)
 			if (!opened.ok || opened.value.state !== 'migration') throw new Error('Expected migration')
@@ -269,17 +273,14 @@ if (import.meta.vitest) {
 		}
 	}
 
-	it('does not preflight codecs or the resolver when migrating declarative entries', async () => {
+	it('resolves native history and pending DDL names without preflighting codecs during migration', async () => {
 		const dependencies = createTestDependencies()
 		const resolve = dependencies.storage.resolveSchema
 		const calls: string[] = []
 		let armed = false
-		dependencies.storage.resolveSchema = (schema) => {
-			if (armed) {
-				calls.push('resolve')
-				throw new Error('synthetic-PROTECTED')
-			}
-			return resolve(schema)
+		dependencies.storage.resolveSchema = (name) => {
+			if (armed) calls.push(name)
+			return resolve(name)
 		}
 		dependencies.secrets.encode = () => {
 			calls.push('encode')
@@ -293,7 +294,13 @@ if (import.meta.vitest) {
 		armed = true
 		try {
 			expect(await opened.migrate()).toMatchObject({ ok: true, value: { state: 'ready' } })
-			expect(calls).toEqual([])
+			expect(calls).toEqual([
+				'_equipped_migrations',
+				'_equipped_migrations',
+				'test_pending_one',
+				'test_pending_two',
+				'_equipped_migrations',
+			])
 		} finally {
 			expect(await opened.shutdown()).toEqual({ ok: true, value: undefined })
 		}
@@ -390,7 +397,7 @@ if (import.meta.vitest) {
 			if (reject) {
 				expect(result).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
 				expect(await adapter.introspect()).toEqual(before.schema)
-				expect(await adapter.loadMigrations()).toEqual(before.ledger)
+				expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual(before.ledger)
 			} else expect(result).toMatchObject({ ok: true, value: { state: 'ready' } })
 		} finally {
 			gate.resolve()
@@ -429,7 +436,7 @@ if (import.meta.vitest) {
 			expect(await opened.migrate()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
 			expect(calls).toBe(3)
 			expect(await adapter.introspect()).toEqual(before.schema)
-			expect(await adapter.loadMigrations()).toEqual(before.ledger)
+			expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual(before.ledger)
 			if (sessionDescriptor) Object.defineProperty(adapter, 'session', sessionDescriptor)
 			else Reflect.deleteProperty(adapter, 'session')
 			if (ddlDescriptor) Object.defineProperty(adapter, 'applyCreateTable', ddlDescriptor)
@@ -474,7 +481,7 @@ if (import.meta.vitest) {
 				configurable: true,
 				value: async () => {
 					if (method === 'loadMigrations') {
-						const history = await load()
+						const history = await load({ table: '_equipped_migrations' })
 						reads++
 						if ((fault === 'native-load' && reads !== 2) || (fault === 'post-run' && history.length !== 3)) return history
 					}
@@ -484,7 +491,7 @@ if (import.meta.vitest) {
 			try {
 				expect(await opened.migrate()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
 				expect(await adapter.introspect()).toEqual(before.schema)
-				expect(await load()).toEqual(before.ledger)
+				expect(await load({ table: '_equipped_migrations' })).toEqual(before.ledger)
 				if (descriptor) Object.defineProperty(adapter, method, descriptor)
 				else Reflect.deleteProperty(adapter, method)
 				expect(await opened.migrate()).toMatchObject({ ok: true, value: { state: 'ready' } })
@@ -502,18 +509,18 @@ if (import.meta.vitest) {
 			const { adapter, opened, before } = await migrationFixture()
 			const descriptor = Object.getOwnPropertyDescriptor(adapter, 'recordMigration')
 			const record = adapter.recordMigration.bind(adapter)
-			adapter.recordMigration = async (id, at) => {
+			adapter.recordMigration = async (config, id, at) => {
 				switch (fault) {
 					case 'incomplete':
 						return
 					case 'malformed':
-						await record('synthetic-PROTECTED', at)
+						await record(config, 'synthetic-PROTECTED', at)
 						return
 					case 'unknown':
-						await record('01k00000000000000000000001', at)
+						await record(config, '01k00000000000000000000001', at)
 						return
 					case 'gap':
-						if (id === upgradeCatalog[2].id) await record(id, at)
+						if (id === upgradeCatalog[2].id) await record(config, id, at)
 						return
 					default:
 						throw new Error('Unexpected ledger fault')
@@ -522,7 +529,7 @@ if (import.meta.vitest) {
 			try {
 				expect(await opened.migrate()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
 				expect(await adapter.introspect()).toEqual(before.schema)
-				expect(await adapter.loadMigrations()).toEqual(before.ledger)
+				expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual(before.ledger)
 				if (descriptor) Object.defineProperty(adapter, 'recordMigration', descriptor)
 				else Reflect.deleteProperty(adapter, 'recordMigration')
 				expect(await opened.migrate()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
@@ -538,8 +545,8 @@ if (import.meta.vitest) {
 		'handles %s migration session unwind without reopening a failed protocol',
 		async (mode) => {
 			const { adapter, opened, before } = await migrationFixture()
-			await adapter.recordMigration('synthetic-PROTECTED', 0)
-			const ledger = await adapter.loadMigrations()
+			await adapter.recordMigration({ table: '_equipped_migrations' }, 'synthetic-PROTECTED', 0)
+			const ledger = await adapter.loadMigrations({ table: '_equipped_migrations' })
 			const descriptor = Object.getOwnPropertyDescriptor(adapter, 'session')
 			const session = adapter.session.bind(adapter)
 			Object.defineProperty(adapter, 'session', {
@@ -568,7 +575,7 @@ if (import.meta.vitest) {
 				const type = mode === 'direct' || mode === 'wrapped' ? 'schema-metadata-invalid' : 'storage-operation-failed'
 				expect(await opened.migrate()).toEqual({ ok: false, error: { type } })
 				expect(await adapter.introspect()).toEqual(before.schema)
-				expect(await adapter.loadMigrations()).toEqual(ledger)
+				expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual(ledger)
 				if (descriptor) Object.defineProperty(adapter, 'session', descriptor)
 				else Reflect.deleteProperty(adapter, 'session')
 				expect(await opened.migrate()).toEqual({ ok: false, error: { type } })
@@ -637,7 +644,7 @@ if (import.meta.vitest) {
 			expect(inspections).toBe(0)
 			restore()
 			expect(await adapter.introspect()).toEqual(before.schema)
-			expect(await adapter.loadMigrations()).toEqual(before.ledger)
+			expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual(before.ledger)
 			expect(await opened.migrate()).toMatchObject({ ok: true, value: { state: 'ready' } })
 		} finally {
 			restore()
@@ -694,7 +701,10 @@ if (import.meta.vitest) {
 			adapter.applyCreateTable = async (change) => {
 				await create(change)
 				if (change.name === 'test_pending_two') {
-					expect((await adapter.loadMigrations()).map(({ id }) => id)).toEqual([migrations[0].id, upgradeCatalog[1].id])
+					expect((await adapter.loadMigrations({ table: '_equipped_migrations' })).map(({ id }) => id)).toEqual([
+						migrations[0].id,
+						upgradeCatalog[1].id,
+					])
 					expect(await adapter.findByPk(projectSchema, { table: 'projects' }, before.project.id)).toEqual({
 						...before.project,
 						title: 'Pending rewrite',
@@ -712,7 +722,7 @@ if (import.meta.vitest) {
 			})
 			expect(reachedLater).toBe(true)
 			expect(await adapter.introspect()).toEqual(before.schema)
-			expect(await adapter.loadMigrations()).toEqual(before.ledger)
+			expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual(before.ledger)
 			expect(await adapter.findByPk(projectSchema, { table: 'projects' }, before.project.id)).toEqual(before.project)
 			expect(await adapter.findByPk(pendingSchema, { table: 'test_pending_one' }, 'pending-row')).toBeNull()
 			fail = false
@@ -729,7 +739,9 @@ if (import.meta.vitest) {
 					},
 				],
 			})
-			expect((await adapter.loadMigrations()).map(({ id }) => id)).toEqual(catalog.map(({ id }) => id))
+			expect((await adapter.loadMigrations({ table: '_equipped_migrations' })).map(({ id }) => id)).toEqual(
+				catalog.map(({ id }) => id),
+			)
 			expect(await adapter.findByPk(pendingSchema, { table: 'test_pending_one' }, 'pending-row')).toEqual({ id: 'pending-row' })
 		} finally {
 			if (descriptor) Object.defineProperty(adapter, 'applyCreateTable', descriptor)
@@ -751,7 +763,7 @@ if (import.meta.vitest) {
 			})
 			restore()
 			expect(await adapter.introspect()).toEqual(schema)
-			expect(await adapter.loadMigrations()).toHaveLength(1)
+			expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toHaveLength(1)
 			expect(await opened.migrate()).toMatchObject({ ok: true, value: { state: 'ready' } })
 		} finally {
 			restore()
@@ -763,7 +775,7 @@ if (import.meta.vitest) {
 		const { adapter, opened, before } = await migrationFixture()
 		try {
 			expect(await adapter.introspect()).toEqual(before.schema)
-			expect(await adapter.loadMigrations()).toEqual(before.ledger)
+			expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual(before.ledger)
 			const result = await opened.migrate()
 			if (!result.ok) throw new Error('Expected migrated client')
 			expect(result.value.state).toBe('ready')
@@ -774,7 +786,7 @@ if (import.meta.vitest) {
 				'test_pending_one',
 				'test_pending_two',
 			])
-			const ledger = await adapter.loadMigrations()
+			const ledger = await adapter.loadMigrations({ table: '_equipped_migrations' })
 			expect(ledger).toHaveLength(3)
 			expect(ledger[0]).toEqual(before.ledger[0])
 			expect(ledger.map(({ id }) => id)).toEqual(upgradeCatalog.map(({ id }) => id))
@@ -782,7 +794,7 @@ if (import.meta.vitest) {
 			if (!portfolio.ok) throw new Error('Expected Portfolio')
 			expect(await portfolio.value.projects.list()).toEqual({ ok: true, value: [before.project] })
 			expect(await opened.migrate()).toEqual({ ok: false, error: { type: 'schema-already-current' } })
-			expect(await adapter.loadMigrations()).toEqual(ledger)
+			expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual(ledger)
 			expect(await portfolio.value.projects.list()).toEqual({ ok: true, value: [before.project] })
 		} finally {
 			expect(await opened.shutdown()).toEqual({ ok: true, value: undefined })
@@ -793,7 +805,7 @@ if (import.meta.vitest) {
 		const adapter = InMemoryAdapter.create({})
 		const result = await openWithCatalog(
 			{
-				storage: { adapter, resolveSchema: (schema) => ({ table: schema.name }) },
+				storage: { adapter, resolveSchema: (name) => ({ table: name }) },
 				secrets: { encode: () => Promise.resolve(null), decode: () => Promise.resolve({}) },
 			},
 			[
@@ -813,7 +825,7 @@ if (import.meta.vitest) {
 		try {
 			expect(await result.value.setup()).toEqual({ ok: false, error: { type: 'internal-error' } })
 			expect(await adapter.introspect()).toEqual([])
-			expect(await adapter.loadMigrations()).toEqual([])
+			expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual([])
 		} finally {
 			expect(await result.value.shutdown()).toEqual({ ok: true, value: undefined })
 		}
@@ -822,10 +834,10 @@ if (import.meta.vitest) {
 	it('issues a migration view for a valid proper native catalog prefix', async () => {
 		const { InMemoryAdapter } = await import('equipped/orm/adapters/in-memory')
 		const adapter = InMemoryAdapter.create({})
-		await adapter.recordMigration('01m76d124c6e848k2hfvb4mar2', 0)
+		await adapter.recordMigration({ table: '_equipped_migrations' }, '01m76d124c6e848k2hfvb4mar2', 0)
 		const result = await openWithCatalog(
 			{
-				storage: { adapter, resolveSchema: (schema) => ({ table: schema.name }) },
+				storage: { adapter, resolveSchema: (name) => ({ table: name }) },
 				secrets: { encode: () => Promise.resolve(null), decode: () => Promise.resolve({}) },
 			},
 			[
@@ -839,7 +851,9 @@ if (import.meta.vitest) {
 		expect(result).toMatchObject({ ok: true, value: { state: 'migration' } })
 		if (result.ok) expect(await result.value.shutdown()).toEqual({ ok: true, value: undefined })
 		expect(await adapter.introspect()).toEqual([])
-		expect(await adapter.loadMigrations()).toEqual([{ id: '01m76d124c6e848k2hfvb4mar2', appliedAt: 0 }])
+		expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual([
+			{ id: '01m76d124c6e848k2hfvb4mar2', appliedAt: 0 },
+		])
 	})
 }
 

@@ -64,7 +64,11 @@ export async function openServerStorage(input: OpenServerStorageInput): Promise<
 }
 
 export async function migrateServerStorage(storage: ServerStorage): Promise<void> {
-	await Migrator.from<ServerStorageAdapter>(storage.repo, storage.adapter).migrations(serverStorageMigrations).build().up()
+	const migrator = Migrator.from(storage.repo).withoutLock().migrations(serverStorageMigrations).build()
+	// Preserve the optional native-lock contract. A failed lock never retries unlocked.
+	if (storage.adapter.acquireMigrationLock)
+		await storage.adapter.acquireMigrationLock(storage.repo.resolveConfig('_equipped_migrations'), () => migrator.up())
+	else await migrator.up()
 }
 
 async function createServerStorage(input: OpenServerStorageInput): Promise<ServerStorage> {
@@ -109,7 +113,7 @@ if (import.meta.vitest) {
 		it('opens migrated Server storage through the configured backend', async () => {
 			const storage = await openServerStorage({ dataDir: await createTempDataDir() })
 
-			expect(await storage.adapter.loadMigrations()).toEqual([
+			expect(await storage.adapter.loadMigrations(storage.repo.resolveConfig('_equipped_migrations'))).toEqual([
 				expect.objectContaining({ id: '2026-06-19-0001-create-server-identity-storage' }),
 				expect.objectContaining({ id: '2026-06-19-0002-create-server-workspace-registry' }),
 			])
