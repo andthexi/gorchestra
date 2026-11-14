@@ -1,6 +1,4 @@
 import type { CoreRuntime } from '..'
-import { manageSandboxProvider, type ManagedSandboxProvider } from './managed'
-import { createVercelSandboxProvider, type VercelCredentials } from './vercel'
 import type { AgentRunSandboxConfig, VercelSandboxCredentialsSecretRefs } from '../../../domain/agent-run-runtime'
 import type {
 	InvalidCoreServiceOutputError,
@@ -13,11 +11,11 @@ import type {
 import type { CoreStorage } from '../../../services'
 import { resolveActiveSecretValues } from '../../secrets'
 import type { Result } from '../../types'
+import { manageSandboxProvider, type ManagedSandboxProvider } from './managed'
+import { createVercelSandboxProvider, type VercelCredentials } from './vercel'
 
 export type SandboxProviderResolutionError =
-	| InvalidCoreServiceOutputError
-	| StorageOperationFailedError
-	| SandboxProviderResolutionFailedError
+	InvalidCoreServiceOutputError | StorageOperationFailedError | SandboxProviderResolutionFailedError
 
 export async function managedSandboxProviderForConfig(
 	runtime: Pick<CoreRuntime, 'services'>,
@@ -63,7 +61,9 @@ async function resolveVercelCredentials(
 	const teamId = vercelCredentialValue(values.value, credentials.teamIdSecretId, 'team id')
 	if (!teamId.ok) return teamId
 	const projectId = vercelCredentialValue(values.value, credentials.projectIdSecretId, 'project id')
-	return projectId.ok ? { ok: true, value: { token: token.value, teamId: teamId.value, projectId: projectId.value } } : projectId
+	return projectId.ok
+		? { ok: true, value: { token: token.value, teamId: teamId.value, projectId: projectId.value } }
+		: projectId
 }
 
 function vercelCredentialValue(
@@ -79,12 +79,18 @@ function vercelCredentialValue(
 		case 'not-found':
 			return {
 				ok: false,
-				error: { type: 'sandbox-provider-resolution-failed', summary: `Vercel sandbox ${name} Secret is missing.` },
+				error: {
+					type: 'sandbox-provider-resolution-failed',
+					summary: `Vercel sandbox ${name} Secret is missing.`,
+				},
 			}
 		case 'resource-archived':
 			return {
 				ok: false,
-				error: { type: 'sandbox-provider-resolution-failed', summary: `Vercel sandbox ${name} Secret is not active.` },
+				error: {
+					type: 'sandbox-provider-resolution-failed',
+					summary: `Vercel sandbox ${name} Secret is not active.`,
+				},
 			}
 		case 'secret-resolution-failed':
 			return failedVercelCredentialResolution(name)
@@ -93,8 +99,16 @@ function vercelCredentialValue(
 	}
 }
 
-function failedVercelCredentialResolution(name: 'token' | 'team id' | 'project id'): Result<never, SandboxProviderResolutionFailedError> {
-	return { ok: false, error: { type: 'sandbox-provider-resolution-failed', summary: `Vercel sandbox ${name} Secret resolution failed.` } }
+function failedVercelCredentialResolution(
+	name: 'token' | 'team id' | 'project id',
+): Result<never, SandboxProviderResolutionFailedError> {
+	return {
+		ok: false,
+		error: {
+			type: 'sandbox-provider-resolution-failed',
+			summary: `Vercel sandbox ${name} Secret resolution failed.`,
+		},
+	}
 }
 
 if (import.meta.vitest) {
@@ -130,7 +144,9 @@ if (import.meta.vitest) {
 					resolveSecrets: () => Promise.resolve([]),
 					resolveSecretValues: (input) =>
 						Promise.resolve(
-							Object.fromEntries(input.secrets.map((secret) => [secret.secretId, `value-${secret.secretId.slice(-2)}`])),
+							Object.fromEntries(
+								input.secrets.map((secret) => [secret.secretId, `value-${secret.secretId.slice(-2)}`]),
+							),
 						),
 				},
 			})
@@ -175,7 +191,10 @@ if (import.meta.vitest) {
 
 			expect(result).toEqual({
 				ok: false,
-				error: { type: 'sandbox-provider-resolution-failed', summary: 'Vercel sandbox token Secret is not active.' },
+				error: {
+					type: 'sandbox-provider-resolution-failed',
+					summary: 'Vercel sandbox token Secret is not active.',
+				},
 			})
 		})
 	})

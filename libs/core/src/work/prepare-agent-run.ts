@@ -1,6 +1,5 @@
 import { v, type PipeInput, type PipeOutput } from 'valleyed'
 
-import type { WorkContext } from './types'
 import type { AgentRun } from '../domain/agent-run'
 import { runtimeRequirementKey, type AgentRunRuntimeRequirement } from '../domain/agent-run-runtime'
 import { idPipe, type Id } from '../domain/commons'
@@ -29,6 +28,7 @@ import { resolveActiveSecretValues } from '../utils/secrets'
 import { getRequired, listRecords, updateRecord } from '../utils/storage/helpers'
 import type { Result as CoreResult, UndefinedToOptional } from '../utils/types'
 import { buildWorkHandler } from '../utils/work-handler'
+import type { WorkContext } from './types'
 
 const inputPipe = v.object({ agentRunId: idPipe })
 type ParsedInput = PipeOutput<typeof inputPipe>
@@ -45,7 +45,10 @@ export type Operation = (input: Input, context: WorkContext) => Promise<CoreResu
 
 const defaultSandboxCommandTimeoutMs = 10 * 60 * 1000
 
-type AgentRunPreparationFailureTarget = Extract<NonNullable<AgentRun['blocked']>, { type: 'preparation-failed' }>['target']
+type AgentRunPreparationFailureTarget = Extract<
+	NonNullable<AgentRun['blocked']>,
+	{ type: 'preparation-failed' }
+>['target']
 type AgentRunSandbox = NonNullable<AgentRun['sandbox']>
 type AgentRunWithSandbox = AgentRun & { sandbox: AgentRunSandbox }
 
@@ -66,7 +69,12 @@ export function createPrepareAgentRunOperation(runtime: CoreRuntime): Operation 
 		const preparedSandbox = await ensureManagedSandbox(runtime, loaded.value, context.signal)
 		if (!preparedSandbox.ok) {
 			if (isCommandPreparationFailure(preparedSandbox.error)) {
-				const blocked = await blockPreparationFailure(runtime, loaded.value, { type: 'sandbox' }, preparedSandbox.error.summary)
+				const blocked = await blockPreparationFailure(
+					runtime,
+					loaded.value,
+					{ type: 'sandbox' },
+					preparedSandbox.error.summary,
+				)
 				return blocked.ok ? { ok: true, value: undefined } : blocked
 			}
 			return { ok: false, error: preparedSandbox.error }
@@ -83,13 +91,20 @@ async function ensureManagedSandbox(
 	agentRun: AgentRun,
 	signal?: AbortSignal,
 ): Promise<
-	CoreResult<{ agentRun: AgentRunWithSandbox; sandbox: ManagedSandbox }, CommandPreparationFailure | Exclude<Error, InvalidInputError>>
+	CoreResult<
+		{ agentRun: AgentRunWithSandbox; sandbox: ManagedSandbox },
+		CommandPreparationFailure | Exclude<Error, InvalidInputError>
+	>
 > {
 	if (agentRun.sandbox !== null && agentRun.sandbox.released !== null) {
 		return invariant(`Agent Run ${agentRun.id} sandbox has already been released.`)
 	}
 
-	const provider = await managedSandboxProviderForConfig(runtime, runtime.services.storage, agentRun.profile.sandboxConfig)
+	const provider = await managedSandboxProviderForConfig(
+		runtime,
+		runtime.services.storage,
+		agentRun.profile.sandboxConfig,
+	)
 	if (!provider.ok) {
 		return provider.error.type === 'sandbox-provider-resolution-failed'
 			? { ok: false, error: { summary: provider.error.summary } }
@@ -108,7 +123,10 @@ async function findOrCreateUnrecordedSandbox(
 	agentRun: AgentRun,
 	signal?: AbortSignal,
 ): Promise<
-	CoreResult<{ agentRun: AgentRunWithSandbox; sandbox: ManagedSandbox }, CommandPreparationFailure | Exclude<Error, InvalidInputError>>
+	CoreResult<
+		{ agentRun: AgentRunWithSandbox; sandbox: ManagedSandbox },
+		CommandPreparationFailure | Exclude<Error, InvalidInputError>
+	>
 > {
 	const key = agentRun.id
 	const found = await provider.find({ key })
@@ -128,7 +146,10 @@ async function findRecordedSandbox(
 	provider: ManagedSandboxProvider,
 	agentRun: AgentRun,
 ): Promise<
-	CoreResult<{ agentRun: AgentRunWithSandbox; sandbox: ManagedSandbox }, CommandPreparationFailure | Exclude<Error, InvalidInputError>>
+	CoreResult<
+		{ agentRun: AgentRunWithSandbox; sandbox: ManagedSandbox },
+		CommandPreparationFailure | Exclude<Error, InvalidInputError>
+	>
 > {
 	const existingAgentRun = requireAgentRunSandbox(agentRun)
 	if (!existingAgentRun.ok) return existingAgentRun
@@ -177,7 +198,12 @@ async function applyRuntimeRequirements(
 	const prefix = validateAppliedRequirementPrefix(agentRun)
 	if (!prefix.ok) return prefix
 
-	const afterGlobals = await applyRuntimeRequirementsThroughIndex(runtime, agentRun, sandbox, globalRuntimeRequirements.length)
+	const afterGlobals = await applyRuntimeRequirementsThroughIndex(
+		runtime,
+		agentRun,
+		sandbox,
+		globalRuntimeRequirements.length,
+	)
 	if (!afterGlobals.ok) return afterGlobals
 	if (!afterGlobals.value.continue) return { ok: true, value: undefined }
 
@@ -263,7 +289,12 @@ async function blockRuntimeRequirementFailure(
 	requirement: AgentRunRuntimeRequirement,
 	summary: string,
 ): Promise<CoreResult<ApplyRequirementResult, Exclude<Error, InvalidInputError>>> {
-	const blocked = await blockPreparationFailure(runtime, agentRun, { type: 'runtime-requirement', index, requirement }, summary)
+	const blocked = await blockPreparationFailure(
+		runtime,
+		agentRun,
+		{ type: 'runtime-requirement', index, requirement },
+		summary,
+	)
 	return blocked.ok ? { ok: true, value: { applied: false } } : blocked
 }
 
@@ -272,12 +303,20 @@ async function recordAppliedRuntimeRequirement(
 	agentRun: AgentRunWithSandbox,
 	requirement: AgentRunRuntimeRequirement,
 ): Promise<CoreResult<ApplyRequirementResult, Exclude<Error, InvalidInputError>>> {
-	const nextSandbox = { ...agentRun.sandbox, appliedRequirements: [...agentRun.sandbox.appliedRequirements, requirement], released: null }
-	const updated = await updateAgentRunRecord(runtime.services.storage, runtime.notifications, agentRun.id, { sandbox: nextSandbox })
+	const nextSandbox = {
+		...agentRun.sandbox,
+		appliedRequirements: [...agentRun.sandbox.appliedRequirements, requirement],
+		released: null,
+	}
+	const updated = await updateAgentRunRecord(runtime.services.storage, runtime.notifications, agentRun.id, {
+		sandbox: nextSandbox,
+	})
 	if (!updated.ok) return updated
 
 	const updatedAgentRun = requireAgentRunSandbox(updated.value)
-	return updatedAgentRun.ok ? { ok: true, value: { applied: true, agentRun: updatedAgentRun.value } } : updatedAgentRun
+	return updatedAgentRun.ok
+		? { ok: true, value: { applied: true, agentRun: updatedAgentRun.value } }
+		: updatedAgentRun
 }
 
 function requireAgentRunSandbox(agentRun: AgentRun): CoreResult<AgentRunWithSandbox, InvariantViolationError> {
@@ -428,8 +467,12 @@ function runPreparedSandboxOperation(
 	}
 }
 
-function mapManagedSandboxError(error: ManagedSandboxError): CoreResult<never, CommandPreparationFailure | InvalidCoreServiceOutputError> {
-	return error.type === 'sandbox-operation-failed' ? { ok: false, error: { summary: error.summary } } : { ok: false, error }
+function mapManagedSandboxError(
+	error: ManagedSandboxError,
+): CoreResult<never, CommandPreparationFailure | InvalidCoreServiceOutputError> {
+	return error.type === 'sandbox-operation-failed'
+		? { ok: false, error: { summary: error.summary } }
+		: { ok: false, error }
 }
 
 async function completePreparation(
@@ -528,7 +571,11 @@ if (import.meta.vitest) {
 			const files = new Map<string, string>()
 			const commands: unknown[] = []
 			const operations: string[] = []
-			const envRequirement = { type: 'environment-secret' as const, envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' }
+			const envRequirement = {
+				type: 'environment-secret' as const,
+				envName: 'NPM_TOKEN',
+				secretId: '01k00000000000000000000040',
+			}
 			const sandboxes = new Map<string, ReturnType<typeof rawSandbox>>()
 			const options = createTestCoreServices({
 				secrets: {
@@ -583,7 +630,9 @@ if (import.meta.vitest) {
 			expect(checkPathOperations(operations, '01k00000000000000000000002')).toEqual(
 				fileApiReadinessOperations('01k00000000000000000000002'),
 			)
-			expect(files.get('/workspace/.gorchestra/runtime-env.json')).toBe(`${JSON.stringify({ NPM_TOKEN: 'plaintext-token' })}\n`)
+			expect(files.get('/workspace/.gorchestra/runtime-env.json')).toBe(
+				`${JSON.stringify({ NPM_TOKEN: 'plaintext-token' })}\n`,
+			)
 			expect(options.tx.agentRuns.records.get('01k00000000000000000000002')).toMatchObject({
 				blocked: null,
 				sandbox: {
@@ -641,7 +690,9 @@ if (import.meta.vitest) {
 				sandbox: {
 					key: '01k00000000000000000000002',
 					created: { at: '2026-06-10T12:00:00.000Z' },
-					appliedRequirements: [{ type: 'environment-secret', envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' }],
+					appliedRequirements: [
+						{ type: 'environment-secret', envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' },
+					],
 					appliedThroughEventId: null,
 					released: null,
 				},
@@ -657,7 +708,8 @@ if (import.meta.vitest) {
 				ok: false,
 				error: {
 					type: 'invariant-violation',
-					message: 'Agent Run 01k00000000000000000000002 sandbox applied requirements do not match desired requirements.',
+					message:
+						'Agent Run 01k00000000000000000000002 sandbox applied requirements do not match desired requirements.',
 				},
 			})
 		})
@@ -666,7 +718,11 @@ if (import.meta.vitest) {
 			const files = new Map<string, string>()
 			const commands: unknown[] = []
 			const operations: string[] = []
-			const envRequirement = { type: 'environment-secret' as const, envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' }
+			const envRequirement = {
+				type: 'environment-secret' as const,
+				envName: 'NPM_TOKEN',
+				secretId: '01k00000000000000000000040',
+			}
 			const installRequirement = {
 				type: 'run-command' as const,
 				label: 'Install',
@@ -721,9 +777,9 @@ if (import.meta.vitest) {
 			expect(checkPathOperations(operations, '01k00000000000000000000002')).toEqual(
 				fileApiReadinessOperations('01k00000000000000000000002'),
 			)
-			expect(operations.indexOf(`delete:${managedSandboxFileApiReadinessDirectory('01k00000000000000000000002')}`)).toBeLessThan(
-				operations.findIndex((operation) => operation.includes('npm:install')),
-			)
+			expect(
+				operations.indexOf(`delete:${managedSandboxFileApiReadinessDirectory('01k00000000000000000000002')}`),
+			).toBeLessThan(operations.findIndex((operation) => operation.includes('npm:install')))
 		})
 
 		it('blocks with sandbox file API target when readiness fails after globals', async () => {
@@ -738,7 +794,9 @@ if (import.meta.vitest) {
 							rawSandbox(files, commands, {
 								operations,
 								failWritePath: (path) =>
-									path.startsWith(managedSandboxFileApiReadinessDirectory('01k00000000000000000000002')),
+									path.startsWith(
+										managedSandboxFileApiReadinessDirectory('01k00000000000000000000002'),
+									),
 							}),
 						),
 					find: () => Promise.resolve(null),
@@ -762,9 +820,9 @@ if (import.meta.vitest) {
 				target: { type: 'sandbox-file-api' },
 				summary: 'Sandbox file write failed.',
 			})
-			expect(options.tx.agentRuns.records.get('01k00000000000000000000002')?.sandbox?.appliedRequirements).toEqual([
-				...globalRuntimeRequirements,
-			])
+			expect(
+				options.tx.agentRuns.records.get('01k00000000000000000000002')?.sandbox?.appliedRequirements,
+			).toEqual([...globalRuntimeRequirements])
 		})
 
 		it('reruns file API readiness on retry after globals were already applied', async () => {
@@ -845,7 +903,9 @@ if (import.meta.vitest) {
 			},
 			writeFile: (path: string, contentsBase64: string) => {
 				options.operations?.push(`write:${path}`)
-				return options.failWritePath?.(path) ? Promise.reject(new Error('write failed')) : base.writeFile(path, contentsBase64)
+				return options.failWritePath?.(path)
+					? Promise.reject(new Error('write failed'))
+					: base.writeFile(path, contentsBase64)
 			},
 			listDirectory: (path: string) => {
 				options.operations?.push(`list:${path}`)

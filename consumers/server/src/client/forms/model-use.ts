@@ -30,7 +30,9 @@ export class ModelUseFormDraft extends FormDraft<ModelUseFormModel, ModelUseForm
 		super({
 			modelId: new FormDraftSelect<string | null>({
 				initialValue: null,
-				pipe: v.nullable(v.string()).pipe(v.custom((value) => modelIdIsValid(value, requiresModel), modelRequiredMessage)),
+				pipe: v
+					.nullable(v.string())
+					.pipe(v.custom((value) => modelIdIsValid(value, requiresModel), modelRequiredMessage)),
 			}),
 			thinkingLevel: new FormDraftSelect<ModelThinkingLevel>({
 				initialValue: 'none',
@@ -54,7 +56,10 @@ function modelIdIsValid(value: string | null, required: boolean): boolean {
 	return value === null ? !required : value.length > 0
 }
 
-function modelUseFields(modelUse: ModelUseConfig | null): { modelId: string | null; thinkingLevel: ModelThinkingLevel } {
+function modelUseFields(modelUse: ModelUseConfig | null): {
+	modelId: string | null
+	thinkingLevel: ModelThinkingLevel
+} {
 	return modelUse === null ? { modelId: null, thinkingLevel: 'none' } : modelUse
 }
 
@@ -69,7 +74,10 @@ if (import.meta.vitest) {
 		})
 
 		it('requires a Model when constructed as required', () => {
-			const draft = new ModelUseFormDraft({ required: true }).loadEntity({ modelId: 'model-1', thinkingLevel: 'none' })
+			const draft = new ModelUseFormDraft({ required: true }).loadEntity({
+				modelId: 'model-1',
+				thinkingLevel: 'none',
+			})
 
 			draft.modelId.value = null
 

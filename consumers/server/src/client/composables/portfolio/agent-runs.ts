@@ -24,7 +24,15 @@ export function useAgentRun(agentRunId: Ref<string | null>) {
 	})
 	const isRefreshingAgentRun = computed(() => isLoadingAgentRun.value && hasLoadedAgentRun.value)
 
-	return { agentRun, isLoadingAgentRun, agentRunError, hasLoadedAgentRun, isRefreshingAgentRun, refreshAgentRun, resetAgentRun }
+	return {
+		agentRun,
+		isLoadingAgentRun,
+		agentRunError,
+		hasLoadedAgentRun,
+		isRefreshingAgentRun,
+		refreshAgentRun,
+		resetAgentRun,
+	}
 }
 
 export function useAgentRunEvents(agentRunId: Ref<string | null>) {

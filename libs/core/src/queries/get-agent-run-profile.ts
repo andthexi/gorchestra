@@ -2,7 +2,12 @@ import { v, type PipeOutput } from 'valleyed'
 
 import { listedAgentRunProfilePipe } from '../domain/agent-run-profile'
 import { idPipe } from '../domain/commons'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { buildQueryHandler } from '../utils/query-handler'
 import { getRequired } from '../utils/storage/helpers'
 import type { CoreTransactions } from '../utils/transactions'
@@ -13,7 +18,8 @@ export type Input = PipeOutput<typeof inputPipe>
 
 export const resultPipe = listedAgentRunProfilePipe
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createGetAgentRunProfileQuery(transactions: CoreTransactions): Operation {

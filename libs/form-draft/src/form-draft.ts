@@ -51,7 +51,10 @@ export abstract class FormDraft<Entity, Model, Fields extends object> extends Lo
 	protected reserved: string[] = []
 
 	constructor(keys: Fields) {
-		const allKeys = Object.keys(keys).reduce((acc, key) => ({ ...acc, [key]: true }), {} as Record<keyof Fields, true>)
+		const allKeys = Object.keys(keys).reduce(
+			(acc, key) => ({ ...acc, [key]: true }),
+			{} as Record<keyof Fields, true>,
+		)
 		super(allKeys as Fields, {
 			get: (key) => {
 				if (key in this.#embeds) return this.#embeds[key] as Fields[typeof key]

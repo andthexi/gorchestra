@@ -1,5 +1,6 @@
 import { v, type PipeOutput } from 'valleyed'
 
+import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 import { agentRunPreparationFailureTargetPipe, agentRunRuntimeRequirementsPipe } from './agent-run-runtime'
 import {
 	auditStampPipe,
@@ -16,7 +17,6 @@ import { dispatchRequestTypePipe, safeDispatchCategoryPipe, safeDispatchSummaryP
 import { modelThinkingLevelPipe } from './model'
 import { modelProviderProtocolPipe } from './model-provider'
 import { planOutputProposalPipe, revisionOutputProposalPipe } from './proposals'
-import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 
 const nullableFreeFormStringPipe = v.nullable(freeFormStringPipe)
 const unknownPipe = v.any<unknown>()
@@ -58,7 +58,10 @@ export type AgentRunInstruction = PipeOutput<typeof agentRunInstructionPipe>
 const fileDataPipe = v.discriminate((value) => value.type, {
 	data: v.object({ type: v.eq('data'), data: freeFormStringPipe }),
 	url: v.object({ type: v.eq('url'), url: nonEmptyTrimmedStringPipe }),
-	reference: v.object({ type: v.eq('reference'), reference: v.record(nonEmptyTrimmedStringPipe, nonEmptyTrimmedStringPipe) }),
+	reference: v.object({
+		type: v.eq('reference'),
+		reference: v.record(nonEmptyTrimmedStringPipe, nonEmptyTrimmedStringPipe),
+	}),
 	text: v.object({ type: v.eq('text'), text: freeFormStringPipe }),
 })
 
@@ -163,7 +166,10 @@ const providerGenerationFailureReasonPipes = {
 	'provider-generation-failed': v.object({ type: v.eq('provider-generation-failed') }),
 }
 
-export const modelProviderGenerationFailureReasonPipe = v.discriminate((value) => value.type, providerGenerationFailureReasonPipes)
+export const modelProviderGenerationFailureReasonPipe = v.discriminate(
+	(value) => value.type,
+	providerGenerationFailureReasonPipes,
+)
 export type ModelProviderGenerationFailureReason = PipeOutput<typeof modelProviderGenerationFailureReasonPipe>
 
 const runtimeErrorReasonPipes = {
@@ -426,7 +432,11 @@ export const agentRunEventBodyPipe = v.discriminate((value) => value.type, {
 		instruction: agentRunInstructionPipe,
 		parts: agentRunSystemTranscriptPartsPipe,
 	}),
-	'input-message': v.object({ type: v.eq('input-message'), source: agentRunInputSourcePipe, parts: agentRunInputTranscriptPartsPipe }),
+	'input-message': v.object({
+		type: v.eq('input-message'),
+		source: agentRunInputSourcePipe,
+		parts: agentRunInputTranscriptPartsPipe,
+	}),
 	'turn-started': v.object({
 		type: v.eq('turn-started'),
 		contextThroughEventId: idPipe,

@@ -1,7 +1,7 @@
 import type { CoreServices, CoreStorage } from '@gorchestra/core'
 
-import { createMicrosandboxSandboxProvider } from './sandbox'
 import { revealSecretPlaintext, type SecretEncryptionKey } from '../modules/secret-protection'
+import { createMicrosandboxSandboxProvider } from './sandbox'
 
 export type CreateCoreServicesOptions = {
 	secretEncryptionKey: SecretEncryptionKey
@@ -17,7 +17,8 @@ export function createCoreServices(storage: CoreStorage, options: CreateCoreServ
 		secrets: {
 			preflight: () => Promise.resolve({ ok: true }),
 			resolveSecrets: () => Promise.resolve([]),
-			resolveSecretValues: ({ secrets }) => Promise.resolve(resolveSecretValues(secrets, options.secretEncryptionKey)),
+			resolveSecretValues: ({ secrets }) =>
+				Promise.resolve(resolveSecretValues(secrets, options.secretEncryptionKey)),
 		},
 		sandbox: createMicrosandboxSandboxProvider({
 			coreStorageNamespace: options.coreStorageNamespace,
@@ -66,9 +67,9 @@ if (import.meta.vitest) {
 		it('resolves inline protected Secret value refs and wires consumer-managed sandbox provider', async () => {
 			const { mkdtemp, rm } = await import('node:fs/promises')
 			const { tmpdir } = await import('node:os')
-			const { join } = await import('node:path')
+			const path = await import('node:path')
 			const { parseSecretEncryptionKey, protectSecretPlaintext } = await import('../modules/secret-protection')
-			const sandboxRootDir = await mkdtemp(join(tmpdir(), 'gorchestra-core-services-'))
+			const sandboxRootDir = await mkdtemp(path.join(tmpdir(), 'gorchestra-core-services-'))
 			const secretEncryptionKey = parseSecretEncryptionKey(Buffer.alloc(32, 1).toString('base64url'))
 			const valueRef = protectSecretPlaintext('token-value', secretEncryptionKey)
 			const services = createCoreServices({} as CoreStorage, {
@@ -79,11 +80,19 @@ if (import.meta.vitest) {
 
 			try {
 				expect(await services.secrets.preflight()).toEqual({ ok: true })
-				expect(await services.secrets.resolveSecrets({ scope: { type: 'project', projectId: 'project-1' } })).toEqual([])
-				expect(await services.secrets.resolveSecretValues({ secrets: [{ secretId: 'secret-1', valueRef }] })).toEqual({
+				expect(
+					await services.secrets.resolveSecrets({ scope: { type: 'project', projectId: 'project-1' } }),
+				).toEqual([])
+				expect(
+					await services.secrets.resolveSecretValues({ secrets: [{ secretId: 'secret-1', valueRef }] }),
+				).toEqual({
 					'secret-1': 'token-value',
 				})
-				expect(await services.secrets.resolveSecretValues({ secrets: [{ secretId: 'secret-2', valueRef: 'bad-ref' }] })).toEqual({})
+				expect(
+					await services.secrets.resolveSecretValues({
+						secrets: [{ secretId: 'secret-2', valueRef: 'bad-ref' }],
+					}),
+				).toEqual({})
 				expect(services.sandbox.kind).toBe('consumer-managed')
 				expect(typeof services.sandbox.create).toBe('function')
 				expect(typeof services.sandbox.find).toBe('function')

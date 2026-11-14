@@ -1,11 +1,19 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { idPipe } from '../domain/commons'
 import type { ValidationEvidence } from '../domain/evidence'
 import { defaultModelCapabilities, type Model } from '../domain/model'
-import { modelProviderProtocolForSource, type ModelProvider, type ModelProviderAccessValue } from '../domain/model-provider'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import {
+	modelProviderProtocolForSource,
+	type ModelProvider,
+	type ModelProviderAccessValue,
+} from '../domain/model-provider'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import type { CoreStorage, ResolvableSecretValue } from '../services'
 import { buildCommandHandler } from '../utils/command-handler'
 import { getRequired, isArchived } from '../utils/command-storage'
@@ -15,13 +23,15 @@ import type { ModelProviderProtocolPreflightFailureReason } from '../utils/provi
 import type { CoreRuntime } from '../utils/runtime'
 import { validateActiveSecret } from '../utils/secrets'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const preflightModelInputPipe = v.object({ modelId: idPipe })
 export type Input = PipeOutput<typeof preflightModelInputPipe>
 
 export type Result = ValidationEvidence
 
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 
 export type Operation = (input: Input, context: CommandContext) => Promise<CoreResult<Result, Error>>
 
@@ -37,59 +47,61 @@ type ModelPreflightLocalError = InvalidCoreServiceOutputError | ResourceNotFound
 
 export function createPreflightModelCommand(runtime: CoreRuntime): Operation {
 	return buildCommandHandler('preflightModel', preflightModelInputPipe, async (input) => {
-		const readiness = await runtime.transactions.run<ModelPreflightReadiness, ModelPreflightLocalError>(async ({ storage }) => {
-			const model = await getRequired('model', storage, input.modelId)
-			if (!model.ok) return model
+		const readiness = await runtime.transactions.run<ModelPreflightReadiness, ModelPreflightLocalError>(
+			async ({ storage }) => {
+				const model = await getRequired('model', storage, input.modelId)
+				if (!model.ok) return model
 
-			const modelProvider = await getRequired('model-provider', storage, model.value.providerId)
-			if (!modelProvider.ok) return modelProvider
+				const modelProvider = await getRequired('model-provider', storage, model.value.providerId)
+				if (!modelProvider.ok) return modelProvider
 
-			if (isArchived(model.value.archivePeriods)) {
-				return {
-					ok: true,
-					value: {
-						type: 'failed',
-						modelProvider: modelProvider.value,
-						reason: { type: 'model-archived', modelId: model.value.id },
-					},
-				}
-			}
-			if (isArchived(modelProvider.value.archivePeriods)) {
-				return {
-					ok: true,
-					value: {
-						type: 'failed',
-						modelProvider: modelProvider.value,
-						reason: { type: 'model-provider-archived', modelProviderId: modelProvider.value.id },
-					},
-				}
-			}
-
-			const thinkingValidation = validateModelThinkingCapabilityForProtocol(
-				model.value,
-				modelProviderProtocolForSource(modelProvider.value.source),
-			)
-			if (!thinkingValidation.ok) {
-				return {
-					ok: true,
-					value: { type: 'failed', modelProvider: modelProvider.value, reason: thinkingValidation.error },
-				}
-			}
-
-			const secretReadiness = await validateModelProviderSecrets(storage, modelProvider.value)
-			if (!secretReadiness.ok) return secretReadiness
-			return secretReadiness.value.type === 'failed'
-				? { ok: true, value: secretReadiness.value }
-				: {
+				if (isArchived(model.value.archivePeriods)) {
+					return {
 						ok: true,
 						value: {
-							type: 'passed',
-							model: model.value,
+							type: 'failed',
 							modelProvider: modelProvider.value,
-							secrets: secretReadiness.value.secrets,
+							reason: { type: 'model-archived', modelId: model.value.id },
 						},
 					}
-		})
+				}
+				if (isArchived(modelProvider.value.archivePeriods)) {
+					return {
+						ok: true,
+						value: {
+							type: 'failed',
+							modelProvider: modelProvider.value,
+							reason: { type: 'model-provider-archived', modelProviderId: modelProvider.value.id },
+						},
+					}
+				}
+
+				const thinkingValidation = validateModelThinkingCapabilityForProtocol(
+					model.value,
+					modelProviderProtocolForSource(modelProvider.value.source),
+				)
+				if (!thinkingValidation.ok) {
+					return {
+						ok: true,
+						value: { type: 'failed', modelProvider: modelProvider.value, reason: thinkingValidation.error },
+					}
+				}
+
+				const secretReadiness = await validateModelProviderSecrets(storage, modelProvider.value)
+				if (!secretReadiness.ok) return secretReadiness
+				return secretReadiness.value.type === 'failed'
+					? { ok: true, value: secretReadiness.value }
+					: {
+							ok: true,
+							value: {
+								type: 'passed',
+								model: model.value,
+								modelProvider: modelProvider.value,
+								secrets: secretReadiness.value.secrets,
+							},
+						}
+			},
+		)
 		if (!readiness.ok) return readiness
 		if (readiness.value.type === 'failed') {
 			const protocol = modelProviderProtocolForSource(readiness.value.modelProvider.source)
@@ -127,7 +139,11 @@ async function validateModelProviderSecrets(
 		ok: true,
 		value: {
 			type: 'passed',
-			secrets: [...new Map([...auth.value.secrets, ...headers.value.secrets].map((secret) => [secret.secretId, secret])).values()],
+			secrets: [
+				...new Map(
+					[...auth.value.secrets, ...headers.value.secrets].map((secret) => [secret.secretId, secret]),
+				).values(),
+			],
 		},
 	}
 }
@@ -145,13 +161,21 @@ async function validateModelProviderAuthSecret(
 	if (error.type === 'not-found' && error.resource === 'secret') {
 		return {
 			ok: true,
-			value: { type: 'failed', modelProvider, reason: { type: 'model-provider-auth-secret-missing', secretId: error.id } },
+			value: {
+				type: 'failed',
+				modelProvider,
+				reason: { type: 'model-provider-auth-secret-missing', secretId: error.id },
+			},
 		}
 	}
 	if (error.type === 'resource-archived') {
 		return {
 			ok: true,
-			value: { type: 'failed', modelProvider, reason: { type: 'model-provider-auth-secret-inactive', secretId: error.id } },
+			value: {
+				type: 'failed',
+				modelProvider,
+				reason: { type: 'model-provider-auth-secret-inactive', secretId: error.id },
+			},
 		}
 	}
 	return { ok: false, error }
@@ -176,7 +200,11 @@ async function validateModelProviderHeaderSecrets(
 				value: {
 					type: 'failed',
 					modelProvider,
-					reason: { type: 'model-provider-header-secret-missing', secretId: error.id, headerName: header.name },
+					reason: {
+						type: 'model-provider-header-secret-missing',
+						secretId: error.id,
+						headerName: header.name,
+					},
 				},
 			}
 		}
@@ -186,7 +214,11 @@ async function validateModelProviderHeaderSecrets(
 				value: {
 					type: 'failed',
 					modelProvider,
-					reason: { type: 'model-provider-header-secret-inactive', secretId: error.id, headerName: header.name },
+					reason: {
+						type: 'model-provider-header-secret-inactive',
+						secretId: error.id,
+						headerName: header.name,
+					},
 				},
 			}
 		}
@@ -214,7 +246,8 @@ function secretValueRef(secret: { id: string; valueRef: string }): ResolvableSec
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { context, createTestCoreRuntime, createTestCoreServices, seedSecret, stamp } = await import('../utils/test-helpers')
+	const { context, createTestCoreRuntime, createTestCoreServices, seedSecret, stamp } =
+		await import('../utils/test-helpers')
 
 	describe('preflightModel command', () => {
 		it('validates input before reading storage', async () => {
@@ -222,7 +255,10 @@ if (import.meta.vitest) {
 
 			const result = await command({} as never, context)
 
-			expect(result).toMatchObject({ ok: false, error: { type: 'invalid-input', boundary: 'command', operation: 'preflightModel' } })
+			expect(result).toMatchObject({
+				ok: false,
+				error: { type: 'invalid-input', boundary: 'command', operation: 'preflightModel' },
+			})
 		})
 
 		it('returns not-found when the target Model does not exist', async () => {
@@ -230,7 +266,10 @@ if (import.meta.vitest) {
 
 			const result = await command({ modelId: '01k00000000000000000000024' }, context)
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'model', id: '01k00000000000000000000024' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'model', id: '01k00000000000000000000024' },
+			})
 		})
 
 		it('returns not-found when the referenced Model Provider does not exist', async () => {
@@ -248,20 +287,30 @@ if (import.meta.vitest) {
 
 		it('returns failed evidence when the Model is archived', async () => {
 			const options = modelFixture({ modelArchived: true })
-			const command = createPreflightModelCommand(createTestCoreRuntime(options, { providers: neverCalledProviders(options) }))
+			const command = createPreflightModelCommand(
+				createTestCoreRuntime(options, { providers: neverCalledProviders(options) }),
+			)
 
 			const result = await command({ modelId: '01k00000000000000000000024' }, context)
 
-			expect(result).toEqual({ ok: true, value: modelPreflightEvidence(false, 'OpenAI Responses Model is archived.') })
+			expect(result).toEqual({
+				ok: true,
+				value: modelPreflightEvidence(false, 'OpenAI Responses Model is archived.'),
+			})
 		})
 
 		it('returns failed evidence when the Model Provider is archived', async () => {
 			const options = modelFixture({ providerArchived: true })
-			const command = createPreflightModelCommand(createTestCoreRuntime(options, { providers: neverCalledProviders(options) }))
+			const command = createPreflightModelCommand(
+				createTestCoreRuntime(options, { providers: neverCalledProviders(options) }),
+			)
 
 			const result = await command({ modelId: '01k00000000000000000000024' }, context)
 
-			expect(result).toEqual({ ok: true, value: modelPreflightEvidence(false, 'OpenAI Responses Model Provider is archived.') })
+			expect(result).toEqual({
+				ok: true,
+				value: modelPreflightEvidence(false, 'OpenAI Responses Model Provider is archived.'),
+			})
 		})
 
 		it('returns failed evidence when configured thinking support is unsupported by the Model Provider Protocol', async () => {
@@ -274,7 +323,9 @@ if (import.meta.vitest) {
 				...options.tx.models.records.get('01k00000000000000000000024')!,
 				capabilities: { ...defaultModelCapabilities, thinking: { supportedLevels: ['xhigh'] } },
 			})
-			const command = createPreflightModelCommand(createTestCoreRuntime(options, { providers: neverCalledProviders(options) }))
+			const command = createPreflightModelCommand(
+				createTestCoreRuntime(options, { providers: neverCalledProviders(options) }),
+			)
 
 			const result = await command({ modelId: '01k00000000000000000000024' }, context)
 
@@ -287,7 +338,9 @@ if (import.meta.vitest) {
 		it('returns failed evidence when the auth Secret is missing', async () => {
 			const options = modelFixture()
 			seedSecret(options.tx, '01k00000000000000000000041')
-			const command = createPreflightModelCommand(createTestCoreRuntime(options, { providers: neverCalledProviders(options) }))
+			const command = createPreflightModelCommand(
+				createTestCoreRuntime(options, { providers: neverCalledProviders(options) }),
+			)
 
 			const result = await command({ modelId: '01k00000000000000000000024' }, context)
 
@@ -301,7 +354,9 @@ if (import.meta.vitest) {
 			const options = modelFixture()
 			seedSecret(options.tx, '01k00000000000000000000040')
 			seedSecret(options.tx, '01k00000000000000000000041', true)
-			const command = createPreflightModelCommand(createTestCoreRuntime(options, { providers: neverCalledProviders(options) }))
+			const command = createPreflightModelCommand(
+				createTestCoreRuntime(options, { providers: neverCalledProviders(options) }),
+			)
 
 			const result = await command({ modelId: '01k00000000000000000000024' }, context)
 
@@ -335,7 +390,10 @@ if (import.meta.vitest) {
 
 			const result = await command({ modelId: '01k00000000000000000000024' }, context)
 
-			expect(result).toEqual({ ok: true, value: modelPreflightEvidence(true, 'OpenAI Responses model preflight passed.') })
+			expect(result).toEqual({
+				ok: true,
+				value: modelPreflightEvidence(true, 'OpenAI Responses model preflight passed.'),
+			})
 			expect(providerTransactionCalls).toBe(1)
 		})
 
@@ -364,7 +422,10 @@ if (import.meta.vitest) {
 
 			const result = await command({ modelId: '01k00000000000000000000024' }, context)
 
-			expect(result).toEqual({ ok: true, value: modelPreflightEvidence(false, 'OpenAI Responses model was not found.') })
+			expect(result).toEqual({
+				ok: true,
+				value: modelPreflightEvidence(false, 'OpenAI Responses model was not found.'),
+			})
 		})
 
 		it('returns invalid Core Service Output from Secret value resolution', async () => {
@@ -387,7 +448,10 @@ if (import.meta.vitest) {
 	function modelFixture(options: { modelArchived?: boolean; providerArchived?: boolean } = {}) {
 		const services = createTestCoreServices()
 		services.tx.models.records.set('01k00000000000000000000024', modelRecord(options.modelArchived))
-		services.tx.modelProviders.records.set('01k00000000000000000000027', modelProviderRecord(options.providerArchived))
+		services.tx.modelProviders.records.set(
+			'01k00000000000000000000027',
+			modelProviderRecord(options.providerArchived),
+		)
 		return services
 	}
 
@@ -412,7 +476,9 @@ if (import.meta.vitest) {
 			name: 'OpenAI',
 			source: { type: 'openai-responses' },
 			auth: { value: { type: 'secret', secretId: '01k00000000000000000000040' } },
-			headers: [{ name: 'OpenAI-Organization', value: { type: 'secret', secretId: '01k00000000000000000000041' } }],
+			headers: [
+				{ name: 'OpenAI-Organization', value: { type: 'secret', secretId: '01k00000000000000000000041' } },
+			],
 			providerOptions: null,
 			created: stamp,
 			updated: null,

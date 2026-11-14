@@ -2,7 +2,11 @@ import type { WorkspaceMutationKind } from './registry'
 
 type CoordinatedExecution<T> =
 	| { workspaceMutationKind: Extract<WorkspaceMutationKind, 'read-only'>; execute: () => Promise<T> }
-	| { workspaceMutationKind: Extract<WorkspaceMutationKind, 'file-mutator'>; mutationKey: string; execute: () => Promise<T> }
+	| {
+			workspaceMutationKind: Extract<WorkspaceMutationKind, 'file-mutator'>
+			mutationKey: string
+			execute: () => Promise<T>
+	  }
 	| { workspaceMutationKind: Extract<WorkspaceMutationKind, 'global-mutator'>; execute: () => Promise<T> }
 
 export class AgentRunToolExecutionCoordinator {
@@ -29,7 +33,8 @@ export class AgentRunToolExecutionCoordinator {
 		const completion = result.then(ignoreFulfilled, ignoreRejected)
 		this.#fileQueuesByMutationKey.set(mutationKey, completion)
 		void completion.then(() => {
-			if (this.#fileQueuesByMutationKey.get(mutationKey) === completion) this.#fileQueuesByMutationKey.delete(mutationKey)
+			if (this.#fileQueuesByMutationKey.get(mutationKey) === completion)
+				this.#fileQueuesByMutationKey.delete(mutationKey)
 		})
 		return result
 	}

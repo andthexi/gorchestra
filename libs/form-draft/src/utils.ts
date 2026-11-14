@@ -48,7 +48,9 @@ export function firstNonEmptyError(errors: Record<string, string>): string {
 	return Object.values(errors).find((error) => error.length > 0) ?? ''
 }
 
-export function createInitialValidities<Fields extends object>(fields: Fields): Record<keyof Fields, InitialValidationResult> {
+export function createInitialValidities<Fields extends object>(
+	fields: Fields,
+): Record<keyof Fields, InitialValidationResult> {
 	return Object.keys(fields).reduce(
 		(acc, key) => ({ ...acc, [key]: { valid: true, value: undefined } }),
 		{} as Record<keyof Fields, InitialValidationResult>,

@@ -2,7 +2,12 @@ import { v, type PipeInput, type PipeOutput } from 'valleyed'
 
 import { idPipe, paginatedQueryEnvelopePipe, paginatedQueryInputPipe } from '../domain/commons'
 import { memoryPipe, type Memory } from '../domain/memory'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { buildQueryHandler } from '../utils/query-handler'
 import { getRequired, listRecordsPaginated } from '../utils/storage/helpers'
 import type { CoreTransactions } from '../utils/transactions'
@@ -13,7 +18,8 @@ export type Input = UndefinedToOptional<PipeInput<typeof inputPipe>>
 
 export const resultPipe = paginatedQueryEnvelopePipe(memoryPipe)
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createListMemoryChildrenQuery(transactions: CoreTransactions): Operation {
@@ -54,7 +60,11 @@ if (import.meta.vitest) {
 			const options = createTestCoreServices()
 			const memoryB = memory({ id: '01k00000000000000000100002', parentId: null, title: 'Beta' })
 			const memoryA = memory({ id: '01k00000000000000000100001', parentId: null, title: 'Alpha' })
-			const memoryChild = memory({ id: '01k00000000000000000100004', parentId: '01k00000000000000000100001', title: 'Child' })
+			const memoryChild = memory({
+				id: '01k00000000000000000100004',
+				parentId: '01k00000000000000000100001',
+				title: 'Child',
+			})
 			options.tx.memories.records.set(memoryB.id, memoryB)
 			options.tx.memories.records.set(memoryA.id, memoryA)
 			options.tx.memories.records.set(memoryChild.id, memoryChild)
@@ -77,7 +87,8 @@ if (import.meta.vitest) {
 			const childA = memory({ id: '01k00000000000000000100005', parentId: parent.id, title: 'Alpha' })
 			const childB = memory({ id: '01k00000000000000000100006', parentId: parent.id, title: 'Beta' })
 			const grandchild = memory({ id: '01k00000000000000000100007', parentId: childA.id, title: 'Grandchild' })
-			for (const record of [parent, childB, childA, grandchild]) options.tx.memories.records.set(record.id, record)
+			for (const record of [parent, childB, childA, grandchild])
+				options.tx.memories.records.set(record.id, record)
 
 			const result = await createListMemoryChildrenQuery(options.transactions)({ parentId: parent.id })
 
@@ -96,7 +107,10 @@ if (import.meta.vitest) {
 				parentId: '01k00000000000000000100054',
 			})
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'memory', id: '01k00000000000000000100054' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'memory', id: '01k00000000000000000100054' },
+			})
 		})
 
 		it('returns storage errors from child listing', async () => {
@@ -114,7 +128,12 @@ if (import.meta.vitest) {
 			id: input.id,
 			parentId: input.parentId,
 			created: stamp,
-			currentRevision: { id: `${input.id}-revision`, title: input.title, body: `${input.title} body`, created: stamp },
+			currentRevision: {
+				id: `${input.id}-revision`,
+				title: input.title,
+				body: `${input.title} body`,
+				created: stamp,
+			},
 		}
 	}
 }

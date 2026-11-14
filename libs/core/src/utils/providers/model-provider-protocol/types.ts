@@ -4,7 +4,11 @@ import type { ModelProviderGenerationFailureReason, TurnErrorReason } from '../.
 import type { Id } from '../../../domain/commons'
 import type { Model } from '../../../domain/model'
 import type { ModelProvider, ModelProviderProtocol } from '../../../domain/model-provider'
-import type { InvalidCoreServiceOutputError, ModelThinkingLevelUnavailableError, StorageOperationFailedError } from '../../../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	ModelThinkingLevelUnavailableError,
+	StorageOperationFailedError,
+} from '../../../errors'
 import type { ResolvableSecretValue } from '../../../services'
 import type { ModelAgentTurnThinking } from '../../runtime/agent-runs/types'
 import type { Result } from '../../types'
@@ -67,12 +71,18 @@ export interface ModelProviderProtocolProviders {
 	): Promise<Result<ModelProviderProtocolPreflight, ModelProviderProtocolPreflightError>>
 	resolveLanguageModel(
 		input: Omit<Extract<AISDKLanguageModelResolutionInput, { mode: 'agent-run' }>, 'access'>,
-	): Promise<Result<AISDKLanguageModelResolution | TurnErrorReason, ResolveAISDKLanguageModelError | ModelAgentTurnAccessError>>
+	): Promise<
+		Result<
+			AISDKLanguageModelResolution | TurnErrorReason,
+			ResolveAISDKLanguageModelError | ModelAgentTurnAccessError
+		>
+	>
 }
 
-export type ModelProviderProtocolProviderResolveInput<Protocol extends ModelProviderProtocol> = AISDKLanguageModelResolutionInput & {
-	protocol: Protocol
-}
+export type ModelProviderProtocolProviderResolveInput<Protocol extends ModelProviderProtocol> =
+	AISDKLanguageModelResolutionInput & {
+		protocol: Protocol
+	}
 
 export interface ModelProviderProtocolProvider<Protocol extends ModelProviderProtocol> {
 	resolveLanguageModel(

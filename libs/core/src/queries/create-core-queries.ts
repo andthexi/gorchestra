@@ -1,3 +1,4 @@
+import type { CoreRuntime } from '../utils/runtime'
 import { createGetAgentRunQuery } from './get-agent-run'
 import { createGetAgentRunProfileQuery } from './get-agent-run-profile'
 import { createGetDeliveryQuery } from './get-delivery'
@@ -21,7 +22,6 @@ import { createListProjectsQuery } from './list-projects'
 import { createListRepositoriesQuery } from './list-repositories'
 import { createListSecretReferencesQuery } from './list-secret-references'
 import { createListSecretsQuery } from './list-secrets'
-import type { CoreRuntime } from '../utils/runtime'
 
 export function createCoreQueries(runtime: CoreRuntime) {
 	const transactions = runtime.transactions

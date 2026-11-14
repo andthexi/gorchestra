@@ -2,7 +2,8 @@ import type { ServerSocketIdentity } from '../composables/core/server-socket'
 
 type ServerSocketSessionState = { authenticated: false } | { authenticated: true; session: { sessionId: string } }
 
-type ServerSocketSelectionState = { selected: false } | { selected: true; workspace: { id: string }; portfolio: { id: string } }
+type ServerSocketSelectionState =
+	{ selected: false } | { selected: true; workspace: { id: string }; portfolio: { id: string } }
 
 type SelectedRouteAccess = { ready: true } | { ready: false; redirect: '/sign-in' | '/select' }
 
@@ -37,7 +38,9 @@ export function selectedServerSocketIdentityOrNull(
 	session: ServerSocketSessionState | null,
 	selection: ServerSocketSelectionState | null,
 ): ServerSocketIdentity | null {
-	return session?.authenticated === true && selection?.selected === true ? selectedServerSocketIdentity(session, selection) : null
+	return session?.authenticated === true && selection?.selected === true
+		? selectedServerSocketIdentity(session, selection)
+		: null
 }
 
 export async function runWithServerSocketDisconnected<T>(input: {

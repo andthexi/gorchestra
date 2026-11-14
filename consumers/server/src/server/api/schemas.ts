@@ -62,4 +62,7 @@ export const noContentResponseSchema = v.any<undefined>()
 
 export const sessionResponseCookieSchema = v.object({ [sessionCookieName]: v.string() })
 export const selectionResponseCookieSchema = v.object({ [selectionCookieName]: v.string() })
-export const signedOutResponseCookieSchema = v.object({ [sessionCookieName]: v.string(), [selectionCookieName]: v.string() })
+export const signedOutResponseCookieSchema = v.object({
+	[sessionCookieName]: v.string(),
+	[selectionCookieName]: v.string(),
+})

@@ -1,9 +1,9 @@
 import { v, type PipeOutput } from 'valleyed'
 
+import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 import { auditStampPipe, idPipe, positiveIntegerPipe, runtimeRecordPipe } from './commons'
 import { dispatchRequestTypePipe, safeDispatchCategoryPipe, safeDispatchSummaryPipe } from './dispatch-request'
 import { externalOperationEvidencePipe, validationEvidencePipe } from './evidence'
-import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 
 export { deliveryWorkOperationPipe, type DeliveryWorkOperation } from './delivery-work-operation'
 
@@ -35,7 +35,11 @@ export const actionResultPipe = v.discriminate((value) => value.type, {
 		sliceArtifactId: idPipe,
 		dispatch: v.nullable(deliveryWorkDispatchRefPipe),
 	}),
-	'start-revision-planning': v.object({ type: v.eq('start-revision-planning'), revisionGateId: idPipe, agentRunId: idPipe }),
+	'start-revision-planning': v.object({
+		type: v.eq('start-revision-planning'),
+		revisionGateId: idPipe,
+		agentRunId: idPipe,
+	}),
 	'validate-slice-artifact': v.object({
 		type: v.eq('validate-slice-artifact'),
 		sliceId: idPipe,
@@ -86,7 +90,11 @@ export const actionResultPipe = v.discriminate((value) => value.type, {
 		reviewSurfaceId: idPipe,
 		dispatch: v.nullable(deliveryWorkDispatchRefPipe),
 	}),
-	'start-revision-execution': v.object({ type: v.eq('start-revision-execution'), revisionId: idPipe, agentRunId: idPipe }),
+	'start-revision-execution': v.object({
+		type: v.eq('start-revision-execution'),
+		revisionId: idPipe,
+		agentRunId: idPipe,
+	}),
 	'record-slice-external-operation-failure': v.object({
 		type: v.eq('record-slice-external-operation-failure'),
 		sliceId: idPipe,

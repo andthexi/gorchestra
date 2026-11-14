@@ -2,6 +2,10 @@ import { Domain, Queries } from '@gorchestra/core'
 import { Router } from 'equipped/server'
 import { v } from 'valleyed'
 
+import type { ServerApiContext } from '../../context'
+import { throwCoreOperationError } from '../../errors'
+import { withSelectedPortfolioCore, withSelectedPortfolioOwnerCore } from '../../portfolio-context'
+import { coreIdPipe } from '../../schemas'
 import {
 	agentRunProfileRequestSchema,
 	portfolioRequestCookieSchema,
@@ -9,10 +13,6 @@ import {
 	type PortfolioRequestCookies,
 	type PaginatedQuery,
 } from './shared'
-import type { ServerApiContext } from '../../context'
-import { throwCoreOperationError } from '../../errors'
-import { withSelectedPortfolioCore, withSelectedPortfolioOwnerCore } from '../../portfolio-context'
-import { coreIdPipe } from '../../schemas'
 
 export function createAgentRunProfilesApiRouter(context: ServerApiContext) {
 	return new Router()
@@ -50,7 +50,9 @@ export function createAgentRunProfilesApiRouter(context: ServerApiContext) {
 				params: v.object({ agentRunProfileId: coreIdPipe }),
 				response: Queries.ListAgentRunProfileReferences.resultPipe,
 			},
-		})(async (req) => listSelectedPortfolioAgentRunProfileReferences(context, req.cookies, req.params.agentRunProfileId))
+		})(async (req) =>
+			listSelectedPortfolioAgentRunProfileReferences(context, req.cookies, req.params.agentRunProfileId),
+		)
 		.put('/agent-run-profiles/:agentRunProfileId', {
 			schema: {
 				cookies: portfolioRequestCookieSchema,
@@ -58,7 +60,9 @@ export function createAgentRunProfilesApiRouter(context: ServerApiContext) {
 				body: agentRunProfileRequestSchema,
 				response: Domain.AgentRunProfile.agentRunProfilePipe,
 			},
-		})(async (req) => updateSelectedPortfolioAgentRunProfile(context, req.cookies, req.params.agentRunProfileId, req.body))
+		})(async (req) =>
+			updateSelectedPortfolioAgentRunProfile(context, req.cookies, req.params.agentRunProfileId, req.body),
+		)
 		.post('/agent-run-profiles/:agentRunProfileId/archive', {
 			schema: {
 				cookies: portfolioRequestCookieSchema,

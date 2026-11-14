@@ -1,6 +1,5 @@
 import { v, type PipeInput, type PipeOutput } from 'valleyed'
 
-import type { WorkContext } from './types'
 import type { AgentRun } from '../domain/agent-run'
 import { idPipe, type Id } from '../domain/commons'
 import type {
@@ -19,6 +18,7 @@ import { runtimeRecord } from '../utils/runtime-values'
 import { getRequired } from '../utils/storage/helpers'
 import type { Result as CoreResult, UndefinedToOptional } from '../utils/types'
 import { buildWorkHandler } from '../utils/work-handler'
+import type { WorkContext } from './types'
 
 const inputPipe = v.object({ agentRunId: idPipe })
 type ParsedInput = PipeOutput<typeof inputPipe>
@@ -39,7 +39,8 @@ export function createReleaseAgentRunSandboxOperation(runtime: CoreRuntime): Ope
 		if (context.signal?.aborted === true) return dispatchAttemptAborted(context.correlationId ?? input.agentRunId)
 		const agentRun = await getRequired('agent-run', runtime.services.storage, input.agentRunId)
 		if (!agentRun.ok) return agentRun
-		if (agentRun.value.sandbox === null || agentRun.value.sandbox.released !== null) return { ok: true, value: undefined }
+		if (agentRun.value.sandbox === null || agentRun.value.sandbox.released !== null)
+			return { ok: true, value: undefined }
 
 		return reconcileSandboxRelease(runtime, { ...agentRun.value, sandbox: agentRun.value.sandbox }, context.signal)
 	})
@@ -50,7 +51,11 @@ async function reconcileSandboxRelease(
 	agentRun: AgentRunWithSandbox,
 	signal?: AbortSignal,
 ): Promise<CoreResult<void, Exclude<Error, InvalidInputError>>> {
-	const provider = await managedSandboxProviderForConfig(runtime, runtime.services.storage, agentRun.profile.sandboxConfig)
+	const provider = await managedSandboxProviderForConfig(
+		runtime,
+		runtime.services.storage,
+		agentRun.profile.sandboxConfig,
+	)
 	if (!provider.ok) {
 		return provider.error.type === 'sandbox-provider-resolution-failed'
 			? recordReleaseFailure(runtime, agentRun.id, provider.error.summary)
@@ -138,7 +143,8 @@ async function recordReleaseFailure(
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { createTestCoreRuntime, createTestCoreServices, testModelAgentRun, testRawSandbox } = await import('../utils/test-helpers')
+	const { createTestCoreRuntime, createTestCoreServices, testModelAgentRun, testRawSandbox } =
+		await import('../utils/test-helpers')
 
 	describe('releaseAgentRunSandbox work operation', () => {
 		it('validates input with the work boundary before reading storage', async () => {
@@ -180,11 +186,15 @@ if (import.meta.vitest) {
 			seedCreatedAgentRun(options)
 			const operation = createReleaseAgentRunSandboxOperation(createTestCoreRuntime(options))
 
-			await expect(operation({ agentRunId: '01k00000000000000000000002' }, { correlationId: null })).resolves.toEqual({
+			await expect(
+				operation({ agentRunId: '01k00000000000000000000002' }, { correlationId: null }),
+			).resolves.toEqual({
 				ok: true,
 				value: undefined,
 			})
-			await expect(operation({ agentRunId: '01k00000000000000000000002' }, { correlationId: null })).resolves.toEqual({
+			await expect(
+				operation({ agentRunId: '01k00000000000000000000002' }, { correlationId: null }),
+			).resolves.toEqual({
 				ok: true,
 				value: undefined,
 			})
@@ -202,7 +212,8 @@ if (import.meta.vitest) {
 			const options = createTestCoreServices({
 				sandbox: {
 					kind: 'consumer-managed',
-					create: () => Promise.resolve(rawSandbox(new Map(), () => Promise.resolve({ summary: 'released' }))),
+					create: () =>
+						Promise.resolve(rawSandbox(new Map(), () => Promise.resolve({ summary: 'released' }))),
 					find: () =>
 						released
 							? Promise.resolve(null)
@@ -220,7 +231,9 @@ if (import.meta.vitest) {
 			seedCreatedAgentRun(options)
 			const operation = createReleaseAgentRunSandboxOperation(createTestCoreRuntime(options))
 
-			await expect(operation({ agentRunId: '01k00000000000000000000002' }, { correlationId: null })).resolves.toEqual({
+			await expect(
+				operation({ agentRunId: '01k00000000000000000000002' }, { correlationId: null }),
+			).resolves.toEqual({
 				ok: true,
 				value: undefined,
 			})

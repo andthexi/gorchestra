@@ -10,11 +10,15 @@ export function instructionForProjectAndAgentRunPurpose(
 		case 'source-control':
 			return sourceControlInstruction(purpose)
 		default:
-			throw new Error(`No instruction is defined for project source type ${String(project.source.type satisfies never)}.`)
+			throw new Error(
+				`No instruction is defined for project source type ${String(project.source.type satisfies never)}.`,
+			)
 	}
 }
 
-function sourceControlInstruction(purpose: AgentRunPurpose): Extract<AgentRunEvent['body'], { type: 'instruction-snapshot' }> {
+function sourceControlInstruction(
+	purpose: AgentRunPurpose,
+): Extract<AgentRunEvent['body'], { type: 'instruction-snapshot' }> {
 	switch (purpose.type) {
 		case 'planning':
 			return {
@@ -26,38 +30,68 @@ function sourceControlInstruction(purpose: AgentRunPurpose): Extract<AgentRunEve
 			return {
 				type: 'instruction-snapshot',
 				instruction: { type: 'source-control-revision-planning', version: 1 },
-				parts: [{ type: 'text', text: 'Plan revision work for this Source Control Project when prompted.', metadata: null }],
+				parts: [
+					{
+						type: 'text',
+						text: 'Plan revision work for this Source Control Project when prompted.',
+						metadata: null,
+					},
+				],
 			}
 		case 'execution':
 			return {
 				type: 'instruction-snapshot',
 				instruction: { type: 'source-control-execution', version: 1 },
-				parts: [{ type: 'text', text: 'Execute the accepted Slice instruction provided in runtime input.', metadata: null }],
+				parts: [
+					{
+						type: 'text',
+						text: 'Execute the accepted Slice instruction provided in runtime input.',
+						metadata: null,
+					},
+				],
 			}
 		case 'revision-execution':
 			return {
 				type: 'instruction-snapshot',
 				instruction: { type: 'source-control-revision-execution', version: 1 },
-				parts: [{ type: 'text', text: 'Execute the accepted instruction provided in runtime input.', metadata: null }],
+				parts: [
+					{
+						type: 'text',
+						text: 'Execute the accepted instruction provided in runtime input.',
+						metadata: null,
+					},
+				],
 			}
 		default:
-			throw new Error(`No source control instruction is defined for agent run purpose type ${String(purpose satisfies never)}.`)
+			throw new Error(
+				`No source control instruction is defined for agent run purpose type ${String(purpose satisfies never)}.`,
+			)
 	}
 }
 
-export function sourceControlRevisionPlanningInstruction(): Extract<AgentRunEvent['body'], { type: 'instruction-snapshot' }> {
+export function sourceControlRevisionPlanningInstruction(): Extract<
+	AgentRunEvent['body'],
+	{ type: 'instruction-snapshot' }
+> {
 	return {
 		type: 'instruction-snapshot',
 		instruction: { type: 'source-control-revision-planning', version: 1 },
-		parts: [{ type: 'text', text: 'Plan revision work for this Source Control Project when prompted.', metadata: null }],
+		parts: [
+			{ type: 'text', text: 'Plan revision work for this Source Control Project when prompted.', metadata: null },
+		],
 	}
 }
 
-export function sourceControlSliceExecutionInstruction(): Extract<AgentRunEvent['body'], { type: 'instruction-snapshot' }> {
+export function sourceControlSliceExecutionInstruction(): Extract<
+	AgentRunEvent['body'],
+	{ type: 'instruction-snapshot' }
+> {
 	return {
 		type: 'instruction-snapshot',
 		instruction: { type: 'source-control-execution', version: 1 },
-		parts: [{ type: 'text', text: 'Execute the accepted Slice instruction provided in runtime input.', metadata: null }],
+		parts: [
+			{ type: 'text', text: 'Execute the accepted Slice instruction provided in runtime input.', metadata: null },
+		],
 	}
 }
 

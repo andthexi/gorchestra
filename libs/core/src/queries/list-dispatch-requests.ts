@@ -50,7 +50,9 @@ if (import.meta.vitest) {
 			const options = createTestCoreServices()
 			options.tx.dispatchRequests.fail.list = true
 
-			const result = await createListDispatchRequestsQuery(options.transactions)({ requestType: 'unknown' } as never)
+			const result = await createListDispatchRequestsQuery(options.transactions)({
+				requestType: 'unknown',
+			} as never)
 
 			expect(result).toMatchObject({
 				ok: false,

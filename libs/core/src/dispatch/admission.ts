@@ -1,10 +1,6 @@
 import { inc } from 'equipped/orm'
 import { v } from 'valleyed'
 
-import { admitDispatchCandidates } from './claims'
-import { failDispatchRequestWithEvidence, safeDispatchFailure, type DispatchFailureWriteError } from './failure'
-import { lockDispatchRequestLease } from './fence'
-import { appendBoundedDispatchAttemptHistory } from './history'
 import type { RuntimeRecord } from '../domain/commons'
 import { dispatchCoordinationId, dispatchCoordinationSchema } from '../domain/dispatch-coordination'
 import {
@@ -13,12 +9,21 @@ import {
 	type DispatchAttemptHistory,
 	type DispatchRequest,
 } from '../domain/dispatch-request'
-import type { DispatchFenceLostError, InvalidCoreServiceOutputError, InvariantViolationError, StorageOperationFailedError } from '../errors'
+import type {
+	DispatchFenceLostError,
+	InvalidCoreServiceOutputError,
+	InvariantViolationError,
+	StorageOperationFailedError,
+} from '../errors'
 import type { CoreRuntime } from '../utils/runtime'
 import { nextId, runtimeRecord } from '../utils/runtime-values'
 import { listRecords, updateRecord } from '../utils/storage/helpers'
 import type { CoreTransaction } from '../utils/transactions'
 import type { Result } from '../utils/types'
+import { admitDispatchCandidates } from './claims'
+import { failDispatchRequestWithEvidence, safeDispatchFailure, type DispatchFailureWriteError } from './failure'
+import { lockDispatchRequestLease } from './fence'
+import { appendBoundedDispatchAttemptHistory } from './history'
 
 export interface DispatchAdmissionInput {
 	availableSlots: number
@@ -88,7 +93,9 @@ async function lockDispatchCoordination(tx: CoreTransaction): Promise<Result<num
 			.one()
 			.id(dispatchCoordinationId)
 			.update({ revision: inc<typeof dispatchCoordinationSchema>(dispatchCoordinationSchema.fields.revision, 1) })
-		return coordination === null ? invariant('Dispatch Coordination singleton is missing.') : { ok: true, value: coordination.epoch }
+		return coordination === null
+			? invariant('Dispatch Coordination singleton is missing.')
+			: { ok: true, value: coordination.epoch }
 	} catch {
 		return storageUpdateFailure('dispatch-coordination', dispatchCoordinationId)
 	}
@@ -105,7 +112,8 @@ async function recoverExpiredDispatchLeases(
 	const validRequests = validatePersistedDispatchRequests(requests.value)
 	if (!validRequests.ok) return validRequests
 	for (const request of requests.value) {
-		if (request.lifecycle.type !== 'leased' || Date.parse(request.lifecycle.attempt.expiresAt) > Date.parse(now.at)) continue
+		if (request.lifecycle.type !== 'leased' || Date.parse(request.lifecycle.attempt.expiresAt) > Date.parse(now.at))
+			continue
 		if (input.locallyActiveAttemptTokens?.includes(request.lifecycle.attempt.token) === true) continue
 		const recovered = await recoverExpiredDispatchLease(runtime, tx, input, request, request.lifecycle.attempt, now)
 		if (!recovered.ok) return recovered
@@ -131,7 +139,10 @@ async function recoverExpiredDispatchLease(
 		{ tx, values: runtime.values },
 		{ ...request, expiredLeaseCount },
 		attempt,
-		safeDispatchFailure('dispatch-interruption-limit-exceeded', 'Dispatch processing exceeded the interrupted-attempt recovery limit.'),
+		safeDispatchFailure(
+			'dispatch-interruption-limit-exceeded',
+			'Dispatch processing exceeded the interrupted-attempt recovery limit.',
+		),
 	)
 }
 
@@ -199,7 +210,10 @@ function validatePersistedDispatchRequests(requests: DispatchRequest[]): Result<
 		: invariant('Persisted Dispatch Request state is incompatible.')
 }
 
-function storageUpdateFailure(resource: 'dispatch-coordination', id: string): Result<never, StorageOperationFailedError> {
+function storageUpdateFailure(
+	resource: 'dispatch-coordination',
+	id: string,
+): Result<never, StorageOperationFailedError> {
 	return { ok: false, error: { type: 'storage-operation-failed', operation: { type: 'update', resource, id } } }
 }
 
@@ -286,7 +300,10 @@ if (import.meta.vitest) {
 			})
 
 			expect(result).toEqual({ ok: true, value: [] })
-			expect(options.tx.dispatchRequests.records.get(activeRequest.id)?.lifecycle).toEqual({ type: 'leased', attempt })
+			expect(options.tx.dispatchRequests.records.get(activeRequest.id)?.lifecycle).toEqual({
+				type: 'leased',
+				attempt,
+			})
 		})
 
 		it('reclaims an expired lease with the next durable attempt number', async () => {
@@ -347,7 +364,9 @@ if (import.meta.vitest) {
 					failure: { category: 'dispatch-interruption-limit-exceeded' },
 				},
 			})
-			expect([...options.tx.agentRunEvents.records.values()].map((event) => event.body.type)).toEqual(['agent-run-dispatch-failed'])
+			expect([...options.tx.agentRunEvents.records.values()].map((event) => event.body.type)).toEqual([
+				'agent-run-dispatch-failed',
+			])
 		})
 	})
 }

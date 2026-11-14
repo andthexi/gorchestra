@@ -1,8 +1,17 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import { agentRunProfileReferencePipe, type AgentRunProfileReference, type AgentRunProfileReferenceRole } from '../domain/agent-run-profile'
+import {
+	agentRunProfileReferencePipe,
+	type AgentRunProfileReference,
+	type AgentRunProfileReferenceRole,
+} from '../domain/agent-run-profile'
 import { idPipe, type Id } from '../domain/commons'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { buildQueryHandler } from '../utils/query-handler'
 import { getRequired, listRecords } from '../utils/storage/helpers'
 import type { CoreTransactions } from '../utils/transactions'
@@ -13,7 +22,8 @@ export type Input = PipeOutput<typeof inputPipe>
 
 export const resultPipe = v.array(agentRunProfileReferencePipe)
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createListAgentRunProfileReferencesQuery(transactions: CoreTransactions): Operation {
@@ -75,7 +85,10 @@ type WorkConfigWithAgentRunProfileSelection = {
 	revisionExecutionAgentRunProfileId: Id | null
 }
 
-function matchingWorkConfigRoles(work: WorkConfigWithAgentRunProfileSelection, agentRunProfileId: Id): AgentRunProfileReferenceRole[] {
+function matchingWorkConfigRoles(
+	work: WorkConfigWithAgentRunProfileSelection,
+	agentRunProfileId: Id,
+): AgentRunProfileReferenceRole[] {
 	const roles: AgentRunProfileReferenceRole[] = []
 	if (work.executionAgentRunProfileId === agentRunProfileId) roles.push('execution')
 	if ((work.revisionExecutionAgentRunProfileId ?? work.executionAgentRunProfileId) === agentRunProfileId) {
@@ -162,7 +175,11 @@ if (import.meta.vitest) {
 		it('returns Project Config references for execution and effective revision execution roles', async () => {
 			const options = createTestCoreServices()
 			seedAgentRunProfile(options.tx, '01k00000000000000000000006', '01k00000000000000000000024')
-			seedProject(options.tx, '01k00000000000000000000030', defaultDeliveryWorkConfig('01k00000000000000000000006'))
+			seedProject(
+				options.tx,
+				'01k00000000000000000000030',
+				defaultDeliveryWorkConfig('01k00000000000000000000006'),
+			)
 			options.tx.projects.records.get('01k00000000000000000000030')!.title = 'Build API'
 			seedProject(options.tx, '01k00000000000000000000031', {
 				...defaultDeliveryWorkConfig('01k00000000000000000000007'),

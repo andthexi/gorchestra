@@ -2,6 +2,10 @@ import { Domain, Queries } from '@gorchestra/core'
 import { Router } from 'equipped/server'
 import { v } from 'valleyed'
 
+import type { ServerApiContext } from '../../context'
+import { throwCoreOperationError } from '../../errors'
+import { withSelectedPortfolioCore } from '../../portfolio-context'
+import { coreIdPipe } from '../../schemas'
 import {
 	createPlanRequestSchema,
 	portfolioRequestCookieSchema,
@@ -9,10 +13,6 @@ import {
 	type PaginatedQuery,
 	type PortfolioRequestCookies,
 } from './shared'
-import type { ServerApiContext } from '../../context'
-import { throwCoreOperationError } from '../../errors'
-import { withSelectedPortfolioCore } from '../../portfolio-context'
-import { coreIdPipe } from '../../schemas'
 
 export function createPlansApiRouter(context: ServerApiContext) {
 	return new Router()
@@ -68,7 +68,12 @@ function createSelectedProjectPlan(
 ): Promise<Domain.Plan.Plan> {
 	return withSelectedPortfolioCore(context, cookies, async ({ core, workspaceMember }) => {
 		const plan = await core.commands.createPlan(
-			{ projectId, title: input.title, initialMessage: input.initialMessage, agentRunProfileId: input.agentRunProfileId },
+			{
+				projectId,
+				title: input.title,
+				initialMessage: input.initialMessage,
+				agentRunProfileId: input.agentRunProfileId,
+			},
 			{ actor: { type: 'workspace-member', id: workspaceMember.id }, correlationId: null },
 		)
 		return plan.ok ? plan.value : throwCoreOperationError(plan.error)

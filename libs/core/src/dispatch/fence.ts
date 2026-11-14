@@ -11,14 +11,14 @@ import type {
 	StorageOperationFailedError,
 } from '../errors'
 import type { CoreStorage } from '../services'
-import { runInsideDispatchFencedWrite } from './attempt-context'
-import type { DispatchHandlerOutcome } from './handler'
-import { appendBoundedDispatchAttemptHistory } from './history'
 import type { CoreRuntime } from '../utils/runtime'
 import { runtimeRecord } from '../utils/runtime-values'
 import { updateRecord } from '../utils/storage/helpers'
 import type { CoreTransaction } from '../utils/transactions'
 import type { Result } from '../utils/types'
+import { runInsideDispatchFencedWrite } from './attempt-context'
+import type { DispatchHandlerOutcome } from './handler'
+import { appendBoundedDispatchAttemptHistory } from './history'
 
 export type DispatchAttemptControllerError<E> =
 	| E
@@ -29,7 +29,9 @@ export type DispatchAttemptControllerError<E> =
 	| InvariantViolationError
 
 export interface DispatchAttemptController {
-	runWrite<T, E>(operation: (tx: CoreTransaction) => Promise<Result<T, E>>): Promise<Result<T, DispatchAttemptControllerError<E>>>
+	runWrite<T, E>(
+		operation: (tx: CoreTransaction) => Promise<Result<T, E>>,
+	): Promise<Result<T, DispatchAttemptControllerError<E>>>
 	commitOutcome<E>(outcome: DispatchHandlerOutcome<E>): Promise<Result<void, DispatchAttemptControllerError<E>>>
 	readonly signal: AbortSignal
 	readonly request: DispatchRequest
@@ -109,7 +111,9 @@ export function createDispatchAttemptController(
 					lifecycle,
 				})
 				if (updated.ok) return { ok: true, value: undefined }
-				return updated.error.type === 'not-found' ? fenceLost(request.id, attempt.number) : { ok: false, error: updated.error }
+				return updated.error.type === 'not-found'
+					? fenceLost(request.id, attempt.number)
+					: { ok: false, error: updated.error }
 			})
 		},
 	}
@@ -169,13 +173,17 @@ function fenceLost(requestId: string, attemptNumber: number): Result<never, Disp
 	return { ok: false, error: { type: 'dispatch-fence-lost', requestId, attemptNumber } }
 }
 
-function storageFailure(resource: 'dispatch-request' | 'dispatch-coordination', id: string): Result<never, StorageOperationFailedError> {
+function storageFailure(
+	resource: 'dispatch-request' | 'dispatch-coordination',
+	id: string,
+): Result<never, StorageOperationFailedError> {
 	return { ok: false, error: { type: 'storage-operation-failed', operation: { type: 'update', resource, id } } }
 }
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { createTestCoreRuntime, createTestCoreServices, seedDispatchRequest, testId } = await import('../utils/test-helpers')
+	const { createTestCoreRuntime, createTestCoreServices, seedDispatchRequest, testId } =
+		await import('../utils/test-helpers')
 	const { createRecord } = await import('../utils/storage/helpers')
 
 	describe('Dispatch attempt fencing', () => {
@@ -241,9 +249,11 @@ if (import.meta.vitest) {
 				lifecycle: { type: 'leased', attempt },
 			})
 
-			const result = await createDispatchAttemptController(createTestCoreRuntime(options), request, attempt).runWrite(() =>
-				Promise.resolve({ ok: true, value: undefined }),
-			)
+			const result = await createDispatchAttemptController(
+				createTestCoreRuntime(options),
+				request,
+				attempt,
+			).runWrite(() => Promise.resolve({ ok: true, value: undefined }))
 
 			expect(result).toEqual({
 				ok: false,

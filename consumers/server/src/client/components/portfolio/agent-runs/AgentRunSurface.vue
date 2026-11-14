@@ -12,7 +12,8 @@
 						variant="secondary"
 						:loading="isLoadingAgentRunEvents"
 						:disabled="!hasNextAgentRunEvents"
-						@click="fetchNextAgentRunEvents()">
+						@click="fetchNextAgentRunEvents()"
+					>
 						Load older events
 					</UiButton>
 				</div>
@@ -24,62 +25,93 @@
 				v-else-if="isLoadingAgentRun && !hasLoadedAgentRun"
 				class="block border-b border-dimmer px-3 py-3"
 				tone="muted"
-				size="helper">
+				size="helper"
+			>
 				Loading Agent Run…
 			</UiText>
-			<UiText v-else-if="agentRunEventsError" class="block border-b border-dimmer px-3 py-3" tone="error" size="helper">
+			<UiText
+				v-else-if="agentRunEventsError"
+				class="block border-b border-dimmer px-3 py-3"
+				tone="error"
+				size="helper"
+			>
 				{{ agentRunEventsError }}
 			</UiText>
 			<UiText
 				v-else-if="isLoadingAgentRunEvents && !hasLoadedAgentRunEvents"
 				class="block border-b border-dimmer px-3 py-3"
 				tone="muted"
-				size="helper">
+				size="helper"
+			>
 				Loading Agent Run events…
 			</UiText>
-			<UiText v-else-if="!hasLoadedAgentRunEvents" class="block border-b border-dimmer px-3 py-3" tone="muted" size="helper">
+			<UiText
+				v-else-if="!hasLoadedAgentRunEvents"
+				class="block border-b border-dimmer px-3 py-3"
+				tone="muted"
+				size="helper"
+			>
 				Agent Run events have not loaded yet.
 			</UiText>
-			<UiText v-else-if="agentRunEvents.length === 0" class="block border-b border-dimmer px-3 py-3" tone="muted" size="helper">
+			<UiText
+				v-else-if="agentRunEvents.length === 0"
+				class="block border-b border-dimmer px-3 py-3"
+				tone="muted"
+				size="helper"
+			>
 				No Agent Run events returned.
 			</UiText>
 			<ol v-else class="m-0 grid list-none p-0 text-sz-helper">
 				<li
 					v-for="event in agentRunEvents"
 					:key="event.id"
-					class="wrap-break-word border-b border-dimmer px-3 py-2 last:border-b-0">
-					<span class="font-mono text-sz-micro text-dim">#{{ event.id }} · {{ eventTitle(event) }} · {{ event.id }}</span>
-					<pre class="m-0 mt-1 max-h-36 overflow-auto whitespace-pre-wrap font-mono text-sz-micro text-card-contrast">{{
-						eventSummary(event)
-					}}</pre>
+					class="wrap-break-word border-b border-dimmer px-3 py-2 last:border-b-0"
+				>
+					<span class="font-mono text-sz-micro text-dim"
+						>#{{ event.id }} · {{ eventTitle(event) }} · {{ event.id }}</span
+					>
+					<pre
+						class="m-0 mt-1 max-h-36 overflow-auto whitespace-pre-wrap font-mono text-sz-micro text-card-contrast"
+						>{{ eventSummary(event) }}</pre>
 					<div v-if="eventImages(event).length > 0" class="mt-2 grid gap-2">
 						<figure
 							v-for="image in eventImages(event)"
 							:key="image.key"
-							class="m-0 rounded-md border border-dimmer bg-card-contrast/5 p-2">
-							<figcaption v-if="image.note" class="mb-2 text-sz-micro text-dim">{{ image.note }}</figcaption>
+							class="m-0 rounded-md border border-dimmer bg-card-contrast/5 p-2"
+						>
+							<figcaption v-if="image.note" class="mb-2 text-sz-micro text-dim">
+								{{ image.note }}
+							</figcaption>
 							<img
 								:src="image.src"
 								:alt="image.alt"
-								class="max-h-80 max-w-full rounded border border-dimmer object-contain" />
+								class="max-h-80 max-w-full rounded border border-dimmer object-contain"
+							/>
 						</figure>
 					</div>
 				</li>
 			</ol>
 		</section>
 
-		<UiForm v-if="isComposerVisible" class="border-b border-dimmer px-3 py-3" @submit.prevent="sendAgentRunMessage()">
-			<UiFormGroup for-id="agent-run-message" :error="agentRunMessageForm.errors.text">
+		<UiForm
+			v-if="isComposerVisible"
+			class="border-b border-dimmer px-3 py-3"
+			@submit.prevent="sendAgentRunMessage()"
+		>
+			<UiFormGroup forId="agent-run-message" :error="agentRunMessageForm.errors.text">
 				<UiTextarea
 					id="agent-run-message"
 					v-model="agentRunMessageForm.text"
 					rows="5"
 					placeholder="Send a follow-up instruction…"
 					:invalid="!!agentRunMessageForm.errors.text"
-					:disabled="isComposerDisabled" />
+					:disabled="isComposerDisabled"
+				/>
 			</UiFormGroup>
 			<div class="flex flex-wrap items-center gap-3">
-				<UiButton type="submit" :loading="isSendingAgentRunMessage" :disabled="!canSendAgentRunMessage"> Send Message </UiButton>
+				<UiButton type="submit" :loading="isSendingAgentRunMessage" :disabled="!canSendAgentRunMessage">
+					Send Message
+				</UiButton>
 			</div>
 			<UiText v-if="sendAgentRunMessageError" class="block" tone="error" size="helper">
 				{{ sendAgentRunMessageError }}
@@ -111,9 +143,13 @@ const agentRunId = computed<string | null>(() => props.agentRunId)
 const { agentRun, isLoadingAgentRun, agentRunError, hasLoadedAgentRun } = useAgentRun(agentRunId)
 const isAgentRunClosed = computed(() => agentRun.value !== null && agentRun.value.completed !== null)
 const isInteractiveAgentRun = computed(
-	() => agentRun.value !== null && (agentRun.value.purpose.type === 'planning' || agentRun.value.purpose.type === 'revision-planning'),
+	() =>
+		agentRun.value !== null &&
+		(agentRun.value.purpose.type === 'planning' || agentRun.value.purpose.type === 'revision-planning'),
 )
-const isComposerVisible = computed(() => agentRun.value !== null && isInteractiveAgentRun.value && !isAgentRunClosed.value)
+const isComposerVisible = computed(
+	() => agentRun.value !== null && isInteractiveAgentRun.value && !isAgentRunClosed.value,
+)
 const toolSetLabel = computed(() => {
 	if (agentRun.value === null) return 'loading…'
 	return agentRun.value.toolSet.length === 0
@@ -128,7 +164,8 @@ const {
 	fetchNextAgentRunEvents,
 	hasNextAgentRunEvents,
 } = useAgentRunEvents(agentRunId)
-const { agentRunMessageForm, isSendingAgentRunMessage, sendAgentRunMessageError, sendAgentRunMessage } = useAgentRunMessageSend(agentRunId)
+const { agentRunMessageForm, isSendingAgentRunMessage, sendAgentRunMessageError, sendAgentRunMessage } =
+	useAgentRunMessageSend(agentRunId)
 const isComposerDisabled = computed(() => props.disabled || isSendingAgentRunMessage.value || !isComposerVisible.value)
 const canSendAgentRunMessage = computed(() => agentRunMessageForm.valid && !isComposerDisabled.value)
 
@@ -312,23 +349,38 @@ function commandOutputSummary(output: CommandToolOutput): string {
 	].join('\n')
 }
 
-function commandStreamSummary(label: 'stdout' | 'stderr', value: string | null, truncation: CommandToolOutput['stdoutTruncation']): string {
+function commandStreamSummary(
+	label: 'stdout' | 'stderr',
+	value: string | null,
+	truncation: CommandToolOutput['stdoutTruncation'],
+): string {
 	const body = value === null || value.length === 0 ? '(empty)' : value
-	return truncation === null || !truncation.truncated ? `${label}:\n${body}` : `${label}:\n${toolTruncationSummary(truncation)}\n${body}`
+	return truncation === null || !truncation.truncated
+		? `${label}:\n${body}`
+		: `${label}:\n${toolTruncationSummary(truncation)}\n${body}`
 }
 
 function toolTruncationSummary(truncation: ToolTruncation): string {
-	const original = truncation.originalLines === null ? 'unknown original line count' : `${truncation.originalLines} original lines`
+	const original =
+		truncation.originalLines === null ? 'unknown original line count' : `${truncation.originalLines} original lines`
 	const shown = truncation.outputLines === null ? 'stored output' : `${truncation.outputLines} stored lines`
 	return `[truncated using ${truncation.strategy}: ${shown} from ${original}]`
 }
 
 function imageOutputSummary(output: ImageToolOutput): string {
-	return [`[image: ${output.mimeType}]`, ...(output.note === null ? [] : [output.note]), '[preview rendered below]'].join('\n')
+	return [
+		`[image: ${output.mimeType}]`,
+		...(output.note === null ? [] : [output.note]),
+		'[preview rendered below]',
+	].join('\n')
 }
 
 function diffOutputSummary(output: Extract<ToolOutput, { type: 'diff' }>): string {
-	return [output.summary, `Diff:\n${output.diff}`, ...(output.patch === null ? [] : [`Patch:\n${output.patch}`])].join('\n\n')
+	return [
+		output.summary,
+		`Diff:\n${output.diff}`,
+		...(output.patch === null ? [] : [`Patch:\n${output.patch}`]),
+	].join('\n\n')
 }
 
 function eventImages(event: AgentRunEvent): EventImage[] {

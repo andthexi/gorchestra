@@ -1,9 +1,9 @@
+import type { OperationGroup } from '../../runtime/bind-tree'
 import { create } from './create'
 import { find } from './find'
 import { list } from './list'
 import { updateValue } from './update-value'
 import { usages } from './usages'
-import type { OperationGroup } from '../../runtime/bind-tree'
 
 export const secrets = {
 	title: 'Secrets',

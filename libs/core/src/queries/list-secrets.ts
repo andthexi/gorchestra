@@ -4,12 +4,12 @@ import { paginatedQueryEnvelopePipe, paginatedQueryInputPipe } from '../domain/c
 import { listedSecretPipe, type ListedSecret, type Secret, type SecretReference } from '../domain/secret'
 export type { ListedSecret } from '../domain/secret'
 import type { InvalidCoreServiceOutputError, InvalidInputError, StorageOperationFailedError } from '../errors'
-import { listSecretReferencesBySecretId } from './list-secret-references'
 import { isArchived } from '../utils/command-storage'
 import { buildQueryHandler } from '../utils/query-handler'
 import { listRecordsPaginated } from '../utils/storage/helpers'
 import type { CoreTransactions } from '../utils/transactions'
 import type { Result as CoreResult, UndefinedToOptional } from '../utils/types'
+import { listSecretReferencesBySecretId } from './list-secret-references'
 
 export const inputPipe = paginatedQueryInputPipe
 export type Input = UndefinedToOptional<PipeInput<typeof inputPipe>>
@@ -34,7 +34,9 @@ export function createListSecretsQuery(transactions: CoreTransactions): Operatio
 						ok: true,
 						value: {
 							...secrets.value,
-							items: secrets.value.items.map((secret) => listSecret(secret, references.value.get(secret.id) ?? [])),
+							items: secrets.value.items.map((secret) =>
+								listSecret(secret, references.value.get(secret.id) ?? []),
+							),
 						},
 					}
 				: references
@@ -93,7 +95,12 @@ if (import.meta.vitest) {
 			)
 			options.tx.secrets.records.set(
 				'01k00000000000000000100001',
-				secret({ id: '01k00000000000000000100001', name: 'Tie A', createdAt: '2026-06-09T00:00:00.000Z', archived: true }),
+				secret({
+					id: '01k00000000000000000100001',
+					name: 'Tie A',
+					createdAt: '2026-06-09T00:00:00.000Z',
+					archived: true,
+				}),
 			)
 			const query = createListSecretsQuery(options.transactions)
 
@@ -103,8 +110,16 @@ if (import.meta.vitest) {
 				ok: true,
 				value: {
 					items: [
-						redactedSecret({ id: '01k00000000000000000100003', name: 'Tie C', createdAt: '2026-06-09T00:00:00.000Z' }),
-						redactedSecret({ id: '01k00000000000000000100002', name: 'Later', createdAt: '2026-06-10T00:00:00.000Z' }),
+						redactedSecret({
+							id: '01k00000000000000000100003',
+							name: 'Tie C',
+							createdAt: '2026-06-09T00:00:00.000Z',
+						}),
+						redactedSecret({
+							id: '01k00000000000000000100002',
+							name: 'Later',
+							createdAt: '2026-06-10T00:00:00.000Z',
+						}),
 						redactedSecret({
 							id: '01k00000000000000000100001',
 							name: 'Tie A',
@@ -120,7 +135,10 @@ if (import.meta.vitest) {
 
 		it('includes Secret References for each listed Secret', async () => {
 			const options = createTestCoreServices()
-			options.tx.secrets.records.set('01k00000000000000000000040', secret({ id: '01k00000000000000000000040', name: 'GitHub PAT' }))
+			options.tx.secrets.records.set(
+				'01k00000000000000000000040',
+				secret({ id: '01k00000000000000000000040', name: 'GitHub PAT' }),
+			)
 			options.tx.repositories.records.set('01k00000000000000000000034', {
 				id: '01k00000000000000000000034',
 				projectId: '01k00000000000000000000030',
@@ -178,7 +196,9 @@ if (import.meta.vitest) {
 			created: { origin: 'imported', at: input.createdAt ?? stamp.at },
 			updated: null,
 			valueReplaced: null,
-			archivePeriods: input.archived ? [{ archived: { origin: 'imported', at: '2026-06-11T00:00:00.000Z' }, unarchived: null }] : [],
+			archivePeriods: input.archived
+				? [{ archived: { origin: 'imported', at: '2026-06-11T00:00:00.000Z' }, unarchived: null }]
+				: [],
 		}
 	}
 

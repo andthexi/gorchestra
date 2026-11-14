@@ -15,7 +15,8 @@ export const find = defineOperation({
 		const query = context.storage.on(memorySchema).one().id(input.memoryId)
 		const read = await storageCall(() => query.find())
 		if (!read.ok) return read
-		if (read.value === null) return { ok: false, error: { type: 'not-found', resource: 'memory' as const, id: input.memoryId } }
+		if (read.value === null)
+			return { ok: false, error: { type: 'not-found', resource: 'memory' as const, id: input.memoryId } }
 		return stored(memoryPipe, read.value)
 	},
 })

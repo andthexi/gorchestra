@@ -1,9 +1,9 @@
 import { v, type PipeOutput } from 'valleyed'
 
+import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 import { agentRunRuntimeRequirementsPipe, agentRunSandboxConfigPipe } from './agent-run-runtime'
 import { archivePeriodPipe, auditStampPipe, idPipe, nonEmptyTrimmedStringPipe } from './commons'
 import { modelUseConfigPipe } from './config'
-import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 
 export const agentRunProfileSchema = coreSchema('agent_run_profiles')
 	.field('name', nonEmptyTrimmedStringPipe)

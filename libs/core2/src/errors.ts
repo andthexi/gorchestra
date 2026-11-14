@@ -163,9 +163,12 @@ if (import.meta.vitest) {
 	})
 
 	it('preserves schema-authored wording without an independent catalog', () => {
-		const invalid = v.validate(v.object({ title: v.custom<string>((value) => typeof value === 'string', 'Expected title text.') }), {
-			title: null,
-		})
+		const invalid = v.validate(
+			v.object({ title: v.custom<string>((value) => typeof value === 'string', 'Expected title text.') }),
+			{
+				title: null,
+			},
+		)
 		if (invalid.valid) throw new Error('Expected invalid input in test')
 		expect(inputIssues(invalid.error)).toEqual([{ path: 'title', message: 'Expected title text.' }])
 	})
@@ -184,12 +187,20 @@ if (import.meta.vitest) {
 			v.validate(pipe, {
 				ok: false,
 				value: 'ignored wrong-branch value',
-				error: { type: 'revision-conflict', memoryId: '01k00000000000000000000001', expectedVersion: 1, actualVersion: 2 },
+				error: {
+					type: 'revision-conflict',
+					memoryId: '01k00000000000000000000001',
+					expectedVersion: 1,
+					actualVersion: 2,
+				},
 				raw: 'synthetic-secret',
 			}),
 		).toEqual({
 			valid: true,
-			value: { ok: false, error: { type: 'revision-conflict', memoryId: '01k00000000000000000000001', expectedVersion: 1 } },
+			value: {
+				ok: false,
+				error: { type: 'revision-conflict', memoryId: '01k00000000000000000000001', expectedVersion: 1 },
+			},
 		})
 		for (const candidate of [
 			null,
@@ -208,8 +219,15 @@ if (import.meta.vitest) {
 	})
 
 	it('keeps internal decoding-map failures type-only while public failures require identity', () => {
-		const value = { type: 'secret-decoding-failed', secretId: '01k00000000000000000000001', cause: 'synthetic-PROTECTED' }
-		expect(v.validate(internalSecretDecodingFailedPipe, value)).toEqual({ valid: true, value: { type: 'secret-decoding-failed' } })
+		const value = {
+			type: 'secret-decoding-failed',
+			secretId: '01k00000000000000000000001',
+			cause: 'synthetic-PROTECTED',
+		}
+		expect(v.validate(internalSecretDecodingFailedPipe, value)).toEqual({
+			valid: true,
+			value: { type: 'secret-decoding-failed' },
+		})
 		expect(v.validate(secretDecodingFailedPipe, { type: 'secret-decoding-failed' }).valid).toBe(false)
 	})
 
@@ -238,7 +256,14 @@ if (import.meta.vitest) {
 		['storage-not-initialized', storageNotInitializedPipe],
 		['schema-already-current', schemaAlreadyCurrentPipe],
 	])('keeps %s type-only without diagnostics', (type, pipe) => {
-		expect(v.validate(pipe, { type, id: 'synthetic-secret', cause: 'synthetic-reference', issues: ['synthetic-error'] })).toEqual({
+		expect(
+			v.validate(pipe, {
+				type,
+				id: 'synthetic-secret',
+				cause: 'synthetic-reference',
+				issues: ['synthetic-error'],
+			}),
+		).toEqual({
 			valid: true,
 			value: { type },
 		})
@@ -247,7 +272,11 @@ if (import.meta.vitest) {
 	})
 
 	it('reports conflicts with exact memory identity and expected version only', () => {
-		const error = { type: 'revision-conflict', memoryId: '01k00000000000000000000001', expectedVersion: 9007199254740991 }
+		const error = {
+			type: 'revision-conflict',
+			memoryId: '01k00000000000000000000001',
+			expectedVersion: 9007199254740991,
+		}
 		expect(v.validate(revisionConflictPipe, { ...error, actualVersion: 2, cause: 'synthetic-secret' })).toEqual({
 			valid: true,
 			value: error,
@@ -262,7 +291,9 @@ if (import.meta.vitest) {
 
 	it('reports duplicate targets with only the existing asset id', () => {
 		const error = { type: 'duplicate-asset-target', assetId: '01k00000000000000000000001' }
-		expect(v.validate(duplicateAssetPipe, { ...error, secretId: 'synthetic-secret', owner: 'synthetic-owner' })).toEqual({
+		expect(
+			v.validate(duplicateAssetPipe, { ...error, secretId: 'synthetic-secret', owner: 'synthetic-owner' }),
+		).toEqual({
 			valid: true,
 			value: error,
 		})
@@ -274,7 +305,10 @@ if (import.meta.vitest) {
 	it('requires a singular missing resource and exact Core id without owner disclosure', () => {
 		for (const resource of ['secret', 'project', 'asset', 'memory', 'memory-revision']) {
 			const error = { type: 'not-found', resource, id: '01k00000000000000000000001' }
-			expect(v.validate(notFoundPipe, { ...error, actualOwner: 'synthetic-secret' })).toEqual({ valid: true, value: error })
+			expect(v.validate(notFoundPipe, { ...error, actualOwner: 'synthetic-secret' })).toEqual({
+				valid: true,
+				value: error,
+			})
 		}
 		for (const candidate of [
 			{ type: 'not-found', resource: 'secrets', id: '01k00000000000000000000001' },
@@ -307,7 +341,9 @@ if (import.meta.vitest) {
 		['internal-error', internalErrorPipe],
 		['storage-operation-failed', storageOperationFailedPipe],
 	])('keeps shared failure %s type-only and exact', (type, pipe) => {
-		expect(v.validate(pipe, { type, message: 'synthetic-secret', cause: 'synthetic-ref', stack: 'synthetic-stack' })).toEqual({
+		expect(
+			v.validate(pipe, { type, message: 'synthetic-secret', cause: 'synthetic-ref', stack: 'synthetic-stack' }),
+		).toEqual({
 			valid: true,
 			value: { type },
 		})
@@ -363,7 +399,12 @@ if (import.meta.vitest) {
 		// Collect on this fixture only to exercise projection order; production keeps Valleyed defaults.
 		v.compile(pipe, { allErrors: true })
 		const invalid = v.validate(pipe, {
-			revision: { id: sentinel, title: { [sentinel]: sentinel }, version: { cause: sentinel }, [sentinel]: sentinel },
+			revision: {
+				id: sentinel,
+				title: { [sentinel]: sentinel },
+				version: { cause: sentinel },
+				[sentinel]: sentinel,
+			},
 			value: sentinel,
 			valueRef: sentinel,
 			cause: sentinel,

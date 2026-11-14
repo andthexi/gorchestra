@@ -108,7 +108,9 @@ export function createServerConsumer(input: ServerConsumerConfig) {
 
 			if (options.dev === true) {
 				let nuxtRuntime: NuxtDevRuntime | null = null
-				server.setNotFoundHandler(createDeferredServerConsumerNotFoundHandler(() => nuxtRuntime?.listener ?? null))
+				server.setNotFoundHandler(
+					createDeferredServerConsumerNotFoundHandler(() => nuxtRuntime?.listener ?? null),
+				)
 				server.onBeforeListen(async ({ httpServer, port }) => {
 					nuxtRuntime = await createNuxtDevRuntime({ httpServer, port })
 					Instance.on('close', async () => await nuxtRuntime?.close())
@@ -232,7 +234,12 @@ if (import.meta.vitest) {
 				}),
 			})
 
-			expect(calls).toEqual(['instance-start', 'server-storage-migrate', 'portfolio-supervision-start', 'http-listen'])
+			expect(calls).toEqual([
+				'instance-start',
+				'server-storage-migrate',
+				'portfolio-supervision-start',
+				'http-listen',
+			])
 		})
 
 		it('initiates ingress stop before draining Portfolio Core runtimes', async () => {

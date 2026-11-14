@@ -1,4 +1,3 @@
-import type { DeliveryContext } from './types'
 import type { AgentRunProfile } from '../../domain/agent-run-profile'
 import type { Id } from '../../domain/commons'
 import type { DeliveryWorkConfig, ModelUseConfig } from '../../domain/config'
@@ -14,6 +13,7 @@ import type {
 import type { CoreStorage } from '../../services'
 import { getRequired } from '../storage/helpers'
 import type { Result } from '../types'
+import type { DeliveryContext } from './types'
 
 export interface DeliveryWorkResolution {
 	workConfig: DeliveryWorkConfig
@@ -46,10 +46,7 @@ export type DeliveryPreflightSnapshot = string
 export type DeliveryPreflight = PassedDeliveryPreflight | FailedDeliveryPreflight
 
 export type DeliveryPreflightError =
-	| InvalidCoreServiceOutputError
-	| ResourceNotFoundError
-	| StorageOperationFailedError
-	| InvariantViolationError
+	InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError | InvariantViolationError
 
 const summaries = {
 	agentRunProfileArchived: 'Selected Delivery execution Agent Run Profile is archived.',
@@ -83,14 +80,20 @@ export async function resolveDeliveryWork(
 
 type SelectedModelFacts = { model: Model; modelProvider: ModelProvider }
 
-async function selectedAgentRunProfile(storage: CoreStorage, agentRunProfileId: Id): Promise<PreflightStep<AgentRunProfile>> {
+async function selectedAgentRunProfile(
+	storage: CoreStorage,
+	agentRunProfileId: Id,
+): Promise<PreflightStep<AgentRunProfile>> {
 	const profile = await getRequired('agent-run-profile', storage, agentRunProfileId)
 	if (!profile.ok) return profile
 
 	return isArchived(profile.value) ? ok(agentRunProfileArchived(agentRunProfileId)) : ok(profile.value)
 }
 
-async function selectedModelFacts(storage: CoreStorage, modelUse: ModelUseConfig): Promise<PreflightStep<SelectedModelFacts>> {
+async function selectedModelFacts(
+	storage: CoreStorage,
+	modelUse: ModelUseConfig,
+): Promise<PreflightStep<SelectedModelFacts>> {
 	const model = await selectedModel(storage, modelUse.modelId)
 	return model.ok ? selectedModelFactsAfterModel(storage, model.value) : model
 }
@@ -102,7 +105,10 @@ function selectedModelFactsAfterModel(
 	return isFailedDeliveryPreflight(model) ? ok(model) : selectedModelProviderFacts(storage, model)
 }
 
-async function selectedModelProviderFacts(storage: CoreStorage, model: Model): Promise<PreflightStep<SelectedModelFacts>> {
+async function selectedModelProviderFacts(
+	storage: CoreStorage,
+	model: Model,
+): Promise<PreflightStep<SelectedModelFacts>> {
 	const modelProvider = await selectedModelProvider(storage, model.providerId)
 	return modelProvider.ok ? selectedModelFactsAfterProvider(model, modelProvider.value) : modelProvider
 }
@@ -151,7 +157,11 @@ function modelProviderArchived(modelProviderId: Id): FailedDeliveryPreflight {
 	return failedPreflight(summaries.modelProviderArchived, { type: 'model-provider-archived', modelProviderId })
 }
 
-function failedPreflight(summary: string, reason: FailedDeliveryPreflightReason, snapshotInput: unknown = reason): FailedDeliveryPreflight {
+function failedPreflight(
+	summary: string,
+	reason: FailedDeliveryPreflightReason,
+	snapshotInput: unknown = reason,
+): FailedDeliveryPreflight {
 	return {
 		type: 'failed',
 		checks: [deliveryPreflightEvidence(false, summary)],
@@ -168,7 +178,11 @@ function deliveryPreflightEvidence(passed: boolean, summary: string): Validation
 	return validationEvidence('delivery-preflight', passed, summary)
 }
 
-function validationEvidence(operation: ValidationEvidence['operation']['type'], passed: boolean, summary: string): ValidationEvidence {
+function validationEvidence(
+	operation: ValidationEvidence['operation']['type'],
+	passed: boolean,
+	summary: string,
+): ValidationEvidence {
 	return { type: 'validation', operation: { type: operation }, passed, summary }
 }
 

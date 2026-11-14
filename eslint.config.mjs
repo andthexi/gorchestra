@@ -33,6 +33,7 @@ export default defineConfig([
 			'consumers/server/src/server/**/*.ts',
 			'consumers/server/*.ts',
 			'*.{mjs,cjs}',
+			'scripts/*.mjs',
 		],
 		extends: [node],
 	},
@@ -64,6 +65,19 @@ export default defineConfig([
 				project: './consumers/server/tsconfig.json',
 				projectService: false,
 				extraFileExtensions: ['.vue'],
+				tsconfigRootDir: import.meta.dirname,
+			},
+		},
+	},
+	{
+		files: ['libs/core2/src/**/*.ts'],
+		settings: {
+			'import-x/resolver-next': [createTypeScriptImportResolver({ project: 'libs/core2/tsconfig.json' })],
+		},
+		languageOptions: {
+			parserOptions: {
+				project: './libs/core2/tsconfig.json',
+				projectService: false,
 				tsconfigRootDir: import.meta.dirname,
 			},
 		},

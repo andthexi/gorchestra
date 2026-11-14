@@ -1,20 +1,6 @@
 import { Repo } from 'equipped/orm'
 import { InMemoryAdapter } from 'equipped/orm/adapters/in-memory'
 
-import { createNotificationEmitter } from './notification-emitter'
-import { createCoreProviders } from './providers'
-import type { CoreRuntime } from './runtime'
-import type { CoreRuntimeValues } from './runtime-values'
-import { noopRawSandboxInstance } from './sandbox-test-helpers'
-import { createCoreTransactions, type CoreTransactions } from './transactions'
-export {
-	deleteTestSandboxPath,
-	listTestSandboxDirectory,
-	noopRawSandboxInstance,
-	readTestSandboxFile,
-	testRawSandbox,
-	writeTestSandboxFile,
-} from './sandbox-test-helpers'
 import type { CommandContext } from '../commands/types'
 import type { Action } from '../domain/action'
 import type { AgentRun, AgentRunProfileSnapshot } from '../domain/agent-run'
@@ -27,7 +13,12 @@ import type { Delivery } from '../domain/delivery'
 import type { DeliveryArtifact } from '../domain/delivery-artifact'
 import type { DispatchCoordination } from '../domain/dispatch-coordination'
 import type { DispatchRequest } from '../domain/dispatch-request'
-import type { ExternalOperation, ExternalOperationEvidence, ValidationEvidence, ValidationOperation } from '../domain/evidence'
+import type {
+	ExternalOperation,
+	ExternalOperationEvidence,
+	ValidationEvidence,
+	ValidationOperation,
+} from '../domain/evidence'
 import type { Link } from '../domain/link'
 import type { Memory } from '../domain/memory'
 import type { MemoryRevision } from '../domain/memory-revision'
@@ -43,7 +34,22 @@ import type { Secret } from '../domain/secret'
 import type { Slice } from '../domain/slice'
 import type { SliceArtifact } from '../domain/slice-artifact'
 import type { CoreServices, CoreStorage, CoreStorageAdapter } from '../services'
+import { createNotificationEmitter } from './notification-emitter'
+import { createCoreProviders } from './providers'
+import type { CoreRuntime } from './runtime'
+import type { CoreRuntimeValues } from './runtime-values'
+import { noopRawSandboxInstance } from './sandbox-test-helpers'
 import { coreIdResourceSchemas } from './storage/schema-registry'
+import { createCoreTransactions, type CoreTransactions } from './transactions'
+
+export {
+	deleteTestSandboxPath,
+	listTestSandboxDirectory,
+	noopRawSandboxInstance,
+	readTestSandboxFile,
+	testRawSandbox,
+	writeTestSandboxFile,
+} from './sandbox-test-helpers'
 
 const {
 	action: actionSchema,
@@ -80,7 +86,11 @@ export function localStamp(): AuditStamp {
 	return { origin: 'local', at: '2026-06-10T12:00:00.000Z', actor: context.actor, correlationId: 'correlation-1' }
 }
 
-export function validationEvidence(operation: ValidationOperation['type'], passed: boolean, summary: string): ValidationEvidence {
+export function validationEvidence(
+	operation: ValidationOperation['type'],
+	passed: boolean,
+	summary: string,
+): ValidationEvidence {
 	return { type: 'validation', operation: { type: operation }, passed, summary }
 }
 
@@ -121,14 +131,24 @@ export function passingProviderBackedPreflightProviders(): CoreRuntime['provider
 	return {
 		sourceControl: {
 			preflightRepository: () =>
-				Promise.resolve({ ok: true, value: { type: 'passed', summary: 'GitHub repository preflight passed.' } }),
-			createArtifactBranch: () => Promise.resolve({ ok: true, value: { type: 'passed', mode: 'created', summary: 'created' } }),
+				Promise.resolve({
+					ok: true,
+					value: { type: 'passed', summary: 'GitHub repository preflight passed.' },
+				}),
+			createArtifactBranch: () =>
+				Promise.resolve({ ok: true, value: { type: 'passed', mode: 'created', summary: 'created' } }),
 			createReviewSurface: () =>
-				Promise.resolve({ ok: true, value: { type: 'review-surface', mode: 'created', pullRequestNumber: 1, summary: 'created' } }),
+				Promise.resolve({
+					ok: true,
+					value: { type: 'review-surface', mode: 'created', pullRequestNumber: 1, summary: 'created' },
+				}),
 		},
 		modelProviderProtocols: {
 			preflightModel: () =>
-				Promise.resolve({ ok: true, value: { type: 'passed', summary: 'Anthropic Messages model preflight passed.' } }),
+				Promise.resolve({
+					ok: true,
+					value: { type: 'passed', summary: 'Anthropic Messages model preflight passed.' },
+				}),
 			resolveLanguageModel: () => Promise.resolve({ ok: true, value: { type: 'runtime-error' } }),
 		},
 	}
@@ -146,9 +166,13 @@ export function failingProviderBackedPreflightProviders(): CoreRuntime['provider
 						summary: 'GitHub repository was not found.',
 					},
 				}),
-			createArtifactBranch: () => Promise.resolve({ ok: true, value: { type: 'passed', mode: 'created', summary: 'created' } }),
+			createArtifactBranch: () =>
+				Promise.resolve({ ok: true, value: { type: 'passed', mode: 'created', summary: 'created' } }),
 			createReviewSurface: () =>
-				Promise.resolve({ ok: true, value: { type: 'review-surface', mode: 'created', pullRequestNumber: 1, summary: 'created' } }),
+				Promise.resolve({
+					ok: true,
+					value: { type: 'review-surface', mode: 'created', pullRequestNumber: 1, summary: 'created' },
+				}),
 		},
 		modelProviderProtocols: {
 			preflightModel: () =>
@@ -224,7 +248,11 @@ export function createTestCoreStorage(): CoreStorage {
 	return createTestCoreStorageWithView().service
 }
 
-export function seedProject(tx: TestStorageTransaction, id: string, work: DeliveryWorkConfig = defaultDeliveryWorkConfig()) {
+export function seedProject(
+	tx: TestStorageTransaction,
+	id: string,
+	work: DeliveryWorkConfig = defaultDeliveryWorkConfig(),
+) {
 	const project: Project = {
 		id,
 		title: 'Project',
@@ -260,7 +288,12 @@ export function seedDelivery(tx: TestStorageTransaction, id: string) {
 	})
 }
 
-export function seedSlice(tx: TestStorageTransaction, id: string, deliveryId: string, order = nextSliceOrder(tx, deliveryId)) {
+export function seedSlice(
+	tx: TestStorageTransaction,
+	id: string,
+	deliveryId: string,
+	order = nextSliceOrder(tx, deliveryId),
+) {
 	tx.slices.records.set(id, {
 		id,
 		deliveryId,
@@ -281,7 +314,7 @@ export function seedAction(
 	tx.actions.records.set(id, { id, deliveryId: '01k00000000000000000000008', performed: { at }, authorized, result })
 }
 
-export function seedDispatchCoordination(
+function seedDispatchCoordination(
 	tx: TestStorageTransaction,
 	overrides: Partial<Omit<DispatchCoordination, 'id'>> = {},
 ): DispatchCoordination {
@@ -331,7 +364,7 @@ export function defaultAgentRunSandboxConfig(): AgentRunSandboxConfig {
 	}
 }
 
-export function testAgentRunProfileSnapshot(
+function testAgentRunProfileSnapshot(
 	agentRunProfileId = '01k00000000000000000000006',
 	modelId = '01k00000000000000000000024',
 	runtimeRequirements: AgentRunRuntimeRequirement[] = [],
@@ -618,7 +651,9 @@ function patchAdapterFailures(adapter: InMemoryAdapter, tx: TestStorageTransacti
 	}
 }
 
-function failureTables(tx: TestStorageTransaction): Map<string, { get?: boolean; put?: boolean; list?: boolean; delete?: boolean }> {
+function failureTables(
+	tx: TestStorageTransaction,
+): Map<string, { get?: boolean; put?: boolean; list?: boolean; delete?: boolean }> {
 	return new Map([
 		[projectSchema.name, tx.projects.fail],
 		[repositorySchema.name, tx.repositories.fail],

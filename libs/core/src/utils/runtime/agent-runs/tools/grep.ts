@@ -2,15 +2,15 @@ import { relative } from 'node:path/posix'
 
 import { v, type Pipe } from 'valleyed'
 
+import type { AgentRunToolOutput } from '../../../../domain/agent-run-event'
+import { nonEmptyTrimmedStringPipe, nonNegativeIntegerPipe, positiveIntegerPipe } from '../../../../domain/commons'
+import type { SandboxCommandOutput } from '../../../../services'
+import type { CoreAgentRunToolContext } from '../types'
 import { commandText, runNonRootWorkspaceShell, shellQuote } from './command'
 import { resolveWorkspaceToolPath } from './path-policy'
 import type { CoreAgentRunToolDefinition } from './registry'
 import { failInvalidInput, toolOutput } from './results'
 import { resultLimitTruncation, truncateLine, truncateSearchText } from './truncation'
-import type { AgentRunToolOutput } from '../../../../domain/agent-run-event'
-import { nonEmptyTrimmedStringPipe, nonNegativeIntegerPipe, positiveIntegerPipe } from '../../../../domain/commons'
-import type { SandboxCommandOutput } from '../../../../services'
-import type { CoreAgentRunToolContext } from '../types'
 
 const defaultGrepLimit = 100
 const grepTimeoutMs = 30_000
@@ -101,7 +101,10 @@ function grepOutput(output: SandboxCommandOutput, searchPath: string, limit: num
 		...(truncated.truncation === null ? [] : ['50KB output limit reached']),
 	]
 	return {
-		output: { type: 'text', value: `${truncated.content}${notices.length === 0 ? '' : `\n\n[${notices.join('. ')}]`}` },
+		output: {
+			type: 'text',
+			value: `${truncated.content}${notices.length === 0 ? '' : `\n\n[${notices.join('. ')}]`}`,
+		},
 		truncation: truncated.truncation ?? resultLimitTruncation(parsed.matchCount, limit, truncated.content),
 	}
 }
@@ -149,7 +152,9 @@ function grepLineFromEvent(event: Record<string, unknown>, searchPath: string): 
 }
 
 function formatGrepLine(line: GrepLine): string {
-	return line.kind === 'match' ? `${line.path}:${line.lineNumber}: ${line.text}` : `${line.path}-${line.lineNumber}- ${line.text}`
+	return line.kind === 'match'
+		? `${line.path}:${line.lineNumber}: ${line.text}`
+		: `${line.path}-${line.lineNumber}- ${line.text}`
 }
 
 function sanitizeLine(text: string): string {
@@ -207,11 +212,21 @@ if (import.meta.vitest) {
 			].join('\n')
 			const fixture = commandToolFixture({ exitCode: 0, summary: 'ok', stdout, stderr: null })
 			const output = await grepTool().execute(
-				{ pattern: 'value', path: 'src', glob: '*.ts', ignoreCase: true, literal: true, context: 0, limit: undefined },
+				{
+					pattern: 'value',
+					path: 'src',
+					glob: '*.ts',
+					ignoreCase: true,
+					literal: true,
+					context: 0,
+					limit: undefined,
+				},
 				fixture.context,
 			)
 			expect(output.output.type === 'text' && output.output.value).toContain('app.ts:7: const value =')
-			expect(output.output.type === 'text' && output.output.value).toContain('some lines truncated to 500 characters')
+			expect(output.output.type === 'text' && output.output.value).toContain(
+				'some lines truncated to 500 characters',
+			)
 			expect(fixture.commands[0]).toMatchObject({ root: false, timeoutMs: 30_000 })
 			expect(fixture.commands[0]?.command.args[1]).toContain("--glob '*.ts'")
 			expect(fixture.commands[0]?.command.args[1]).toContain('--fixed-strings')
@@ -243,7 +258,8 @@ if (import.meta.vitest) {
 						context: undefined,
 						limit: undefined,
 					},
-					commandToolFixture({ exitCode: 2, summary: 'regex', stdout: null, stderr: 'regex parse error' }).context,
+					commandToolFixture({ exitCode: 2, summary: 'regex', stdout: null, stderr: 'regex parse error' })
+						.context,
 				),
 			).rejects.toMatchObject({ reason: { type: 'invalid-input' } })
 		})

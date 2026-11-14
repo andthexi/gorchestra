@@ -1,3 +1,4 @@
+import type { CoreRuntime } from '../utils/runtime'
 import { createAbandonDeliveryCommand } from './abandon-delivery'
 import { createAcceptPlanOutputCommand } from './accept-plan-output'
 import { createAcceptRevisionOutputCommand } from './accept-revision-output'
@@ -42,7 +43,6 @@ import { createUpdateModelCommand } from './update-model'
 import { createUpdateModelProviderCommand } from './update-model-provider'
 import { createUpdateRepositoryConfigCommand } from './update-repository-config'
 import { createUpdateSecretMetadataCommand } from './update-secret-metadata'
-import type { CoreRuntime } from '../utils/runtime'
 
 export type * as AbandonDelivery from './abandon-delivery'
 export type * as AcceptPlanOutput from './accept-plan-output'
@@ -147,7 +147,10 @@ if (import.meta.vitest) {
 
 	describe('Core commands', () => {
 		it('returns an object with the expected command keys', () => {
-			const commands = createCoreCommands(createCoreRuntime(createTestCoreServices())) as unknown as Record<string, unknown>
+			const commands = createCoreCommands(createCoreRuntime(createTestCoreServices())) as unknown as Record<
+				string,
+				unknown
+			>
 			const commandNames = [
 				'createAgentRunProfile',
 				'updateAgentRunProfile',

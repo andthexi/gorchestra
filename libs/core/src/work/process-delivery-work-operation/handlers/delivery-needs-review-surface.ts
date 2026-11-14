@@ -1,14 +1,17 @@
-import { actionRecord, externalOperationEvidence } from './result'
 import type { Action } from '../../../domain/action'
 import type { DeliveryWorkState } from '../../../domain/delivery'
 import type { ReviewSurface } from '../../../domain/review-surface'
 import type { InvariantViolationError } from '../../../errors'
-import type { SourceControlCreateReviewSurfaceInput, SourceControlReviewSurfaceCreation } from '../../../utils/providers/source-control'
+import type {
+	SourceControlCreateReviewSurfaceInput,
+	SourceControlReviewSurfaceCreation,
+} from '../../../utils/providers/source-control'
 import type { CoreRuntime } from '../../../utils/runtime'
 import { nextId, runtimeRecord } from '../../../utils/runtime-values'
 import { createRecord } from '../../../utils/storage/helpers'
 import type { Result as CoreResult } from '../../../utils/types'
 import type { DeliveryWorkHandlerResult, ResolvedDeliveryHandlerContext } from '../../delivery-work/types'
+import { actionRecord, externalOperationEvidence } from './result'
 
 type DeliveryReviewSurfaceState = Extract<DeliveryWorkState, { type: 'needs-review-surface' }>
 
@@ -17,7 +20,10 @@ type DeliveryReviewSurfaceInput = SourceControlCreateReviewSurfaceInput & {
 	deliveryArtifactId: string
 }
 
-type DeliveryReviewSurfaceClaim = Pick<ResolvedDeliveryHandlerContext, 'deliveryContext' | 'repositoryAccessSecret' | 'operationId'> & {
+type DeliveryReviewSurfaceClaim = Pick<
+	ResolvedDeliveryHandlerContext,
+	'deliveryContext' | 'repositoryAccessSecret' | 'operationId'
+> & {
 	state: DeliveryReviewSurfaceState
 }
 
@@ -41,12 +47,17 @@ export async function handleDeliveryNeedsReviewSurface(
 	)
 }
 
-function deliveryReviewSurfaceInput(claim: DeliveryReviewSurfaceClaim): CoreResult<DeliveryReviewSurfaceInput, InvariantViolationError> {
+function deliveryReviewSurfaceInput(
+	claim: DeliveryReviewSurfaceClaim,
+): CoreResult<DeliveryReviewSurfaceInput, InvariantViolationError> {
 	const deliveryArtifact = claim.deliveryContext.deliveryArtifact
 	if (deliveryArtifact === null || deliveryArtifact.id !== claim.state.deliveryArtifactId) {
 		return {
 			ok: false,
-			error: { type: 'invariant-violation', message: 'Delivery Review Surface creation requires the claimed Delivery Artifact.' },
+			error: {
+				type: 'invariant-violation',
+				message: 'Delivery Review Surface creation requires the claimed Delivery Artifact.',
+			},
 		}
 	}
 
@@ -179,17 +190,26 @@ if (import.meta.vitest) {
 			})
 			if (!input.ok) throw new Error('Expected input.')
 
-			const result = await recordDeliveryReviewSurfaceCreationResult(context, needsReviewSurfaceState(), input.value, {
-				type: 'review-surface',
-				mode: 'created',
-				pullRequestNumber: 12,
-				summary: 'created',
-			})
+			const result = await recordDeliveryReviewSurfaceCreationResult(
+				context,
+				needsReviewSurfaceState(),
+				input.value,
+				{
+					type: 'review-surface',
+					mode: 'created',
+					pullRequestNumber: 12,
+					summary: 'created',
+				},
+			)
 
 			expect(result).toEqual({ ok: true, value: { processedCount: 1, failures: [] } })
 			expect(context.tx.reviewSurfaces.records.get('01k00000000000000000010001')).toEqual({
 				id: '01k00000000000000000010001',
-				scope: { type: 'delivery', deliveryId: '01k00000000000000000000008', deliveryArtifactId: '01k00000000000000000000010' },
+				scope: {
+					type: 'delivery',
+					deliveryId: '01k00000000000000000000008',
+					deliveryArtifactId: '01k00000000000000000000010',
+				},
 				config: {
 					provider: 'github',
 					pullRequestNumber: 12,
@@ -223,10 +243,15 @@ if (import.meta.vitest) {
 			})
 			if (!input.ok) throw new Error('Expected input.')
 
-			const result = await recordDeliveryReviewSurfaceCreationResult(context, needsReviewSurfaceState(), input.value, {
-				type: 'integrated',
-				summary: 'Already integrated.',
-			})
+			const result = await recordDeliveryReviewSurfaceCreationResult(
+				context,
+				needsReviewSurfaceState(),
+				input.value,
+				{
+					type: 'integrated',
+					summary: 'Already integrated.',
+				},
+			)
 
 			expect(result).toEqual({ ok: true, value: { processedCount: 1, failures: [] } })
 			expect(context.tx.actions.records.get('01k00000000000000000010001')?.result).toEqual({
@@ -250,11 +275,16 @@ if (import.meta.vitest) {
 			})
 			if (!input.ok) throw new Error('Expected input.')
 
-			const result = await recordDeliveryReviewSurfaceCreationResult(context, needsReviewSurfaceState(), input.value, {
-				type: 'failed',
-				reason: { type: 'provider-unavailable' },
-				summary: 'Failed.',
-			})
+			const result = await recordDeliveryReviewSurfaceCreationResult(
+				context,
+				needsReviewSurfaceState(),
+				input.value,
+				{
+					type: 'failed',
+					reason: { type: 'provider-unavailable' },
+					summary: 'Failed.',
+				},
+			)
 
 			expect(result).toEqual({
 				ok: true,

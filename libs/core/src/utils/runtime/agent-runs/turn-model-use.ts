@@ -1,4 +1,3 @@
-import type { AgentRunRuntimeError, ModelAgentTurnThinking } from './types'
 import type { AgentRun } from '../../../domain/agent-run'
 import type { Model, ModelThinkingLevel } from '../../../domain/model'
 import { modelProviderProtocolForSource, type ModelProvider } from '../../../domain/model-provider'
@@ -7,6 +6,7 @@ import type { CoreStorage } from '../../../services'
 import { validateModelThinkingLevelForUse } from '../../providers/model-provider-protocol/thinking'
 import { getRequired } from '../../storage/helpers'
 import type { Result } from '../../types'
+import type { AgentRunRuntimeError, ModelAgentTurnThinking } from './types'
 
 export type TurnModelUse = {
 	model: Model
@@ -16,7 +16,10 @@ export type TurnModelUse = {
 
 export type TurnModelUseError = AgentRunRuntimeError | ModelThinkingLevelUnavailableError | ModelNotSelectableError
 
-export async function loadTurnModelUse(storage: CoreStorage, agentRun: AgentRun): Promise<Result<TurnModelUse, TurnModelUseError>> {
+export async function loadTurnModelUse(
+	storage: CoreStorage,
+	agentRun: AgentRun,
+): Promise<Result<TurnModelUse, TurnModelUseError>> {
 	const modelUse = agentRun.modelUseOverride?.modelUse ?? agentRun.profile.modelUse
 	const model = await getRequired('model', storage, modelUse.modelId)
 	return model.ok ? loadTurnModelUseModel(storage, modelUse.thinkingLevel, model.value) : model
@@ -27,7 +30,8 @@ async function loadTurnModelUseModel(
 	thinkingLevel: ModelThinkingLevel,
 	model: Model,
 ): Promise<Result<TurnModelUse, TurnModelUseError>> {
-	if (isArchived(model)) return { ok: false, error: { type: 'model-not-selectable', modelId: model.id, reason: 'model-archived' } }
+	if (isArchived(model))
+		return { ok: false, error: { type: 'model-not-selectable', modelId: model.id, reason: 'model-archived' } }
 
 	const provider = await getRequired('model-provider', storage, model.providerId)
 	return provider.ok ? turnModelUseForProvider(thinkingLevel, model, provider.value) : provider
@@ -50,7 +54,11 @@ function resolveProviderTurnThinking(
 	modelProvider: ModelProvider,
 	thinkingLevel: ModelThinkingLevel,
 ): Result<ModelAgentTurnThinking, ModelThinkingLevelUnavailableError> {
-	const validation = validateModelThinkingLevelForUse(model, modelProviderProtocolForSource(modelProvider.source), thinkingLevel)
+	const validation = validateModelThinkingLevelForUse(
+		model,
+		modelProviderProtocolForSource(modelProvider.source),
+		thinkingLevel,
+	)
 	return validation.ok ? { ok: true, value: { level: thinkingLevel } } : validation
 }
 

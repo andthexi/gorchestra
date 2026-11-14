@@ -1,8 +1,6 @@
 import { OrmValidationError, type FilterGroup, type SchemaFields } from 'equipped/orm'
 import { PipeError } from 'valleyed'
 
-import { withExplicitCoreStorageId } from './schema'
-import { coreIdResourceSchemas, coreResourceSchemas, type CoreIdStorageRecord, type CoreStorageRecord } from './schema-registry'
 import { currentDispatchAttemptForWrite } from '../../dispatch/attempt-context'
 import type { Id, PaginatedQueryEnvelope, ParsedPaginatedQueryInput } from '../../domain/commons'
 import type {
@@ -15,6 +13,13 @@ import type {
 } from '../../errors'
 import type { CoreStorage } from '../../services'
 import type { Result } from '../types'
+import { withExplicitCoreStorageId } from './schema'
+import {
+	coreIdResourceSchemas,
+	coreResourceSchemas,
+	type CoreIdStorageRecord,
+	type CoreStorageRecord,
+} from './schema-registry'
 
 export type StorageBoundaryError = StorageOperationFailedError | InvalidCoreServiceOutputError
 
@@ -127,7 +132,11 @@ function listRecordsQuery<Resource extends CoreIdResource>(
 			: storage
 					.on(schema)
 					.all()
-					.where((filter) => options.where?.(filter, schema.fields as SchemaFields<CoreIdResourceSchema<Resource>>) ?? filter)
+					.where(
+						(filter) =>
+							options.where?.(filter, schema.fields as SchemaFields<CoreIdResourceSchema<Resource>>) ??
+							filter,
+					)
 
 	return applyListRecordsLimit(applyListRecordsOrdering(query, options.orderBy ?? []), options.limit)
 }
@@ -147,7 +156,10 @@ function applyListRecordsOrdering<
 	return orderBy.reduce((ordered, order) => ordered.orderBy(order.field, order.direction), query)
 }
 
-function applyListRecordsLimit<TQuery extends { limit(limit: number): TQuery }>(query: TQuery, limit: number | undefined): TQuery {
+function applyListRecordsLimit<TQuery extends { limit(limit: number): TQuery }>(
+	query: TQuery,
+	limit: number | undefined,
+): TQuery {
 	return limit === undefined ? query : query.limit(limit)
 }
 
@@ -180,11 +192,16 @@ export async function updateRecord<Resource extends CoreIdResource>(
 	storage: CoreStorage,
 	id: string,
 	patch: Partial<CoreIdStorageRecord<Resource>>,
-): Promise<Result<CoreIdStorageRecord<Resource>, StorageOperationFailedError | InvariantViolationError | ResourceNotFoundError>> {
+): Promise<
+	Result<CoreIdStorageRecord<Resource>, StorageOperationFailedError | InvariantViolationError | ResourceNotFoundError>
+> {
 	const attempt = currentDispatchAttemptForWrite()
 	if (attempt !== null) {
 		return attempt.runWrite((tx) => updateRecord(resource, tx.storage, id, patch)) as Promise<
-			Result<CoreIdStorageRecord<Resource>, StorageOperationFailedError | InvariantViolationError | ResourceNotFoundError>
+			Result<
+				CoreIdStorageRecord<Resource>,
+				StorageOperationFailedError | InvariantViolationError | ResourceNotFoundError
+			>
 		>
 	}
 	try {
@@ -193,7 +210,9 @@ export async function updateRecord<Resource extends CoreIdResource>(
 			.one()
 			.id(id as never)
 			.update(patch as never)
-		return updated === null ? notFound(resource, id) : { ok: true, value: updated as unknown as CoreIdStorageRecord<Resource> }
+		return updated === null
+			? notFound(resource, id)
+			: { ok: true, value: updated as unknown as CoreIdStorageRecord<Resource> }
 	} catch (error) {
 		return writeStorageError(resource, { type: 'update', resource, id }, error)
 	}
@@ -277,7 +296,12 @@ if (import.meta.vitest) {
 			const matching = {
 				id: '01k00000000000000000000034',
 				projectId: '01k00000000000000000000030',
-				config: { provider: 'github' as const, owner: 'Octo', name: 'Repo', secretId: '01k00000000000000000000040' },
+				config: {
+					provider: 'github' as const,
+					owner: 'Octo',
+					name: 'Repo',
+					secretId: '01k00000000000000000000040',
+				},
 				created: localStamp(),
 			}
 			options.tx.repositories.records.set(matching.id, matching)
@@ -300,7 +324,12 @@ if (import.meta.vitest) {
 			const matching = {
 				id: '01k00000000000000000000034',
 				projectId: '01k00000000000000000000030',
-				config: { provider: 'github' as const, owner: 'Octo', name: 'Repo', secretId: '01k00000000000000000000040' },
+				config: {
+					provider: 'github' as const,
+					owner: 'Octo',
+					name: 'Repo',
+					secretId: '01k00000000000000000000040',
+				},
 				created: localStamp(),
 			}
 			options.tx.repositories.records.set(matching.id, matching)

@@ -2,14 +2,20 @@ import { TextDecoder } from 'node:util'
 
 import { v, type Pipe } from 'valleyed'
 
-import { readRequiredWorkspaceFile } from './file-contents'
-import { resolveWorkspaceToolPath } from './path-policy'
-import type { CoreAgentRunToolDefinition } from './registry'
-import { failInvalidInput, failSandboxError, sandboxErrorSummary, toolOutput, type AgentRunToolExecutionFailed } from './results'
-import { truncateReadText, toolOutputMaxBytes } from './truncation'
 import { nonEmptyTrimmedStringPipe, positiveIntegerPipe } from '../../../../domain/commons'
 import type { ManagedSandbox } from '../../sandboxes/managed'
 import type { CoreAgentRunToolContext } from '../types'
+import { readRequiredWorkspaceFile } from './file-contents'
+import { resolveWorkspaceToolPath } from './path-policy'
+import type { CoreAgentRunToolDefinition } from './registry'
+import {
+	failInvalidInput,
+	failSandboxError,
+	sandboxErrorSummary,
+	toolOutput,
+	type AgentRunToolExecutionFailed,
+} from './results'
+import { truncateReadText, toolOutputMaxBytes } from './truncation'
 
 type ReadInput = { path: string; offset: number | undefined; limit: number | undefined }
 const readInputPipe: Pipe<unknown, ReadInput> = v.object({
@@ -39,7 +45,12 @@ async function readWorkspaceFile(input: ReadInput, context: CoreAgentRunToolCont
 	const mimeType = supportedImageMimeType(bytes)
 	if (mimeType !== null)
 		return {
-			output: { type: 'image' as const, mimeType, dataBase64: bytes.toString('base64'), note: `Read image file [${mimeType}].` },
+			output: {
+				type: 'image' as const,
+				mimeType,
+				dataBase64: bytes.toString('base64'),
+				note: `Read image file [${mimeType}].`,
+			},
 			truncation: null,
 		}
 
@@ -66,9 +77,11 @@ function decodeUtf8OrFail(bytes: Buffer, path: string): string {
 function readTextOutput(text: string, input: ReadInput) {
 	const lines = text.split('\n')
 	const startIndex = input.offset === undefined ? 0 : input.offset - 1
-	if (startIndex >= lines.length) failInvalidInput(`Offset ${input.offset} is beyond end of file (${lines.length} lines total).`)
+	if (startIndex >= lines.length)
+		failInvalidInput(`Offset ${input.offset} is beyond end of file (${lines.length} lines total).`)
 
-	const selectedLines = input.limit === undefined ? lines.slice(startIndex) : lines.slice(startIndex, startIndex + input.limit)
+	const selectedLines =
+		input.limit === undefined ? lines.slice(startIndex) : lines.slice(startIndex, startIndex + input.limit)
 	const truncated = truncateReadText(selectedLines.join('\n'))
 	const outputText = withReadContinuationNotice(truncated.content, {
 		firstLineExceedsLimit: truncated.firstLineExceedsLimit,
@@ -108,8 +121,13 @@ function withReadContinuationNotice(
 function supportedImageMimeType(bytes: Buffer): string | null {
 	if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg'
 	if (bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png'
-	if (bytes.subarray(0, 6).toString('ascii') === 'GIF87a' || bytes.subarray(0, 6).toString('ascii') === 'GIF89a') return 'image/gif'
-	if (bytes.length >= 12 && bytes.subarray(0, 4).toString('ascii') === 'RIFF' && bytes.subarray(8, 12).toString('ascii') === 'WEBP')
+	if (bytes.subarray(0, 6).toString('ascii') === 'GIF87a' || bytes.subarray(0, 6).toString('ascii') === 'GIF89a')
+		return 'image/gif'
+	if (
+		bytes.length >= 12 &&
+		bytes.subarray(0, 4).toString('ascii') === 'RIFF' &&
+		bytes.subarray(8, 12).toString('ascii') === 'WEBP'
+	)
 		return 'image/webp'
 	return bytes.subarray(0, 2).toString('ascii') === 'BM' ? 'image/bmp' : null
 }
@@ -128,17 +146,32 @@ if (import.meta.vitest) {
 
 		it('truncates long text reads with evidence', async () => {
 			const content = Array.from({ length: 2001 }, (_, index) => `line ${index + 1}`).join('\n')
-			const output = await readTool().execute(readInput('long.txt'), toolContext({ '/workspace/long.txt': content }))
+			const output = await readTool().execute(
+				readInput('long.txt'),
+				toolContext({ '/workspace/long.txt': content }),
+			)
 			expect(output.output.type === 'text' && output.output.value).toContain(
 				'[Showing lines 1-2000 of 2001. Use offset=2001 to continue.]',
 			)
-			expect(output.truncation).toMatchObject({ truncated: true, strategy: 'head', originalLines: 2001, outputLines: 2000 })
+			expect(output.truncation).toMatchObject({
+				truncated: true,
+				strategy: 'head',
+				originalLines: 2001,
+				outputLines: 2000,
+			})
 		})
 
 		it('returns supported images as image outputs', async () => {
 			const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00])
-			await expect(readTool().execute(readInput('image.png'), toolContext({ '/workspace/image.png': png }))).resolves.toEqual({
-				output: { type: 'image', mimeType: 'image/png', dataBase64: png.toString('base64'), note: 'Read image file [image/png].' },
+			await expect(
+				readTool().execute(readInput('image.png'), toolContext({ '/workspace/image.png': png })),
+			).resolves.toEqual({
+				output: {
+					type: 'image',
+					mimeType: 'image/png',
+					dataBase64: png.toString('base64'),
+					note: 'Read image file [image/png].',
+				},
 				truncation: null,
 			})
 		})
@@ -150,11 +183,16 @@ if (import.meta.vitest) {
 			await expect(readTool().execute(readInput('missing.txt'), toolContext({}))).rejects.toMatchObject({
 				reason: { type: 'invalid-input' },
 			})
-			await expect(readTool().execute(readInput('dir'), toolContext({ '/workspace/dir/file.txt': 'x' }))).rejects.toMatchObject({
+			await expect(
+				readTool().execute(readInput('dir'), toolContext({ '/workspace/dir/file.txt': 'x' })),
+			).rejects.toMatchObject({
 				reason: { type: 'invalid-input' },
 			})
 			await expect(
-				readTool().execute(readInput('binary.dat'), toolContext({ '/workspace/binary.dat': Buffer.from([0xff]) })),
+				readTool().execute(
+					readInput('binary.dat'),
+					toolContext({ '/workspace/binary.dat': Buffer.from([0xff]) }),
+				),
 			).rejects.toMatchObject({
 				reason: { type: 'invalid-input' },
 			} satisfies Partial<AgentRunToolExecutionFailed>)
@@ -179,8 +217,10 @@ if (import.meta.vitest) {
 
 	function fakeSandbox(files: Record<string, string | Buffer>): ManagedSandbox {
 		return {
-			setEnv: () => Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
-			runCommand: () => Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
+			setEnv: () =>
+				Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
+			runCommand: () =>
+				Promise.resolve({ ok: true, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
 			readFile: ({ path }) => Promise.resolve({ ok: true, value: fakeReadFile(files, path) }),
 			writeFile: () => Promise.resolve({ ok: true, value: undefined }),
 			listDirectory: () => Promise.resolve({ ok: true, value: null }),
@@ -194,6 +234,8 @@ if (import.meta.vitest) {
 	function fakeReadFile(files: Record<string, string | Buffer>, path: string) {
 		const value = files[path]
 		if (value !== undefined) return { type: 'file' as const, contentsBase64: Buffer.from(value).toString('base64') }
-		return Object.keys(files).some((filePath) => filePath.startsWith(`${path}/`)) ? { type: 'directory' as const } : null
+		return Object.keys(files).some((filePath) => filePath.startsWith(`${path}/`))
+			? { type: 'directory' as const }
+			: null
 	}
 }

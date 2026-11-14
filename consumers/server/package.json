@@ -6,7 +6,8 @@
 		".": "./src/server/index.ts"
 	},
 	"scripts": {
-		"typecheck": "nuxi typecheck",
+		"check:prepare": "nuxt prepare --dotenv /dev/null",
+		"typecheck": "vue-tsc --noEmit --project tsconfig.json",
 		"test": "vitest run --config vitest.config.ts",
 		"postinstall": "nuxt prepare"
 	},

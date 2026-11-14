@@ -1,10 +1,10 @@
 import type { Repo } from 'equipped/orm'
 import { v, type Pipe, type PipeInput, type PipeOutput } from 'valleyed'
 
-import type { createSecretHelpers } from './secrets'
 import type { StorageAdapter } from '../dependencies'
 import type { AuditStamp } from '../domain/commons'
 import { sharedOperationErrorPipe, type Result } from '../errors'
+import type { createSecretHelpers } from './secrets'
 
 export type OperationContext = {
 	readonly storage: Repo<StorageAdapter>
@@ -12,7 +12,11 @@ export type OperationContext = {
 	readonly secrets: ReturnType<typeof createSecretHelpers>
 }
 
-export type Operation<I extends Pipe<unknown, unknown>, O extends Pipe<unknown, unknown>, E extends Pipe<unknown, unknown>> = {
+export type Operation<
+	I extends Pipe<unknown, unknown>,
+	O extends Pipe<unknown, unknown>,
+	E extends Pipe<unknown, unknown>,
+> = {
 	readonly title: string
 	readonly description: string
 	readonly input: I
@@ -38,7 +42,8 @@ export function defineOperation<II, IO, OI, OO, EI = never, EO = never>(definiti
 	Pipe<OI, OO>,
 	Pipe<EI | PipeInput<typeof sharedOperationErrorPipe>, EO | PipeOutput<typeof sharedOperationErrorPipe>>
 > {
-	const error = definition.error === undefined ? sharedOperationErrorPipe : v.or([sharedOperationErrorPipe, definition.error])
+	const error =
+		definition.error === undefined ? sharedOperationErrorPipe : v.or([sharedOperationErrorPipe, definition.error])
 	return { ...definition, error }
 }
 
@@ -55,7 +60,9 @@ if (import.meta.vitest) {
 		})
 		expect(Object.keys(definition).sort()).toEqual(['description', 'error', 'handler', 'input', 'output', 'title'])
 		expect(definition.error).toBe(sharedOperationErrorPipe)
-		expect(v.validate(definition.error, { type: 'storage-operation-failed', cause: 'synthetic-PROTECTED' })).toEqual({
+		expect(
+			v.validate(definition.error, { type: 'storage-operation-failed', cause: 'synthetic-PROTECTED' }),
+		).toEqual({
 			valid: true,
 			value: { type: 'storage-operation-failed' },
 		})

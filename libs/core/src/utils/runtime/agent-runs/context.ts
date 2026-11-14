@@ -1,7 +1,5 @@
 import type { ModelMessage } from 'ai'
 
-import { toAISDKToolOutput } from './transcript-parts'
-import type { AgentRunModelContext } from './types'
 import type {
 	AgentRunAssistantTranscriptPart,
 	AgentRunEvent,
@@ -11,20 +9,32 @@ import type {
 	AgentRunToolTruncation,
 } from '../../../domain/agent-run-event'
 import type { JsonObject } from '../../../domain/commons'
+import { toAISDKToolOutput } from './transcript-parts'
+import type { AgentRunModelContext } from './types'
 
-export function buildAgentRunModelContext(events: AgentRunEvent[], contextThroughEventId: string | null): AgentRunModelContext {
+export function buildAgentRunModelContext(
+	events: AgentRunEvent[],
+	contextThroughEventId: string | null,
+): AgentRunModelContext {
 	const scoped = eventsForContext(events, contextThroughEventId)
 	return { messages: scoped.flatMap((event) => modelVisibleMessages(event)) }
 }
 
 function eventsForContext(events: AgentRunEvent[], contextThroughEventId: string | null): AgentRunEvent[] {
-	const bounded = sortEvents(events.filter((event) => contextThroughEventId === null || event.id <= contextThroughEventId))
+	const bounded = sortEvents(
+		events.filter((event) => contextThroughEventId === null || event.id <= contextThroughEventId),
+	)
 	const compaction = latestCompaction(bounded)
 	return compaction === null ? bounded : compactedEventsForContext(bounded, compaction)
 }
 
-function compactedEventsForContext(events: AgentRunEvent[], compaction: AgentRunEventWithBody<'context-compacted'>): AgentRunEvent[] {
-	const kept = events.filter((event) => event.id > compaction.body.compactedThroughEventId && event.id !== compaction.id)
+function compactedEventsForContext(
+	events: AgentRunEvent[],
+	compaction: AgentRunEventWithBody<'context-compacted'>,
+): AgentRunEvent[] {
+	const kept = events.filter(
+		(event) => event.id > compaction.body.compactedThroughEventId && event.id !== compaction.id,
+	)
 	const instruction = latestInstructionSnapshot(events)
 	return instruction === null || kept.some((event) => event.id === instruction.id)
 		? [compaction, ...kept]
@@ -156,7 +166,9 @@ function projectAssistantPart(part: AgentRunAssistantTranscriptPart): object[] {
 				),
 			]
 		case 'tool-approval-request':
-			return [{ type: 'tool-approval-request' as const, approvalId: part.approvalId, toolCallId: part.toolCallId }]
+			return [
+				{ type: 'tool-approval-request' as const, approvalId: part.approvalId, toolCallId: part.toolCallId },
+			]
 		case 'reasoning':
 		case 'reasoning-file':
 		case 'source':
@@ -211,15 +223,20 @@ function projectToolOutput(output: AgentRunToolResultOutput, truncation: AgentRu
 	return toAISDKToolOutput(withTruncationNotice(output, truncation))
 }
 
-function withTruncationNotice(output: AgentRunToolResultOutput, truncation: AgentRunToolTruncation | null): AgentRunToolResultOutput {
+function withTruncationNotice(
+	output: AgentRunToolResultOutput,
+	truncation: AgentRunToolTruncation | null,
+): AgentRunToolResultOutput {
 	if (truncation === null || !truncation.truncated) return output
 	const notice = truncationNotice(truncation)
-	if (output.type === 'text' || output.type === 'error-text') return { ...output, value: `${notice}\n\n${output.value}` }
+	if (output.type === 'text' || output.type === 'error-text')
+		return { ...output, value: `${notice}\n\n${output.value}` }
 	return output
 }
 
 function truncationNotice(truncation: AgentRunToolTruncation): string {
-	const original = truncation.originalLines === null ? 'unknown original line count' : `${truncation.originalLines} original lines`
+	const original =
+		truncation.originalLines === null ? 'unknown original line count' : `${truncation.originalLines} original lines`
 	const shown = truncation.outputLines === null ? 'stored output' : `${truncation.outputLines} stored lines`
 	return `[Tool output truncated using ${truncation.strategy}: ${shown} from ${original}.]`
 }
@@ -277,12 +294,25 @@ if (import.meta.vitest) {
 					role: 'assistant',
 					content: [
 						{ type: 'text', text: 'Hi' },
-						{ type: 'tool-call', toolCallId: 'call-1', toolName: 'tool', input: {}, providerExecuted: false },
+						{
+							type: 'tool-call',
+							toolCallId: 'call-1',
+							toolName: 'tool',
+							input: {},
+							providerExecuted: false,
+						},
 					],
 				},
 				{
 					role: 'tool',
-					content: [{ type: 'tool-result', toolCallId: 'call-1', toolName: 'tool', output: { type: 'text', value: 'Done.' } }],
+					content: [
+						{
+							type: 'tool-result',
+							toolCallId: 'call-1',
+							toolName: 'tool',
+							output: { type: 'text', value: 'Done.' },
+						},
+					],
 				},
 			])
 		})
@@ -377,7 +407,9 @@ if (import.meta.vitest) {
 							toolName: 'read',
 							output: {
 								type: 'content',
-								value: [{ type: 'file', data: { type: 'data', data: 'aW1hZ2U=' }, mediaType: 'image/png' }],
+								value: [
+									{ type: 'file', data: { type: 'data', data: 'aW1hZ2U=' }, mediaType: 'image/png' },
+								],
 							},
 						},
 						{
@@ -440,7 +472,10 @@ if (import.meta.vitest) {
 		return `01k000000000000000000${index.toString().padStart(5, '0')}`
 	}
 
-	function assistantMessageBody(text: string, toolCallId: string): Extract<AgentRunEvent['body'], { type: 'assistant-message' }> {
+	function assistantMessageBody(
+		text: string,
+		toolCallId: string,
+	): Extract<AgentRunEvent['body'], { type: 'assistant-message' }> {
 		return {
 			type: 'assistant-message',
 			turnStartedEventId: eventId(3),

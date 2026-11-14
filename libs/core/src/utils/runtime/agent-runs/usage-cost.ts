@@ -19,7 +19,10 @@ export function usageFromAIUsage(usage: LanguageModelUsage): AgentRunLanguageMod
 	}
 }
 
-export function costFromUsage(usage: AgentRunLanguageModelUsage, pricing: ModelTokenPricing | null): AgentRunModelCost | null {
+export function costFromUsage(
+	usage: AgentRunLanguageModelUsage,
+	pricing: ModelTokenPricing | null,
+): AgentRunModelCost | null {
 	if (pricing === null) return null
 	if (usage.inputTokenDetails.noCacheTokens === null || usage.outputTokens === null) return null
 	const cacheReadTokens = usage.inputTokenDetails.cacheReadTokens ?? 0

@@ -1,20 +1,26 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { nonEmptyTrimmedStringPipe } from '../domain/commons'
 import { secretValueRefPipe, type Secret } from '../domain/secret'
-import type { InvalidCoreServiceOutputError, InvalidInputError, InvariantViolationError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	InvariantViolationError,
+	StorageOperationFailedError,
+} from '../errors'
 import { buildCommandHandler } from '../utils/command-handler'
 import { auditStamp, createRecordValue, nextId } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const createSecretInputPipe = v.object({ name: nonEmptyTrimmedStringPipe, valueRef: secretValueRefPipe })
 export type Input = PipeOutput<typeof createSecretInputPipe>
 
 export type Result = Secret
 
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | InvariantViolationError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | InvariantViolationError | StorageOperationFailedError
 
 export type Operation = (input: Input, context: CommandContext) => Promise<CoreResult<Result, Error>>
 
@@ -36,8 +42,8 @@ export function createCreateSecretCommand(runtime: CoreRuntime): Operation {
 			archivePeriods: [],
 		}
 
-		return runtime.transactions.run(
-			({ storage }): Promise<CoreResult<Secret, Exclude<Error, InvalidInputError>>> => createRecordValue('secret', storage, secret),
+		return runtime.transactions.run(({ storage }): Promise<CoreResult<Secret, Exclude<Error, InvalidInputError>>> =>
+			createRecordValue('secret', storage, secret),
 		)
 	})
 }

@@ -1,5 +1,5 @@
 <template>
-	<NuxtLayout name="project" :project-id="projectId">
+	<NuxtLayout name="project" :projectId="projectId">
 		<section class="px-3 py-3">
 			<div v-if="isLoadingSetup && !hasLoadedSetup" class="text-dim">Loading Repository setup…</div>
 			<div v-else-if="setupError" class="text-error">{{ setupError }}</div>
@@ -12,45 +12,66 @@
 					</p>
 					<NuxtLink
 						class="mt-4 inline-flex border border-primary bg-primary px-3 py-1.5 text-sz-helper font-semibold text-primary-contrast"
-						to="/secrets/new">
+						to="/secrets/new"
+					>
 						Create Secret
 					</NuxtLink>
 				</div>
 
 				<UiForm v-else @submit.prevent="createRepository()">
 					<div class="grid gap-3 md:grid-cols-2">
-						<UiFormGroup label="GitHub owner" for-id="github-owner" :error="repositoryCreationForm.errors.owner">
+						<UiFormGroup
+							label="GitHub owner"
+							forId="github-owner"
+							:error="repositoryCreationForm.errors.owner"
+						>
 							<UiInput
 								id="github-owner"
 								v-model="repositoryCreationForm.owner"
 								required
 								placeholder="octocat"
-								:invalid="!!repositoryCreationForm.errors.owner" />
+								:invalid="!!repositoryCreationForm.errors.owner"
+							/>
 						</UiFormGroup>
-						<UiFormGroup label="Repository name" for-id="github-repository" :error="repositoryCreationForm.errors.name">
+						<UiFormGroup
+							label="Repository name"
+							forId="github-repository"
+							:error="repositoryCreationForm.errors.name"
+						>
 							<UiInput
 								id="github-repository"
 								v-model="repositoryCreationForm.name"
 								required
 								placeholder="Hello-World"
-								:invalid="!!repositoryCreationForm.errors.name" />
+								:invalid="!!repositoryCreationForm.errors.name"
+							/>
 						</UiFormGroup>
 					</div>
 
-					<UiFormGroup label="GitHub access Secret" for-id="github-secret" :error="repositoryCreationForm.errors.secretId">
+					<UiFormGroup
+						label="GitHub access Secret"
+						forId="github-secret"
+						:error="repositoryCreationForm.errors.secretId"
+					>
 						<UiSelect
 							id="github-secret"
 							v-model="repositoryCreationForm.secretId"
 							:options="activeSecretOptions"
 							placeholder="Select an active Secret"
-							:invalid="!!repositoryCreationForm.errors.secretId" />
+							:invalid="!!repositoryCreationForm.errors.secretId"
+						/>
 					</UiFormGroup>
 					<UiText tone="muted" size="helper"
-						>Secret values stay protected; the Repository stores only a reference to the selected Secret.</UiText
+						>Secret values stay protected; the Repository stores only a reference to the selected
+						Secret.</UiText
 					>
 
 					<div class="flex flex-wrap items-center gap-2">
-						<UiButton type="submit" :loading="isCreatingRepository" :disabled="!repositoryCreationForm.valid">
+						<UiButton
+							type="submit"
+							:loading="isCreatingRepository"
+							:disabled="!repositoryCreationForm.valid"
+						>
 							Create Repository
 						</UiButton>
 					</div>
@@ -75,7 +96,9 @@
 			</div>
 			<div class="px-3 py-3">
 				<strong class="block font-semibold">Protected values</strong>
-				<p class="m-0 mt-1 text-sz-helper leading-5 text-dim">Plaintext Secret values are never returned to the browser.</p>
+				<p class="m-0 mt-1 text-sz-helper leading-5 text-dim">
+					Plaintext Secret values are never returned to the browser.
+				</p>
 			</div>
 		</template>
 	</NuxtLayout>
@@ -97,11 +120,14 @@ definePageMeta({ middleware: ['has-selection'] })
 
 const route = useRoute()
 const projectId = computed(() => route.params.projectId as string)
-const { repositoryCreationForm, isCreatingRepository, createRepositoryError, createRepository } = useRepositoriesCreate(projectId, {
-	onSuccess: async (repository) => {
-		await navigateTo(`/projects/${projectId.value}/repositories/${repository.id}`)
+const { repositoryCreationForm, isCreatingRepository, createRepositoryError, createRepository } = useRepositoriesCreate(
+	projectId,
+	{
+		onSuccess: async (repository) => {
+			await navigateTo(`/projects/${projectId.value}/repositories/${repository.id}`)
+		},
 	},
-})
+)
 const { activeSecrets, activeSecretOptions, isLoadingSecrets, secretsError, hasLoadedSecrets, isRefreshingSecrets } =
 	useActiveSecretSelectOptions()
 

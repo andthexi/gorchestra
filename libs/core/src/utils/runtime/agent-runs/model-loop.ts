@@ -1,10 +1,3 @@
-import { runAISDKTurn } from './ai-sdk-turn'
-import { buildAgentRunModelContext } from './context'
-import { completeAutonomousRunIfNeeded } from './run-completion'
-import { resolveToolSet } from './tools'
-import { nextTurnClaim, type TurnReasonClaim } from './turn-claims'
-import { loadTurnModelUse } from './turn-model-use'
-import type { AgentRunLoopState, AgentRunRuntimeError, ModelAgentRunRuntime, RunModelAgentRunOptions, TurnResult } from './types'
 import { registerDispatchTerminalFinalizer } from '../../../dispatch/attempt-context'
 import type { AgentRun } from '../../../domain/agent-run'
 import type {
@@ -23,6 +16,19 @@ import { getRequired, listRecords } from '../../storage/helpers'
 import type { Result } from '../../types'
 import { managedSandboxProviderForConfig } from '../sandboxes'
 import type { ManagedSandbox } from '../sandboxes/managed'
+import { runAISDKTurn } from './ai-sdk-turn'
+import { buildAgentRunModelContext } from './context'
+import { completeAutonomousRunIfNeeded } from './run-completion'
+import { resolveToolSet } from './tools'
+import { nextTurnClaim, type TurnReasonClaim } from './turn-claims'
+import { loadTurnModelUse } from './turn-model-use'
+import type {
+	AgentRunLoopState,
+	AgentRunRuntimeError,
+	ModelAgentRunRuntime,
+	RunModelAgentRunOptions,
+	TurnResult,
+} from './types'
 
 export async function runModelAgentRun(
 	runtime: ModelAgentRunRuntime,
@@ -42,12 +48,17 @@ export async function runModelAgentRun(
 
 	const turn = await runTurn(runtime, preparedState.value, claim, options)
 	if (!turn.ok) return turn
-	return turn.value.type === 'completed' ? completeAutonomousRunIfNeeded(runtime, state.value.agentRun) : { ok: true, value: undefined }
+	return turn.value.type === 'completed'
+		? completeAutonomousRunIfNeeded(runtime, state.value.agentRun)
+		: { ok: true, value: undefined }
 }
 
 type BaseAgentRunLoopState = Omit<AgentRunLoopState, 'sandbox'>
 
-async function loadLoopState(storage: CoreStorage, agentRunId: Id): Promise<Result<BaseAgentRunLoopState, AgentRunRuntimeError>> {
+async function loadLoopState(
+	storage: CoreStorage,
+	agentRunId: Id,
+): Promise<Result<BaseAgentRunLoopState, AgentRunRuntimeError>> {
 	const agentRun = await getRequired('agent-run', storage, agentRunId)
 	if (!agentRun.ok) return agentRun
 
@@ -79,12 +90,18 @@ async function findPreparedSandbox(
 		return invariant(`Agent Run ${agentRun.id} sandbox was expected to be prepared.`)
 	}
 
-	const provider = await managedSandboxProviderForConfig(runtime, runtime.services.storage, agentRun.profile.sandboxConfig)
+	const provider = await managedSandboxProviderForConfig(
+		runtime,
+		runtime.services.storage,
+		agentRun.profile.sandboxConfig,
+	)
 	if (!provider.ok) return provider
 
 	const sandbox = await provider.value.find({ key: agentRun.sandbox.key })
 	if (!sandbox.ok) return sandbox
-	return sandbox.value === null ? invariant(`Agent Run ${agentRun.id} sandbox was not found.`) : { ok: true, value: sandbox.value }
+	return sandbox.value === null
+		? invariant(`Agent Run ${agentRun.id} sandbox was not found.`)
+		: { ok: true, value: sandbox.value }
 }
 
 function invariant(message: string): Result<never, AgentRunRuntimeError> {
@@ -103,13 +120,21 @@ async function runTurn(
 			? runStartedTurn(
 					runtime,
 					recovered.value,
-					{ ...claim, contextThroughEventId: recovered.value.events.at(-1)?.id ?? claim.contextThroughEventId },
+					{
+						...claim,
+						contextThroughEventId: recovered.value.events.at(-1)?.id ?? claim.contextThroughEventId,
+					},
 					claim.turnStartedEvent,
 					options,
 				)
 			: recovered
 	}
-	const turnStarted = await appendAgentRunEvent(runtime, runtime.services.storage, state.agentRun.id, turnStartedBody(claim))
+	const turnStarted = await appendAgentRunEvent(
+		runtime,
+		runtime.services.storage,
+		state.agentRun.id,
+		turnStartedBody(claim),
+	)
 	return turnStarted.ok ? runStartedTurn(runtime, state, claim, turnStarted.value, options) : turnStarted
 }
 
@@ -126,13 +151,21 @@ async function recoverOpenTurnToolCalls(
 		if (assistant.body.type !== 'assistant-message') continue
 		const recordedToolCallIds = new Set(
 			events
-				.filter((event) => event.body.type === 'tool-message' && event.body.respondsToAssistantMessageEventId === assistant.id)
+				.filter(
+					(event) =>
+						event.body.type === 'tool-message' &&
+						event.body.respondsToAssistantMessageEventId === assistant.id,
+				)
 				.flatMap((event) =>
 					event.body.type === 'tool-message'
 						? event.body.parts
 								.filter(
-									(part): part is Extract<AgentRunToolTranscriptPart, { type: 'tool-result' | 'tool-error' }> =>
-										part.type === 'tool-result' || part.type === 'tool-error',
+									(
+										part,
+									): part is Extract<
+										AgentRunToolTranscriptPart,
+										{ type: 'tool-result' | 'tool-error' }
+									> => part.type === 'tool-result' || part.type === 'tool-error',
 								)
 								.map((part) => part.toolCallId)
 						: [],
@@ -196,7 +229,15 @@ async function runStartedTurn(
 	}
 
 	const modelContext = buildAgentRunModelContext(state.events, claim.contextThroughEventId)
-	const aiTurn = await runAISDKTurn(runtime, state, turnStarted, turnModelUse.value, modelContext.messages, resolution.value, options)
+	const aiTurn = await runAISDKTurn(
+		runtime,
+		state,
+		turnStarted,
+		turnModelUse.value,
+		modelContext.messages,
+		resolution.value,
+		options,
+	)
 	if (!aiTurn.ok) return aiTurn
 
 	const ended = await recordTurnEnded(runtime, state.agentRun.id, {
@@ -206,7 +247,10 @@ async function runStartedTurn(
 	})
 	if (!ended.ok) return ended
 
-	return { ok: true, value: aiTurn.value.turnOutcome.type === 'completed' ? { type: 'completed' } : { type: 'failed' } }
+	return {
+		ok: true,
+		value: aiTurn.value.turnOutcome.type === 'completed' ? { type: 'completed' } : { type: 'failed' },
+	}
 }
 
 async function handleTurnModelUseError(
@@ -259,12 +303,15 @@ async function recordTurnEnded(
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { createTestCoreServices, defaultAgentRunSandboxConfig, seedSelectableModel } = await import('../../test-helpers')
+	const { createTestCoreServices, defaultAgentRunSandboxConfig, seedSelectableModel } =
+		await import('../../test-helpers')
 
 	describe('runModelAgentRun', () => {
 		it('fails unsupported stored Tool Set entries before starting a turn', async () => {
 			const services = planningFixture()
-			services.tx.agentRuns.records.get('01k00000000000000000000002')!.toolSet = [{ name: 'unknown-tool', contractVersion: 1 }]
+			services.tx.agentRuns.records.get('01k00000000000000000000002')!.toolSet = [
+				{ name: 'unknown-tool', contractVersion: 1 },
+			]
 			const runtime = modelLoopRuntime(services)
 
 			const result = await runModelAgentRun(runtime, '01k00000000000000000000002')
@@ -273,12 +320,16 @@ if (import.meta.vitest) {
 				ok: false,
 				error: { type: 'invariant-violation', message: 'Unsupported Agent Run Tool unknown-tool@1.' },
 			})
-			expect([...services.tx.agentRunEvents.records.values()].some((event) => event.body.type === 'turn-started')).toBe(false)
+			expect(
+				[...services.tx.agentRunEvents.records.values()].some((event) => event.body.type === 'turn-started'),
+			).toBe(false)
 		})
 
 		it('no-ops completed Agent Runs without processing queued input', async () => {
 			const services = planningFixture()
-			services.tx.agentRuns.records.get('01k00000000000000000000002')!.completed = { at: '2026-06-10T12:05:00.000Z' }
+			services.tx.agentRuns.records.get('01k00000000000000000000002')!.completed = {
+				at: '2026-06-10T12:05:00.000Z',
+			}
 			const initialEventCount = services.tx.agentRunEvents.records.size
 			const runtime = modelLoopRuntime(services)
 
@@ -339,7 +390,9 @@ if (import.meta.vitest) {
 			const result = await runModelAgentRun(modelLoopRuntime(services), '01k00000000000000000000002')
 
 			expect(result).toMatchObject({ ok: true })
-			expect([...services.tx.agentRunEvents.records.values()].filter((event) => event.body.type === 'turn-started')).toHaveLength(1)
+			expect(
+				[...services.tx.agentRunEvents.records.values()].filter((event) => event.body.type === 'turn-started'),
+			).toHaveLength(1)
 			expect([...services.tx.agentRunEvents.records.values()].map((event) => event.body)).toContainEqual(
 				expect.objectContaining({
 					type: 'tool-message',
@@ -363,17 +416,28 @@ if (import.meta.vitest) {
 			})
 			const runtime = modelLoopRuntime(services)
 
-			await expect(runModelAgentRun(runtime, '01k00000000000000000000002')).resolves.toEqual({ ok: true, value: undefined })
-			expect([...services.tx.agentRunEvents.records.values()].some((event) => event.body.type === 'turn-started')).toBe(false)
+			await expect(runModelAgentRun(runtime, '01k00000000000000000000002')).resolves.toEqual({
+				ok: true,
+				value: undefined,
+			})
+			expect(
+				[...services.tx.agentRunEvents.records.values()].some((event) => event.body.type === 'turn-started'),
+			).toBe(false)
 
 			services.tx.agentRunEvents.records.set('01k00000000000000000000014', {
 				id: '01k00000000000000000000014',
 				agentRunId: '01k00000000000000000000002',
 				occurred: { at: '2026-06-10T12:00:00.000Z' },
-				body: { type: 'input-message', source: { type: 'runtime' }, parts: [{ type: 'text', text: 'continue', metadata: null }] },
+				body: {
+					type: 'input-message',
+					source: { type: 'runtime' },
+					parts: [{ type: 'text', text: 'continue', metadata: null }],
+				},
 			})
 			await expect(runModelAgentRun(runtime, '01k00000000000000000000002')).resolves.toMatchObject({ ok: true })
-			expect([...services.tx.agentRunEvents.records.values()].some((event) => event.body.type === 'turn-started')).toBe(true)
+			expect(
+				[...services.tx.agentRunEvents.records.values()].some((event) => event.body.type === 'turn-started'),
+			).toBe(true)
 		})
 	})
 
@@ -416,7 +480,11 @@ if (import.meta.vitest) {
 			id: '01k00000000000000000000012',
 			agentRunId: '01k00000000000000000000002',
 			occurred: { at: '2026-06-10T12:00:00.000Z' },
-			body: { type: 'input-message', source: { type: 'runtime' }, parts: [{ type: 'text', text: 'start', metadata: null }] },
+			body: {
+				type: 'input-message',
+				source: { type: 'runtime' },
+				parts: [{ type: 'text', text: 'start', metadata: null }],
+			},
 		})
 	}
 

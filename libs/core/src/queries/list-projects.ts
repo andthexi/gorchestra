@@ -146,7 +146,12 @@ if (import.meta.vitest) {
 			)
 			options.tx.repositories.records.set(
 				'01k00000000000000000100028',
-				repository({ id: '01k00000000000000000100028', projectId: '01k00000000000000000100029', owner: 'Other', name: 'Repo' }),
+				repository({
+					id: '01k00000000000000000100028',
+					projectId: '01k00000000000000000100029',
+					owner: 'Other',
+					name: 'Repo',
+				}),
 			)
 			const query = createListProjectsQuery(options.transactions)
 
@@ -157,15 +162,27 @@ if (import.meta.vitest) {
 				value: {
 					items: [
 						{
-							...project({ id: '01k00000000000000000100024', title: 'Tie C', createdAt: '2026-06-09T00:00:00.000Z' }),
+							...project({
+								id: '01k00000000000000000100024',
+								title: 'Tie C',
+								createdAt: '2026-06-09T00:00:00.000Z',
+							}),
 							source: { type: 'source-control', repositories: [] },
 						},
 						{
-							...project({ id: '01k00000000000000000100023', title: 'Later', createdAt: '2026-06-10T00:00:00.000Z' }),
+							...project({
+								id: '01k00000000000000000100023',
+								title: 'Later',
+								createdAt: '2026-06-10T00:00:00.000Z',
+							}),
 							source: { type: 'source-control', repositories: [] },
 						},
 						{
-							...project({ id: '01k00000000000000000100022', title: 'Tie A', createdAt: '2026-06-09T00:00:00.000Z' }),
+							...project({
+								id: '01k00000000000000000100022',
+								title: 'Tie A',
+								createdAt: '2026-06-09T00:00:00.000Z',
+							}),
 							source: {
 								type: 'source-control',
 								repositories: [
@@ -240,10 +257,21 @@ if (import.meta.vitest) {
 				},
 				created: { origin: 'imported', at: input.createdAt ?? '2026-06-10T00:00:00.000Z' },
 			}),
-			repository: (input: { id: string; projectId: string; owner: string; name: string; createdAt?: string }): Repository => ({
+			repository: (input: {
+				id: string
+				projectId: string
+				owner: string
+				name: string
+				createdAt?: string
+			}): Repository => ({
 				id: input.id,
 				projectId: input.projectId,
-				config: { provider: 'github', owner: input.owner, name: input.name, secretId: '01k00000000000000000000040' },
+				config: {
+					provider: 'github',
+					owner: input.owner,
+					name: input.name,
+					secretId: '01k00000000000000000000040',
+				},
 				created: { origin: 'imported', at: input.createdAt ?? '2026-06-10T00:00:00.000Z' },
 			}),
 		}

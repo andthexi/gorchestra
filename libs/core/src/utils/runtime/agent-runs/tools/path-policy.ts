@@ -1,8 +1,8 @@
 import { normalize } from 'node:path/posix'
 
-import { toolOutput } from './results'
 import type { AgentRunToolOutput } from '../../../../domain/agent-run-event'
 import type { Result } from '../../../types'
+import { toolOutput } from './results'
 
 const workspaceRoot = '/workspace'
 const gorchestraInternalDirectory = `${workspaceRoot}/.gorchestra`
@@ -15,8 +15,10 @@ export function resolveWorkspaceToolPath(
 	const absolutePath = candidate.startsWith('/') ? candidate : `${workspaceRoot}/${candidate}`
 	const path = normalize(absolutePath)
 
-	if (path !== workspaceRoot && !path.startsWith(`${workspaceRoot}/`)) return invalidPath('Tool paths must stay under /workspace.')
-	if (!options.allowWorkspaceRoot && path === workspaceRoot) return invalidPath('Tool path cannot target /workspace directly.')
+	if (path !== workspaceRoot && !path.startsWith(`${workspaceRoot}/`))
+		return invalidPath('Tool paths must stay under /workspace.')
+	if (!options.allowWorkspaceRoot && path === workspaceRoot)
+		return invalidPath('Tool path cannot target /workspace directly.')
 	if (path === gorchestraInternalDirectory || path.startsWith(`${gorchestraInternalDirectory}/`)) {
 		return invalidPath('Tool path is managed by Gorchestra and cannot be accessed.')
 	}
@@ -38,25 +40,38 @@ if (import.meta.vitest) {
 
 	describe('resolveWorkspaceToolPath', () => {
 		it('normalizes relative, absolute, default, and at-prefixed workspace paths', () => {
-			expect(resolveWorkspaceToolPath('src/../README.md', { defaultPath: '/workspace', allowWorkspaceRoot: false })).toEqual({
+			expect(
+				resolveWorkspaceToolPath('src/../README.md', { defaultPath: '/workspace', allowWorkspaceRoot: false }),
+			).toEqual({
 				ok: true,
 				value: '/workspace/README.md',
 			})
-			expect(resolveWorkspaceToolPath('@/workspace/app/file.ts', { defaultPath: '/workspace', allowWorkspaceRoot: false })).toEqual({
+			expect(
+				resolveWorkspaceToolPath('@/workspace/app/file.ts', {
+					defaultPath: '/workspace',
+					allowWorkspaceRoot: false,
+				}),
+			).toEqual({
 				ok: true,
 				value: '/workspace/app/file.ts',
 			})
-			expect(resolveWorkspaceToolPath(undefined, { defaultPath: '/workspace', allowWorkspaceRoot: true })).toEqual({
+			expect(
+				resolveWorkspaceToolPath(undefined, { defaultPath: '/workspace', allowWorkspaceRoot: true }),
+			).toEqual({
 				ok: true,
 				value: '/workspace',
 			})
 		})
 
 		it('denies paths outside workspace, protected internals, and root when disallowed', () => {
-			expect(resolveWorkspaceToolPath('../secret', { defaultPath: '/workspace', allowWorkspaceRoot: false })).toMatchObject({
+			expect(
+				resolveWorkspaceToolPath('../secret', { defaultPath: '/workspace', allowWorkspaceRoot: false }),
+			).toMatchObject({
 				ok: false,
 			})
-			expect(resolveWorkspaceToolPath('/tmp/file', { defaultPath: '/workspace', allowWorkspaceRoot: false })).toMatchObject({
+			expect(
+				resolveWorkspaceToolPath('/tmp/file', { defaultPath: '/workspace', allowWorkspaceRoot: false }),
+			).toMatchObject({
 				ok: false,
 			})
 			expect(
@@ -67,7 +82,9 @@ if (import.meta.vitest) {
 			).toMatchObject({
 				ok: false,
 			})
-			expect(resolveWorkspaceToolPath('/workspace', { defaultPath: '/workspace', allowWorkspaceRoot: false })).toMatchObject({
+			expect(
+				resolveWorkspaceToolPath('/workspace', { defaultPath: '/workspace', allowWorkspaceRoot: false }),
+			).toMatchObject({
 				ok: false,
 			})
 		})

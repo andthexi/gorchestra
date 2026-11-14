@@ -1,8 +1,8 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 
+import type { ModelProvider } from '../../../domain/model-provider'
 import { resolveProviderOptions } from './options'
 import type { AISDKLanguageModelResolution, ModelProviderProtocolAccess, ModelProviderProtocolProvider } from './types'
-import type { ModelProvider } from '../../../domain/model-provider'
 
 export type AnthropicMessagesModelProviderProtocolProvider = ModelProviderProtocolProvider<'anthropic-messages'>
 

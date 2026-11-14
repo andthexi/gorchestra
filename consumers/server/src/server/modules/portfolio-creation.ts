@@ -1,7 +1,5 @@
 import { v } from 'valleyed'
 
-import type { SecretEncryptionKey } from './secret-protection'
-import { createPortfolioRegistryEntry } from './workspaces'
 import type { ServerConsumerCorePortfolioStorageConfig } from '../config'
 import {
 	createCoreStorageNamespace,
@@ -11,6 +9,8 @@ import {
 } from '../core/storage'
 import type { ServerStorage } from '../storage/repo'
 import type { PortfolioRegistryEntry } from '../storage/schemas'
+import type { SecretEncryptionKey } from './secret-protection'
+import { createPortfolioRegistryEntry } from './workspaces'
 
 export type CreatePortfolioForWorkspaceInput = {
 	serverStorage: ServerStorage
@@ -26,7 +26,9 @@ export type CreatePortfolioForWorkspaceInput = {
 
 const displayNamePipe = v.string().pipe(v.asTrimmed(), v.min(1))
 
-export async function createPortfolioForWorkspace(input: CreatePortfolioForWorkspaceInput): Promise<PortfolioRegistryEntry> {
+export async function createPortfolioForWorkspace(
+	input: CreatePortfolioForWorkspaceInput,
+): Promise<PortfolioRegistryEntry> {
 	const displayName = requireDisplayName(input.displayName, 'Portfolio display name is required')
 	const coreStorageNamespace = (input.coreStorageNamespaceFactory ?? createCoreStorageNamespace)()
 	const coreStorageInput = {
@@ -74,7 +76,9 @@ if (import.meta.vitest) {
 	const { getCorePortfolioStorageDirectory, openCorePortfolioStorage } = await import('../core/storage')
 	const { portfolioRegistryEntrySchema } = await import('../storage/schemas')
 
-	const { cleanupTempServerStorage, createTempServerDataDir } = createTempServerStorageTestHarness('gorchestra-portfolio-creation-')
+	const { cleanupTempServerStorage, createTempServerDataDir } = createTempServerStorageTestHarness(
+		'gorchestra-portfolio-creation-',
+	)
 	const testNow = new Date('2026-07-07T10:00:00.000Z')
 	const missingWorkspaceId = '01k00000000000000000000062'
 	const secretEncryptionKey = Buffer.alloc(32, 1)
@@ -126,7 +130,9 @@ if (import.meta.vitest) {
 			expect(portfolioRegistered).toHaveBeenCalledWith(portfolio.id)
 			const coreStorage = await openCorePortfolioStorage({ config: corePortfolioStorage, coreStorageNamespace })
 			try {
-				expect(await coreStorage.adapter.loadMigrations(coreStorage.storage.resolveConfig('_equipped_migrations'))).toEqual([
+				expect(
+					await coreStorage.adapter.loadMigrations(coreStorage.storage.resolveConfig('_equipped_migrations')),
+				).toEqual([
 					expect.objectContaining({ id: '2026-06-16-0001-create-core-storage' }),
 					expect.objectContaining({ id: '2026-07-13-0002-durable-dispatch' }),
 				])
@@ -162,7 +168,9 @@ if (import.meta.vitest) {
 			})
 
 			expect(portfolio.coreStorageNamespace).toBe(coreStorageNamespace)
-			expect(await serverStorage.repo.on(portfolioRegistryEntrySchema).one().id(portfolio.id).find()).toEqual(portfolio)
+			expect(await serverStorage.repo.on(portfolioRegistryEntrySchema).one().id(portfolio.id).find()).toEqual(
+				portfolio,
+			)
 			expect(existsSync(getCorePortfolioStorageDirectory(corePortfolioStorage, coreStorageNamespace))).toBe(true)
 		})
 	}
@@ -220,8 +228,17 @@ if (import.meta.vitest) {
 
 	describe('Portfolio Creation module', () => {
 		it('creates a Portfolio Registry Entry backed by initialized Core storage', testCreatesPortfolioForWorkspace)
-		it('keeps durable Portfolio Creation successful when the runtime signal fails', testContainsRegistrationSignalFailure)
-		it('rejects an empty display name before creating Core storage', testRejectsEmptyDisplayNameBeforeCreatingCoreStorage)
-		it('cleans up Core storage when Portfolio registry creation fails', testCleansCoreStorageWhenRegistryCreationFails)
+		it(
+			'keeps durable Portfolio Creation successful when the runtime signal fails',
+			testContainsRegistrationSignalFailure,
+		)
+		it(
+			'rejects an empty display name before creating Core storage',
+			testRejectsEmptyDisplayNameBeforeCreatingCoreStorage,
+		)
+		it(
+			'cleans up Core storage when Portfolio registry creation fails',
+			testCleansCoreStorageWhenRegistryCreationFails,
+		)
 	})
 }

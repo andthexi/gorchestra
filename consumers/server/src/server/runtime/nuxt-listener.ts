@@ -12,7 +12,8 @@ const defaultNuxtServerEntry = new URL('../../../.output/server/index.mjs', impo
 export async function loadNuxtNodeListener(entry: string | URL = defaultNuxtServerEntry): Promise<NuxtNodeListener> {
 	const mod = (await import(entry.toString())) as NuxtNodeListenerModule
 	const listener = mod.listener ?? mod.default
-	if (typeof listener !== 'function') throw new Error(`Nuxt server entry does not export a Node listener: ${entry.toString()}`)
+	if (typeof listener !== 'function')
+		throw new Error(`Nuxt server entry does not export a Node listener: ${entry.toString()}`)
 	return listener as NuxtNodeListener
 }
 

@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import { readSchedulerWork, type SchedulerWorkClaim } from './preflight'
 import { registerDispatchTerminalFinalizer } from '../../dispatch/attempt-context'
 import { deliverySliceOperationClaims, exclusiveDeliveryClaim } from '../../dispatch/claims'
 import type { DeliveryWorkOperation } from '../../domain/action'
@@ -16,6 +15,7 @@ import { buildWorkHandler } from '../../utils/work-handler'
 import { deliveryOperationFromState, sliceOperationFromState } from '../delivery-work/dispatch-actions'
 import type { Error, Result } from '../delivery-work/types'
 import type { WorkContext } from '../types'
+import { readSchedulerWork, type SchedulerWorkClaim } from './preflight'
 
 export type {
 	DeliveryWorkFailure,
@@ -40,7 +40,9 @@ export function createScheduleDeliveryWorkOperation(runtime: CoreRuntime): Opera
 		) {
 			return { ok: true, value: completed() }
 		}
-		const read = await runtime.transactions.run(({ storage }) => readSchedulerWork(runtime, storage, input.deliveryId))
+		const read = await runtime.transactions.run(({ storage }) =>
+			readSchedulerWork(runtime, storage, input.deliveryId),
+		)
 		if (!read.ok) return read
 		if (read.value.type === 'result') return { ok: true, value: read.value.result }
 
@@ -91,7 +93,9 @@ async function scheduleDeliveryWorkInTransaction(
 	return { ok: true, value: operations.value.length }
 }
 
-function sliceOperationsForClaim(claim: SchedulerWorkClaim): CoreResult<DeliveryWorkOperation[], Exclude<Error, InvalidInputError>> {
+function sliceOperationsForClaim(
+	claim: SchedulerWorkClaim,
+): CoreResult<DeliveryWorkOperation[], Exclude<Error, InvalidInputError>> {
 	const candidates: Array<{ operation: DeliveryWorkOperation; order: number; priority: SliceActionPriority }> = []
 	let inTransitCount = 0
 
@@ -298,7 +302,10 @@ if (import.meta.vitest) {
 
 			expect(result).toMatchObject({
 				ok: false,
-				error: { type: 'storage-operation-failed', operation: { type: 'create', resource: 'dispatch-request' } },
+				error: {
+					type: 'storage-operation-failed',
+					operation: { type: 'create', resource: 'dispatch-request' },
+				},
 			})
 			expect(options.tx.actions.records.size).toBe(0)
 			expect(wake).not.toHaveBeenCalled()

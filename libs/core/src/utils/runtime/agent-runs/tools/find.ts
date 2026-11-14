@@ -2,15 +2,15 @@ import { relative } from 'node:path/posix'
 
 import { v, type Pipe } from 'valleyed'
 
+import type { AgentRunToolOutput } from '../../../../domain/agent-run-event'
+import { nonEmptyTrimmedStringPipe, positiveIntegerPipe } from '../../../../domain/commons'
+import type { SandboxCommandOutput } from '../../../../services'
+import type { CoreAgentRunToolContext } from '../types'
 import { commandText, runNonRootWorkspaceShell, shellQuote } from './command'
 import { resolveWorkspaceToolPath } from './path-policy'
 import type { CoreAgentRunToolDefinition } from './registry'
 import { failInvalidInput, toolOutput } from './results'
 import { resultLimitTruncation, truncateSearchText } from './truncation'
-import type { AgentRunToolOutput } from '../../../../domain/agent-run-event'
-import { nonEmptyTrimmedStringPipe, positiveIntegerPipe } from '../../../../domain/commons'
-import type { SandboxCommandOutput } from '../../../../services'
-import type { CoreAgentRunToolContext } from '../types'
 
 const defaultFindLimit = 1000
 const findTimeoutMs = 30_000
@@ -100,7 +100,10 @@ function findOutput(output: SandboxCommandOutput, searchPath: string, limit: num
 		...(truncated.truncation === null ? [] : ['50KB output limit reached']),
 	]
 	return {
-		output: { type: 'text', value: `${truncated.content}${notices.length === 0 ? '' : `\n\n[${notices.join('. ')}]`}` },
+		output: {
+			type: 'text',
+			value: `${truncated.content}${notices.length === 0 ? '' : `\n\n[${notices.join('. ')}]`}`,
+		},
 		truncation: truncated.truncation ?? resultLimitTruncation(paths.length, limit, truncated.content),
 	}
 }
@@ -134,7 +137,12 @@ if (import.meta.vitest) {
 
 	describe('find tool', () => {
 		it('runs fd through non-root sh with path policy, full-path patterns, and a 30s timeout', async () => {
-			const fixture = commandToolFixture({ exitCode: 0, summary: 'ok', stdout: '/workspace/src/app.test.ts\n', stderr: null })
+			const fixture = commandToolFixture({
+				exitCode: 0,
+				summary: 'ok',
+				stdout: '/workspace/src/app.test.ts\n',
+				stderr: null,
+			})
 			await expect(
 				findTool().execute({ pattern: 'src/**/*.test.ts', path: undefined, limit: undefined }, fixture.context),
 			).resolves.toEqual(toolOutput('src/app.test.ts'))
@@ -158,7 +166,8 @@ if (import.meta.vitest) {
 			await expect(
 				findTool().execute(
 					{ pattern: '[bad', path: undefined, limit: undefined },
-					commandToolFixture({ exitCode: 2, summary: 'bad glob', stdout: null, stderr: 'glob parse error' }).context,
+					commandToolFixture({ exitCode: 2, summary: 'bad glob', stdout: null, stderr: 'glob parse error' })
+						.context,
 				),
 			).rejects.toMatchObject({
 				reason: { type: 'invalid-input' },

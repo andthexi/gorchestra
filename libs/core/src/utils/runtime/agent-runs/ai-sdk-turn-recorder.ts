@@ -8,14 +8,6 @@ import {
 	type ToolSet,
 } from 'ai'
 
-import { recordToolProposal } from './tool-proposals'
-import { providerTool, toolOutput, validateToolInput, type CoreAgentRunToolDefinition } from './tools'
-import { AgentRunToolExecutionCoordinator } from './tools/coordinator'
-import { AgentRunToolExecutionFailed } from './tools/results'
-import { assistantMessageModel, assistantPartsFromAIContent, toAISDKToolOutput } from './transcript-parts'
-import type { TurnModelUse } from './turn-model-use'
-import type { AgentRunLoopState, AgentRunRuntimeError, ModelAgentRunRuntime, RunModelAgentRunOptions } from './types'
-import { costFromUsage, usageFromAIUsage } from './usage-cost'
 import type {
 	AgentRunAssistantTranscriptPart,
 	AgentRunEvent,
@@ -27,6 +19,14 @@ import type { AssistantMessageDraftDelta, ToolCallUpdate } from '../../../domain
 import { appendAgentRunEvent } from '../../agent-runs'
 import { runtimeRecord, type CoreRuntimeValues } from '../../runtime-values'
 import type { Result } from '../../types'
+import { recordToolProposal } from './tool-proposals'
+import { providerTool, toolOutput, validateToolInput, type CoreAgentRunToolDefinition } from './tools'
+import { AgentRunToolExecutionCoordinator } from './tools/coordinator'
+import { AgentRunToolExecutionFailed } from './tools/results'
+import { assistantMessageModel, assistantPartsFromAIContent, toAISDKToolOutput } from './transcript-parts'
+import type { TurnModelUse } from './turn-model-use'
+import type { AgentRunLoopState, AgentRunRuntimeError, ModelAgentRunRuntime, RunModelAgentRunOptions } from './types'
+import { costFromUsage, usageFromAIUsage } from './usage-cost'
 
 type RecordedToolPart =
 	| Extract<AgentRunToolTranscriptPart, { type: 'tool-result' }>
@@ -84,19 +84,25 @@ export class AISDKTurnRecorder {
 	async onLanguageModelCallEnd(event: LanguageModelCallEndEvent<ToolSet>): Promise<void> {
 		const usage = usageFromAIUsage(event.usage)
 		const parts = await this.redactedAssistantPartsFromAIContent(event.content)
-		const assistant = await appendAgentRunEvent(this.runtime, this.runtime.services.storage, this.state.agentRun.id, {
-			type: 'assistant-message',
-			turnStartedEventId: this.turnStarted.id,
-			model: assistantMessageModel(this.turnModelUse),
-			finishReason: event.finishReason,
-			usage,
-			cost: costFromUsage(usage, this.turnModelUse.model.pricing),
-			responseId: event.responseId.length === 0 ? null : event.responseId,
-			parts,
-		})
+		const assistant = await appendAgentRunEvent(
+			this.runtime,
+			this.runtime.services.storage,
+			this.state.agentRun.id,
+			{
+				type: 'assistant-message',
+				turnStartedEventId: this.turnStarted.id,
+				model: assistantMessageModel(this.turnModelUse),
+				finishReason: event.finishReason,
+				usage,
+				cost: costFromUsage(usage, this.turnModelUse.model.pricing),
+				responseId: event.responseId.length === 0 ? null : event.responseId,
+				parts,
+			},
+		)
 		if (!assistant.ok) return this.fail(assistant.error)
 
-		if (assistant.value.body.type !== 'assistant-message') throw new Error('Expected assistant-message event body after append.')
+		if (assistant.value.body.type !== 'assistant-message')
+			throw new Error('Expected assistant-message event body after append.')
 		this.registerPendingToolCalls(assistant.value as AgentRunEventWithBody<'assistant-message'>)
 		const draftId = this.#draftIdByCallId.get(event.callId)
 		if (draftId !== undefined) {
@@ -123,7 +129,11 @@ export class AISDKTurnRecorder {
 				return
 			case 'text-delta':
 				this.appendPartText(chunk.id, chunk.text)
-				this.emitModelDelta(draftId, { type: 'text-delta', contentIndex: this.indexForPart(chunk.id), delta: chunk.text })
+				this.emitModelDelta(draftId, {
+					type: 'text-delta',
+					contentIndex: this.indexForPart(chunk.id),
+					delta: chunk.text,
+				})
 				return
 			case 'text-end':
 				this.emitModelDelta(draftId, {
@@ -138,7 +148,11 @@ export class AISDKTurnRecorder {
 				return
 			case 'reasoning-delta':
 				this.appendPartText(chunk.id, chunk.text)
-				this.emitModelDelta(draftId, { type: 'thinking-delta', contentIndex: this.indexForPart(chunk.id), delta: chunk.text })
+				this.emitModelDelta(draftId, {
+					type: 'thinking-delta',
+					contentIndex: this.indexForPart(chunk.id),
+					delta: chunk.text,
+				})
 				return
 			case 'reasoning-end':
 				this.emitModelDelta(draftId, {
@@ -238,7 +252,8 @@ export class AISDKTurnRecorder {
 		execution: ToolExecutionOptions<Record<string, unknown>>,
 	): Promise<AgentRunToolOutput> {
 		const group = this.#pendingToolGroupByToolCallId.get(execution.toolCallId)
-		if (group === undefined) return toolOutput('Tool call could not be recorded because assistant message context is missing.')
+		if (group === undefined)
+			return toolOutput('Tool call could not be recorded because assistant message context is missing.')
 
 		const started = runtimeRecord(this.runtime.values)
 		if (!started.ok) return this.failTool(started.error)
@@ -281,7 +296,13 @@ export class AISDKTurnRecorder {
 					signal: execution.abortSignal ?? this.options.signal ?? new AbortController().signal,
 					onUpdate: (update) => this.publishToolUpdate(execution.toolCallId, update),
 					recordProposal: (body) =>
-						recordToolProposal(this.runtime, this.state.agentRun.id, group.assistantMessageEventId, execution.toolCallId, body),
+						recordToolProposal(
+							this.runtime,
+							this.state.agentRun.id,
+							group.assistantMessageEventId,
+							execution.toolCallId,
+							body,
+						),
 					sandbox: this.state.sandbox,
 				})
 			const output = await this.coordinatedToolExecution(coreTool, mutationKey.value, execute)
@@ -298,7 +319,8 @@ export class AISDKTurnRecorder {
 				metadata: null,
 			})
 		} catch (error) {
-			const output = error instanceof AgentRunToolExecutionFailed ? error.output : toolOutput('Tool execution failed.')
+			const output =
+				error instanceof AgentRunToolExecutionFailed ? error.output : toolOutput('Tool execution failed.')
 			return this.recordToolPart(group, {
 				type: 'tool-error',
 				toolCallId: execution.toolCallId,
@@ -342,7 +364,10 @@ export class AISDKTurnRecorder {
 		}
 	}
 
-	private mutationKeyForTool(tool: CoreAgentRunToolDefinition, input: unknown): Result<string | null, AgentRunToolOutput> {
+	private mutationKeyForTool(
+		tool: CoreAgentRunToolDefinition,
+		input: unknown,
+	): Result<string | null, AgentRunToolOutput> {
 		switch (tool.workspaceMutationKind) {
 			case 'read-only':
 			case 'global-mutator':
@@ -352,10 +377,14 @@ export class AISDKTurnRecorder {
 					return { ok: false, error: toolOutput('Tool mutation target failed validation.') }
 				const key = tool.workspaceMutationKey(input)
 				if (!key.ok) return key
-				return key.value.length === 0 ? { ok: false, error: toolOutput('Tool mutation target failed validation.') } : key
+				return key.value.length === 0
+					? { ok: false, error: toolOutput('Tool mutation target failed validation.') }
+					: key
 			}
 			default:
-				throw new Error(`Unexpected workspace mutation kind: ${String(tool.workspaceMutationKind satisfies never)}`)
+				throw new Error(
+					`Unexpected workspace mutation kind: ${String(tool.workspaceMutationKind satisfies never)}`,
+				)
 		}
 	}
 
@@ -373,7 +402,9 @@ export class AISDKTurnRecorder {
 			case 'global-mutator':
 				return this.#coordinator.run({ workspaceMutationKind: 'global-mutator', execute })
 			default:
-				throw new Error(`Unexpected workspace mutation kind: ${String(tool.workspaceMutationKind satisfies never)}`)
+				throw new Error(
+					`Unexpected workspace mutation kind: ${String(tool.workspaceMutationKind satisfies never)}`,
+				)
 		}
 	}
 
@@ -530,12 +561,19 @@ if (import.meta.vitest) {
 			})
 
 			expect(
-				fixture.notifications.map((notification) => (notification as { data: { type: string; delta?: unknown } }).data.delta),
+				fixture.notifications.map(
+					(notification) => (notification as { data: { type: string; delta?: unknown } }).data.delta,
+				),
 			).toEqual([
 				{ type: 'text-started', contentIndex: 0 },
 				{ type: 'text-delta', contentIndex: 0, delta: 'Hello' },
 				{ type: 'text-ended', contentIndex: 0, text: 'Hello' },
-				{ type: 'tool-call-arguments-started', contentIndex: 1, toolCallId: 'tool-call-1', toolName: 'sample-tool' },
+				{
+					type: 'tool-call-arguments-started',
+					contentIndex: 1,
+					toolCallId: 'tool-call-1',
+					toolName: 'sample-tool',
+				},
 				{
 					type: 'tool-call-arguments-ended',
 					contentIndex: 1,
@@ -544,9 +582,11 @@ if (import.meta.vitest) {
 					input: { token: '[REDACTED]' },
 				},
 			])
-			expect(fixture.notifications.map((notification) => (notification as { data: { agentRunId: string } }).data.agentRunId)).toEqual(
-				fixture.notifications.map(() => '01k00000000000000000000002'),
-			)
+			expect(
+				fixture.notifications.map(
+					(notification) => (notification as { data: { agentRunId: string } }).data.agentRunId,
+				),
+			).toEqual(fixture.notifications.map(() => '01k00000000000000000000002'))
 		})
 
 		it('drops an unredactable live tool input without failing model execution', async () => {
@@ -575,7 +615,11 @@ if (import.meta.vitest) {
 
 			const notifications = fixture.notifications as Array<{
 				id: string
-				data: { type: string; event?: AgentRunEvent; delta?: { type: string; assistantMessageEventId?: string } }
+				data: {
+					type: string
+					event?: AgentRunEvent
+					delta?: { type: string; assistantMessageEventId?: string }
+				}
 			}>
 			expect(notifications.map((notification) => notification.data.type)).toEqual([
 				'agent-run-event-created',
@@ -603,7 +647,14 @@ if (import.meta.vitest) {
 			)
 			expect(assistant?.body).toMatchObject({
 				type: 'assistant-message',
-				parts: [{ type: 'tool-call', toolCallId: 'tool-call-1', toolName: 'sample-tool', input: { token: '[REDACTED]' } }],
+				parts: [
+					{
+						type: 'tool-call',
+						toolCallId: 'tool-call-1',
+						toolName: 'sample-tool',
+						input: { token: '[REDACTED]' },
+					},
+				],
 			})
 			expect(fixture.recorder.operationError()).toBeNull()
 		})
@@ -628,7 +679,10 @@ if (import.meta.vitest) {
 			await fixture.recorder.onLanguageModelCallEnd(languageModelCallEndEvent({ token: 'secret-token' }))
 			fixture.notifications.length = 0
 			const providerTool = fixture.recorder.tools()['sample-tool'] as {
-				execute(input: unknown, options: ToolExecutionOptions<Record<string, unknown>>): Promise<AgentRunToolOutput>
+				execute(
+					input: unknown,
+					options: ToolExecutionOptions<Record<string, unknown>>,
+				): Promise<AgentRunToolOutput>
 			}
 
 			await providerTool.execute({}, {
@@ -670,9 +724,9 @@ if (import.meta.vitest) {
 			})
 			fixture.recorder.recordUnclosedModelFailure(new Error('provider failed again'), undefined)
 
-			expect(fixture.notifications.map((notification) => (notification as { data: { delta?: unknown } }).data.delta)).toEqual([
-				{ type: 'model-output-discarded' },
-			])
+			expect(
+				fixture.notifications.map((notification) => (notification as { data: { delta?: unknown } }).data.delta),
+			).toEqual([{ type: 'model-output-discarded' }])
 		})
 
 		it('fails closed and discards the draft before persisting an assistant message when redaction fails', async () => {
@@ -680,28 +734,36 @@ if (import.meta.vitest) {
 			await fixture.recorder.onLanguageModelCallStart('call-1')
 			fixture.notifications.length = 0
 
-			await expect(fixture.recorder.onLanguageModelCallEnd(languageModelCallEndEvent({ token: 'secret-token' }))).rejects.toThrow(
-				'Agent Run transcript persistence failed: sandbox-operation-failed',
-			)
+			await expect(
+				fixture.recorder.onLanguageModelCallEnd(languageModelCallEndEvent({ token: 'secret-token' })),
+			).rejects.toThrow('Agent Run transcript persistence failed: sandbox-operation-failed')
 
 			expect(fixture.recorder.operationError()).toEqual({
 				type: 'sandbox-operation-failed',
 				operation: 'read-file',
 				summary: 'Redaction failed.',
 			})
-			expect([...fixture.services.tx.agentRunEvents.records.values()].some((event) => event.body.type === 'assistant-message')).toBe(
-				false,
-			)
-			expect(fixture.notifications.map((notification) => (notification as { data: { delta?: unknown } }).data.delta)).toEqual([
-				{ type: 'model-output-discarded' },
-			])
+			expect(
+				[...fixture.services.tx.agentRunEvents.records.values()].some(
+					(event) => event.body.type === 'assistant-message',
+				),
+			).toBe(false)
+			expect(
+				fixture.notifications.map((notification) => (notification as { data: { delta?: unknown } }).data.delta),
+			).toEqual([{ type: 'model-output-discarded' }])
 		})
 	})
 
-	function recorderFixture(input: { redactedValue?: unknown; redactionFails?: boolean; tools?: CoreAgentRunToolDefinition[] }) {
+	function recorderFixture(input: {
+		redactedValue?: unknown
+		redactionFails?: boolean
+		tools?: CoreAgentRunToolDefinition[]
+	}) {
 		const agentRunId = '01k00000000000000000000002'
 		const notifications: unknown[] = []
-		const services = createTestCoreServices({ notifications: { publish: (notification) => notifications.push(notification) } })
+		const services = createTestCoreServices({
+			notifications: { publish: (notification) => notifications.push(notification) },
+		})
 		const agentRun = {
 			...testModelAgentRun({ id: agentRunId }),
 			blocked: null,
@@ -762,8 +824,16 @@ if (import.meta.vitest) {
 
 	function testManagedSandbox(input: { redactedValue?: unknown; redactionFails?: boolean }) {
 		return {
-			setEnv: () => Promise.resolve({ ok: true as const, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
-			runCommand: () => Promise.resolve({ ok: true as const, value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null } }),
+			setEnv: () =>
+				Promise.resolve({
+					ok: true as const,
+					value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null },
+				}),
+			runCommand: () =>
+				Promise.resolve({
+					ok: true as const,
+					value: { exitCode: 0, summary: 'ok', stdout: null, stderr: null },
+				}),
 			readFile: () => Promise.resolve({ ok: true as const, value: null }),
 			writeFile: () => Promise.resolve({ ok: true as const, value: undefined }),
 			listDirectory: () => Promise.resolve({ ok: true as const, value: null }),

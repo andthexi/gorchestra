@@ -1,10 +1,10 @@
 import { ref, watch } from 'vue'
 
-import { useSetAuth } from './session'
 import { EmailOtpChallengeFormDraft, EmailOtpVerificationFormDraft } from '../../forms/auth'
 import { useApiAction } from '../core/action-state'
 import { useOverlay } from '../core/overlay'
 import { useServerApi } from '../core/server-api'
+import { useSetAuth } from './session'
 
 type EmailOtpSignInOptions = {
 	onSuccess?: () => void | Promise<void>

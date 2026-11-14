@@ -1,7 +1,7 @@
 import type { Migration } from 'equipped/orm'
 
-import { initialFoundationMigration } from './initial-foundation'
 import type { StorageAdapter } from '../../dependencies'
+import { initialFoundationMigration } from './initial-foundation'
 
 // Append new author-time IDs in ascending order; retain all released entries.
 export const migrations = [initialFoundationMigration] as const satisfies readonly Migration<StorageAdapter>[]
@@ -22,7 +22,9 @@ if (import.meta.vitest) {
 		const migrator = Migrator.from(repo).withLock().migrations(migrations).build()
 		const ids = migrations.map(({ id }) => id)
 		const snapshot = structuredClone(migrations)
-		expect(classifyMigrationHistory(await adapter.loadMigrations(repo.resolveConfig('_equipped_migrations')), ids)).toEqual({
+		expect(
+			classifyMigrationHistory(await adapter.loadMigrations(repo.resolveConfig('_equipped_migrations')), ids),
+		).toEqual({
 			ok: true,
 			value: 'empty',
 		})
@@ -37,7 +39,13 @@ if (import.meta.vitest) {
 				foreignKeys: [],
 			})),
 		)
-		expect(discovered.map(({ name }) => name)).toEqual(['secrets', 'projects', 'assets', 'memories', 'memory_revisions'])
+		expect(discovered.map(({ name }) => name)).toEqual([
+			'secrets',
+			'projects',
+			'assets',
+			'memories',
+			'memory_revisions',
+		])
 		const ledger = await adapter.loadMigrations(repo.resolveConfig('_equipped_migrations'))
 		expect(ledger).toHaveLength(1)
 		expect(ledger.map(({ id }) => id)).toEqual(['01m76d124c6e848k2hfvb4mar2'])

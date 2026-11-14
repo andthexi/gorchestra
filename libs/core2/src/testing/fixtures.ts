@@ -9,8 +9,12 @@ export function requireSuccess<T, E>(result: Result<T, E>): T {
 }
 
 export async function createMemoryFixture(portfolio: Portfolio) {
-	const parent = requireSuccess(await portfolio.memories.create({ parentId: null, title: 'Parent', body: 'parent body' }))
-	const child = requireSuccess(await portfolio.memories.create({ parentId: parent.memory.id, title: 'Child', body: 'child body' }))
+	const parent = requireSuccess(
+		await portfolio.memories.create({ parentId: null, title: 'Parent', body: 'parent body' }),
+	)
+	const child = requireSuccess(
+		await portfolio.memories.create({ parentId: parent.memory.id, title: 'Child', body: 'child body' }),
+	)
 	return { parent, child }
 }
 

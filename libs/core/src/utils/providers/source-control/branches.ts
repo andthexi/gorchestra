@@ -19,7 +19,13 @@ function base64Url(value: string): string {
 function validGeneratedBranch(branch: string): Result<string, InvariantViolationError> {
 	return isValidGeneratedBranchName(branch)
 		? { ok: true, value: branch }
-		: { ok: false, error: { type: 'invariant-violation', message: `Generated invalid source control branch name ${branch}.` } }
+		: {
+				ok: false,
+				error: {
+					type: 'invariant-violation',
+					message: `Generated invalid source control branch name ${branch}.`,
+				},
+			}
 }
 
 const branchValidators: Array<(branch: string) => boolean> = [

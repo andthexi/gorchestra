@@ -17,10 +17,16 @@ export function pruneCompletedDispatchRequests(
 		const requests = await listRecords('dispatch-request', storage)
 		if (!requests.ok) return requests
 		const ids = requests.value
-			.filter((request) => request.lifecycle.type === 'completed' && Date.parse(request.lifecycle.completed.at) < cutoff)
+			.filter(
+				(request) =>
+					request.lifecycle.type === 'completed' && Date.parse(request.lifecycle.completed.at) < cutoff,
+			)
 			.sort((left, right) => {
 				if (left.lifecycle.type !== 'completed' || right.lifecycle.type !== 'completed') return 0
-				return left.lifecycle.completed.at.localeCompare(right.lifecycle.completed.at) || left.id.localeCompare(right.id)
+				return (
+					left.lifecycle.completed.at.localeCompare(right.lifecycle.completed.at) ||
+					left.id.localeCompare(right.id)
+				)
 			})
 			.slice(0, input.pruneBatchSize)
 			.map((request) => request.id)
@@ -30,7 +36,8 @@ export function pruneCompletedDispatchRequests(
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { createTestCoreRuntime, createTestCoreServices, seedDispatchRequest, testId } = await import('../utils/test-helpers')
+	const { createTestCoreRuntime, createTestCoreServices, seedDispatchRequest, testId } =
+		await import('../utils/test-helpers')
 
 	describe('completed Dispatch Request pruning', () => {
 		it('deletes only completed requests older than retention in bounded batches', async () => {

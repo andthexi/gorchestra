@@ -7,26 +7,27 @@
 	"scripts": {
 		"dev": "tsx watch --env-file-if-exists=.env src/main.ts --dev | pino-pretty",
 		"start": "tsx --env-file-if-exists=.env src/main.ts",
-		"lint": "NODE_OPTIONS=--max-old-space-size=8192 eslint \"{src,libs,consumers}/**/*.{ts,vue}\"",
-		"lint:fix": "NODE_OPTIONS=--max-old-space-size=8192 eslint \"{src,libs,consumers}/**/*.{ts,vue}\" --fix",
-		"format": "prettier --check .",
-		"format:fix": "prettier --write .",
-		"typecheck": "NODE_OPTIONS=--max-old-space-size=8192 pnpm typecheck:ts && NODE_OPTIONS=--max-old-space-size=8192 pnpm typecheck:packages",
-		"typecheck:ts": "tsc -b --pretty false",
-		"typecheck:packages": "pnpm -r --if-present typecheck",
-		"test": "pnpm -r --if-present test",
-		"fallow": "fallow",
-		"fallow:audit": "fallow audit --base main",
-		"fallow:audit:json": "fallow audit --base main --format json",
-		"fallow:health": "fallow health --score",
-		"fallow:dead-code": "fallow dead-code",
+		"check:prepare": "pnpm --filter @gorchestra/core2 --fail-if-no-match --if-present run check:prepare",
+		"check:dependencies": "node scripts/check-dependencies.mjs",
+		"lint": "NODE_OPTIONS=--max-old-space-size=8192 eslint 'libs/core2/**/*.ts'",
+		"lint:fix": "NODE_OPTIONS=--max-old-space-size=8192 eslint 'libs/core2/**/*.ts' --fix",
+		"format": "prettier --check libs/core2 docs/core2",
+		"format:fix": "prettier --write libs/core2 docs/core2",
+		"typecheck": "NODE_OPTIONS=--max-old-space-size=8192 tsc -b libs/core2 --pretty false",
+		"test": "pnpm --filter @gorchestra/core2 --fail-if-no-match run test",
+		"fallow": "fallow --root libs/core2 --config libs/core2/.fallowrc.json",
+		"fallow:check": "status=0; fallow --root libs/core2 --config libs/core2/.fallowrc.json --type-aware --format human || status=$?; fallow dupes --root libs/core2 --config libs/core2/.fallowrc.json --fail-on-issues --format human || status=$?; exit \"$status\"",
+		"fallow:audit": "fallow audit --base main --root libs/core2 --config libs/core2/.fallowrc.json",
+		"fallow:audit:json": "fallow audit --base main --root libs/core2 --config libs/core2/.fallowrc.json --format json",
+		"fallow:health": "fallow health --root libs/core2 --config libs/core2/.fallowrc.json --score",
+		"fallow:dead-code": "fallow dead-code --root libs/core2 --config libs/core2/.fallowrc.json",
 		"commitlint": "commitlint",
 		"lint-staged": "lint-staged --concurrent false",
 		"prepare": "husky"
 	},
 	"lint-staged": {
-		"{src,libs,consumers}/**/*.{ts,vue}": "eslint --fix",
-		"*.{ts,tsx,js,cjs,mjs,json,md,yml,yaml,vue,css}": "prettier --write"
+		"libs/core2/**/*.ts": "eslint --fix",
+		"{libs/core2,docs/core2}/**/*.{ts,json,md}": "prettier --write"
 	},
 	"dependencies": {
 		"@gorchestra/consumer-server": "workspace:*",
@@ -47,7 +48,7 @@
 		"typescript": "^6.0.3",
 		"typescript-eslint": "8.72.2",
 		"vitest": "5.1.0",
-		"xi-configs": "0.1.0"
+		"xi-configs": "0.1.1"
 	},
 	"commitlint": {
 		"extends": [

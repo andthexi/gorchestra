@@ -25,7 +25,9 @@ export function configurableThinkingLevelsForProtocol(protocol: ModelProviderPro
 
 export function availableThinkingLevelsForModel(model: Model, protocol: ModelProviderProtocol): ModelThinkingLevel[] {
 	const configurableLevels = configurableThinkingLevelsForProtocol(protocol)
-	const supportedLevels = modelConfiguredThinkingLevels(model.capabilities).filter((level) => configurableLevels.includes(level))
+	const supportedLevels = modelConfiguredThinkingLevels(model.capabilities).filter((level) =>
+		configurableLevels.includes(level),
+	)
 	return ['none', ...supportedLevels]
 }
 
@@ -34,7 +36,9 @@ export function validateModelThinkingCapabilityForProtocol(
 	protocol: ModelProviderProtocol,
 ): Result<void, ModelThinkingLevelUnavailableError> {
 	const configurableLevels = configurableThinkingLevelsForProtocol(protocol)
-	const unsupportedLevel = modelConfiguredThinkingLevels(model.capabilities).find((level) => !configurableLevels.includes(level))
+	const unsupportedLevel = modelConfiguredThinkingLevels(model.capabilities).find(
+		(level) => !configurableLevels.includes(level),
+	)
 
 	return unsupportedLevel === undefined
 		? { ok: true, value: undefined }
@@ -56,7 +60,11 @@ export function validateModelThinkingLevelForUse(
 
 	return model.capabilities.thinking?.supportedLevels.includes(thinkingLevel) === true
 		? { ok: true, value: undefined }
-		: modelThinkingLevelUnavailable(model.id, thinkingLevel, thinkingLevelUnavailableReason(model, protocol, thinkingLevel))
+		: modelThinkingLevelUnavailable(
+				model.id,
+				thinkingLevel,
+				thinkingLevelUnavailableReason(model, protocol, thinkingLevel),
+			)
 }
 
 function thinkingLevelUnavailableReason(
@@ -65,7 +73,8 @@ function thinkingLevelUnavailableReason(
 	thinkingLevel: PositiveModelThinkingLevel,
 ): ModelThinkingLevelUnavailableError['reason'] {
 	if (model.capabilities.thinking === null) return { type: 'model-thinking-unconfigured' }
-	if (!model.capabilities.thinking.supportedLevels.includes(thinkingLevel)) return { type: 'thinking-level-unconfigured' }
+	if (!model.capabilities.thinking.supportedLevels.includes(thinkingLevel))
+		return { type: 'thinking-level-unconfigured' }
 	return { type: 'provider-thinking-level-unsupported', protocol }
 }
 
@@ -84,16 +93,25 @@ if (import.meta.vitest) {
 	describe('Model Provider Protocol thinking support', () => {
 		it('derives Model thinking levels from implicit none, configured support, and protocol support', () => {
 			expect(
-				availableThinkingLevelsForModel(model({ thinking: { supportedLevels: ['low', 'xhigh'] } }), 'google-generative-ai'),
+				availableThinkingLevelsForModel(
+					model({ thinking: { supportedLevels: ['low', 'xhigh'] } }),
+					'google-generative-ai',
+				),
 			).toEqual(['none', 'low'])
 			expect(
-				availableThinkingLevelsForModel(model({ thinking: { supportedLevels: ['minimal', 'xhigh'] } }), 'openai-chat-completions'),
+				availableThinkingLevelsForModel(
+					model({ thinking: { supportedLevels: ['minimal', 'xhigh'] } }),
+					'openai-chat-completions',
+				),
 			).toEqual(['none', 'minimal', 'xhigh'])
 		})
 
 		it('rejects configured thinking support that the provider protocol cannot map', () => {
 			expect(
-				validateModelThinkingCapabilityForProtocol(model({ thinking: { supportedLevels: ['xhigh'] } }), 'google-generative-ai'),
+				validateModelThinkingCapabilityForProtocol(
+					model({ thinking: { supportedLevels: ['xhigh'] } }),
+					'google-generative-ai',
+				),
 			).toEqual({
 				ok: false,
 				error: {

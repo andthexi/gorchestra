@@ -12,13 +12,13 @@ import type {
 	ResourceNotFoundError,
 	StorageOperationFailedError,
 } from '../errors'
-import type { CommandContext } from './types'
 import { appendAgentRunEvent } from '../utils/agent-runs'
 import { buildCommandHandler } from '../utils/command-handler'
 import { auditStamp, getRequired } from '../utils/command-storage'
 import { getPendingProposalForAgentRunPurpose, proposalRejectedProjectedParts } from '../utils/proposals'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const rejectPlanOutputInputPipe = v.object({ proposalEventId: idPipe, reason: v.nullable(freeFormStringPipe) })
 export type Input = PipeOutput<typeof rejectPlanOutputInputPipe>
@@ -42,29 +42,48 @@ export function createRejectPlanOutputCommand(runtime: CoreRuntime): Operation {
 		const stamp = auditStamp(runtime.values, context)
 		if (!stamp.ok) return stamp
 
-		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(async ({ storage, notifications }) => {
-			const proposal = await getPendingProposalForAgentRunPurpose(storage, input.proposalEventId, 'proposed-plan-output', 'planning')
-			if (!proposal.ok) return proposal
+		return runtime.transactions.run<Result, Exclude<Error, InvalidInputError>>(
+			async ({ storage, notifications }) => {
+				const proposal = await getPendingProposalForAgentRunPurpose(
+					storage,
+					input.proposalEventId,
+					'proposed-plan-output',
+					'planning',
+				)
+				if (!proposal.ok) return proposal
 
-			const { agentRun, proposal: proposalEvent } = proposal.value
-			const plan = await getRequired('plan', storage, agentRun.purpose.planId)
-			if (!plan.ok) return plan
+				const { agentRun, proposal: proposalEvent } = proposal.value
+				const plan = await getRequired('plan', storage, agentRun.purpose.planId)
+				if (!plan.ok) return plan
 
-			return appendAgentRunEvent({ values: runtime.values, notifications }, storage, proposalEvent.agentRunId, {
-				type: 'proposal-rejected',
-				proposalEventId: proposalEvent.id,
-				authorized: stamp.value,
-				reason: input.reason,
-				projectedParts: proposalRejectedProjectedParts(proposalEvent.id, input.reason),
-			})
-		})
+				return appendAgentRunEvent(
+					{ values: runtime.values, notifications },
+					storage,
+					proposalEvent.agentRunId,
+					{
+						type: 'proposal-rejected',
+						proposalEventId: proposalEvent.id,
+						authorized: stamp.value,
+						reason: input.reason,
+						projectedParts: proposalRejectedProjectedParts(proposalEvent.id, input.reason),
+					},
+				)
+			},
+		)
 	})
 }
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { context, createTestCoreRuntime, createTestCoreServices, defaultAgentRunSandboxConfig, localStamp, seedProject, stamp } =
-		await import('../utils/test-helpers')
+	const {
+		context,
+		createTestCoreRuntime,
+		createTestCoreServices,
+		defaultAgentRunSandboxConfig,
+		localStamp,
+		seedProject,
+		stamp,
+	} = await import('../utils/test-helpers')
 	const proposalEventId = '01k00000000000000000000003'
 
 	describe('rejectPlanOutput command', () => {
@@ -99,7 +118,13 @@ if (import.meta.vitest) {
 						proposalEventId,
 						authorized: localStamp(),
 						reason: 'Needs changes.',
-						projectedParts: [{ type: 'text', text: `Proposal ${proposalEventId} rejected. Needs changes.`, metadata: null }],
+						projectedParts: [
+							{
+								type: 'text',
+								text: `Proposal ${proposalEventId} rejected. Needs changes.`,
+								metadata: null,
+							},
+						],
 					},
 				},
 			})

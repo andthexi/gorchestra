@@ -1,8 +1,3 @@
-import type { DeliveryContext } from './delivery-context'
-import type { DeliveryPreflightError, DeliveryPreflightSnapshot, PassedDeliveryPreflight } from './delivery-context/work-resolution'
-import { resolveDeliveryWork, type DeliveryWorkResolution } from './delivery-context/work-resolution'
-import { validateActiveSecret } from './secrets'
-import type { Result } from './types'
 import type { Id } from '../domain/commons'
 import type { ValidationEvidence } from '../domain/evidence'
 import type { Model } from '../domain/model'
@@ -13,9 +8,24 @@ import {
 	type ModelProviderHeader,
 } from '../domain/model-provider'
 import type { Repository } from '../domain/repository'
-import type { InvalidCoreServiceOutputError, ResourceNotFoundError, ResourceArchivedError, StorageOperationFailedError } from '../errors'
-import type { CoreRuntime } from './runtime'
+import type {
+	InvalidCoreServiceOutputError,
+	ResourceNotFoundError,
+	ResourceArchivedError,
+	StorageOperationFailedError,
+} from '../errors'
 import type { CoreStorage, ResolvableSecretValue } from '../services'
+import type { DeliveryContext } from './delivery-context'
+import type {
+	DeliveryPreflightError,
+	DeliveryPreflightSnapshot,
+	PassedDeliveryPreflight,
+	DeliveryWorkResolution,
+} from './delivery-context/work-resolution'
+import { resolveDeliveryWork } from './delivery-context/work-resolution'
+import type { CoreRuntime } from './runtime'
+import { validateActiveSecret } from './secrets'
+import type { Result } from './types'
 
 export type {
 	DeliveryPreflight,
@@ -97,7 +107,10 @@ export async function runProviderBackedDeliveryPreflightChecks(
 ): Promise<Result<ValidationEvidence[], DeliveryPreflightError>> {
 	if (plan.type === 'local-failed') return ok(plan.checks)
 
-	const [repository, model] = await Promise.all([runRepositoryCheck(runtime, plan.repository), runModelCheck(runtime, plan.model)])
+	const [repository, model] = await Promise.all([
+		runRepositoryCheck(runtime, plan.repository),
+		runModelCheck(runtime, plan.model),
+	])
 	if (!repository.ok) return repository
 	if (!model.ok) return model
 
@@ -117,12 +130,18 @@ export async function providerBackedDeliveryPreflightInputsStillCurrent(
 	return current.ok ? ok(current.value.snapshot === plan.snapshot) : current
 }
 
-export function providerBackedDeliveryWorkResolution(plan: ProviderBackedDeliveryPreflightPlan): DeliveryWorkResolution | undefined {
+export function providerBackedDeliveryWorkResolution(
+	plan: ProviderBackedDeliveryPreflightPlan,
+): DeliveryWorkResolution | undefined {
 	return plan.type === 'provider-plan' ? plan.resolution.resolution : undefined
 }
 
-export function providerBackedRepositoryAccessSecret(plan: ProviderBackedDeliveryPreflightPlan): ResolvableSecretValue | undefined {
-	return plan.type === 'provider-plan' && plan.repository.type === 'provider' ? plan.repository.accessSecret : undefined
+export function providerBackedRepositoryAccessSecret(
+	plan: ProviderBackedDeliveryPreflightPlan,
+): ResolvableSecretValue | undefined {
+	return plan.type === 'provider-plan' && plan.repository.type === 'provider'
+		? plan.repository.accessSecret
+		: undefined
 }
 
 async function readRepositoryPlan(
@@ -161,14 +180,24 @@ function modelPlanFromSecrets(
 ): Result<ModelDeliveryPreflightPlan, never> {
 	return headerSecrets.type === 'check'
 		? ok(headerSecrets)
-		: ok(providerModelPlan(resolution.executionModel, resolution.executionModelProvider, authSecrets, headerSecrets.secrets))
+		: ok(
+				providerModelPlan(
+					resolution.executionModel,
+					resolution.executionModelProvider,
+					authSecrets,
+					headerSecrets.secrets,
+				),
+			)
 }
 
 async function readModelProviderAuthSecretCheck(
 	storage: CoreStorage,
 	modelProvider: ModelProvider,
 ): Promise<
-	Result<{ type: 'secrets'; secrets: ResolvableSecretValue[] } | { type: 'check'; check: ValidationEvidence }, DeliveryPreflightError>
+	Result<
+		{ type: 'secrets'; secrets: ResolvableSecretValue[] } | { type: 'check'; check: ValidationEvidence },
+		DeliveryPreflightError
+	>
 > {
 	if (modelProvider.auth === null) return ok({ type: 'secrets', secrets: [] })
 
@@ -182,7 +211,10 @@ async function readModelProviderHeaderSecretPlan(
 	storage: CoreStorage,
 	modelProvider: ModelProvider,
 ): Promise<
-	Result<{ type: 'secrets'; secrets: ResolvableSecretValue[] } | { type: 'check'; check: ValidationEvidence }, DeliveryPreflightError>
+	Result<
+		{ type: 'secrets'; secrets: ResolvableSecretValue[] } | { type: 'check'; check: ValidationEvidence },
+		DeliveryPreflightError
+	>
 > {
 	const secrets: ResolvableSecretValue[] = []
 	for (const header of modelProvider.headers) {
@@ -247,7 +279,11 @@ function mapModelProviderHeaderSecretFailure(
 	if (error.type === 'resource-archived') {
 		return ok({
 			type: 'check',
-			check: validationEvidence('model-preflight', false, modelSecretSummary(modelProvider, 'header', 'inactive')),
+			check: validationEvidence(
+				'model-preflight',
+				false,
+				modelSecretSummary(modelProvider, 'header', 'inactive'),
+			),
 		})
 	}
 
@@ -280,7 +316,9 @@ async function runModelCheck(
 		modelProvider: plan.modelProvider,
 		secrets: plan.secrets,
 	})
-	return preflight.ok ? ok(validationEvidence('model-preflight', preflight.value.type === 'passed', preflight.value.summary)) : preflight
+	return preflight.ok
+		? ok(validationEvidence('model-preflight', preflight.value.type === 'passed', preflight.value.summary))
+		: preflight
 }
 
 function providerModelPlan(
@@ -300,7 +338,11 @@ function secretValueRef(secret: { id: string; valueRef: string }): ResolvableSec
 	return { secretId: secret.id, valueRef: secret.valueRef }
 }
 
-function modelSecretSummary(modelProvider: ModelProvider, secretKind: 'auth' | 'header', state: 'missing' | 'inactive'): string {
+function modelSecretSummary(
+	modelProvider: ModelProvider,
+	secretKind: 'auth' | 'header',
+	state: 'missing' | 'inactive',
+): string {
 	const providerName = protocolDisplayName(modelProvider)
 	const noun = secretKind === 'auth' ? 'auth Secret' : 'header Secret'
 	return `${providerName} model provider ${noun} is ${state === 'missing' ? 'missing' : 'not active'}.`
@@ -331,7 +373,11 @@ function protocolDisplayName(modelProvider: ModelProvider): string {
 	}
 }
 
-function validationEvidence(operation: ValidationEvidence['operation']['type'], passed: boolean, summary: string): ValidationEvidence {
+function validationEvidence(
+	operation: ValidationEvidence['operation']['type'],
+	passed: boolean,
+	summary: string,
+): ValidationEvidence {
 	return { type: 'validation', operation: { type: operation }, passed, summary }
 }
 

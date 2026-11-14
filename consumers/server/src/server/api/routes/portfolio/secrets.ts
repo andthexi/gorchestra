@@ -2,6 +2,11 @@ import { Domain, Queries } from '@gorchestra/core'
 import { Router } from 'equipped/server'
 import { v } from 'valleyed'
 
+import { protectSecretPlaintext } from '../../../modules/secret-protection'
+import type { ServerApiContext } from '../../context'
+import { throwCoreOperationError } from '../../errors'
+import { type SelectedPortfolioCoreContext, withSelectedPortfolioCore } from '../../portfolio-context'
+import { coreIdPipe } from '../../schemas'
 import {
 	createSecretRequestSchema,
 	portfolioRequestCookieSchema,
@@ -13,11 +18,6 @@ import {
 	type ReplaceSecretValueRequest,
 	type UpdateSecretMetadataRequest,
 } from './shared'
-import { protectSecretPlaintext } from '../../../modules/secret-protection'
-import type { ServerApiContext } from '../../context'
-import { throwCoreOperationError } from '../../errors'
-import { type SelectedPortfolioCoreContext, withSelectedPortfolioCore } from '../../portfolio-context'
-import { coreIdPipe } from '../../schemas'
 
 export function createSecretsApiRouter(context: ServerApiContext) {
 	return new Router()
@@ -29,7 +29,11 @@ export function createSecretsApiRouter(context: ServerApiContext) {
 			},
 		})(async (req) => listSelectedPortfolioSecrets(context, req.cookies, req.query))
 		.post('/secrets', {
-			schema: { cookies: portfolioRequestCookieSchema, body: createSecretRequestSchema, response: Queries.GetSecret.resultPipe },
+			schema: {
+				cookies: portfolioRequestCookieSchema,
+				body: createSecretRequestSchema,
+				response: Queries.GetSecret.resultPipe,
+			},
 		})(async (req) => createSelectedPortfolioSecret(context, req.cookies, req.body))
 		.get('/secrets/:secretId', {
 			schema: {
@@ -99,7 +103,10 @@ function createSelectedPortfolioSecret(
 ): Promise<Queries.GetSecret.Result> {
 	return withSelectedPortfolioCore(context, cookies, async ({ core, workspaceMember }) => {
 		const valueRef = protectSecretPlaintext(input.value, context.security.secretEncryptionKey)
-		const secret = await core.commands.createSecret({ name: input.name, valueRef }, commandContext(workspaceMember.id))
+		const secret = await core.commands.createSecret(
+			{ name: input.name, valueRef },
+			commandContext(workspaceMember.id),
+		)
 		return secret.ok ? getSecretResponse(core, secret.value.id) : throwCoreOperationError(secret.error)
 	})
 }
@@ -111,7 +118,10 @@ function updateSelectedPortfolioSecretMetadata(
 	input: UpdateSecretMetadataRequest,
 ): Promise<Queries.GetSecret.Result> {
 	return withSelectedPortfolioCore(context, cookies, async ({ core, workspaceMember }) => {
-		const secret = await core.commands.updateSecretMetadata({ secretId, name: input.name }, commandContext(workspaceMember.id))
+		const secret = await core.commands.updateSecretMetadata(
+			{ secretId, name: input.name },
+			commandContext(workspaceMember.id),
+		)
 		return secret.ok ? getSecretResponse(core, secret.value.id) : throwCoreOperationError(secret.error)
 	})
 }
@@ -124,7 +134,10 @@ function replaceSelectedPortfolioSecretValue(
 ): Promise<Queries.GetSecret.Result> {
 	return withSelectedPortfolioCore(context, cookies, async ({ core, workspaceMember }) => {
 		const valueRef = protectSecretPlaintext(input.value, context.security.secretEncryptionKey)
-		const secret = await core.commands.replaceSecretValue({ secretId, valueRef }, commandContext(workspaceMember.id))
+		const secret = await core.commands.replaceSecretValue(
+			{ secretId, valueRef },
+			commandContext(workspaceMember.id),
+		)
 		return secret.ok ? getSecretResponse(core, secret.value.id) : throwCoreOperationError(secret.error)
 	})
 }
@@ -151,7 +164,10 @@ function unarchiveSelectedPortfolioSecret(
 	})
 }
 
-async function getSecretResponse(core: SelectedPortfolioCoreContext['core'], secretId: string): Promise<Queries.GetSecret.Result> {
+async function getSecretResponse(
+	core: SelectedPortfolioCoreContext['core'],
+	secretId: string,
+): Promise<Queries.GetSecret.Result> {
 	const secret = await core.queries.getSecret({ secretId })
 	return secret.ok ? secret.value : throwCoreOperationError(secret.error)
 }

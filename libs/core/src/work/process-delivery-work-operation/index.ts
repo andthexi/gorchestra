@@ -1,10 +1,30 @@
 import { v, type PipeOutput } from 'valleyed'
 
+import { exclusiveDeliverySchedulerClaim } from '../../dispatch/claims'
 import { deliveryWorkOperationPipe, type Action, type DeliveryWorkOperation } from '../../domain/action'
 import { idPipe, type Id } from '../../domain/commons'
 import type { ValidationEvidence } from '../../domain/evidence'
 import type { InvalidInputError } from '../../errors'
+import {
+	buildDeliveryContext,
+	getDeliveryState,
+	getSliceState,
+	type DeliveryContext,
+} from '../../utils/delivery-context'
+import {
+	deliveryPreflightChecksPassed,
+	providerBackedDeliveryWorkResolution,
+	providerBackedRepositoryAccessSecret,
+	readProviderBackedDeliveryPreflightPlan,
+	runProviderBackedDeliveryPreflightChecks,
+} from '../../utils/delivery-preflight'
 import type { CoreRuntime } from '../../utils/runtime'
+import { nextId, runtimeRecord } from '../../utils/runtime-values'
+import { createRecord } from '../../utils/storage/helpers'
+import type { Result as CoreResult } from '../../utils/types'
+import { buildWorkHandler } from '../../utils/work-handler'
+import { deliveryOperationFromState, sliceOperationFromState } from '../delivery-work/dispatch-actions'
+import type { DeliveryWorkHandlerResult, Error, ResolvedDeliveryHandlerContext, Result } from '../delivery-work/types'
 import type { WorkContext } from '../types'
 import { handleDeliveryNeedsArtifactCreation } from './handlers/delivery-needs-artifact-creation'
 import { handleDeliveryNeedsArtifactValidation } from './handlers/delivery-needs-artifact-validation'
@@ -14,21 +34,6 @@ import { handleSliceNeedsArtifactCreation } from './handlers/slice-needs-artifac
 import { handleSliceNeedsArtifactValidation } from './handlers/slice-needs-artifact-validation'
 import { handleSliceNeedsDeliveryValidation } from './handlers/slice-needs-delivery-validation'
 import { handleSliceNeedsReviewSurface } from './handlers/slice-needs-review-surface'
-import { exclusiveDeliverySchedulerClaim } from '../../dispatch/claims'
-import { buildDeliveryContext, getDeliveryState, getSliceState, type DeliveryContext } from '../../utils/delivery-context'
-import {
-	deliveryPreflightChecksPassed,
-	providerBackedDeliveryWorkResolution,
-	providerBackedRepositoryAccessSecret,
-	readProviderBackedDeliveryPreflightPlan,
-	runProviderBackedDeliveryPreflightChecks,
-} from '../../utils/delivery-preflight'
-import { nextId, runtimeRecord } from '../../utils/runtime-values'
-import { createRecord } from '../../utils/storage/helpers'
-import type { Result as CoreResult } from '../../utils/types'
-import { buildWorkHandler } from '../../utils/work-handler'
-import { deliveryOperationFromState, sliceOperationFromState } from '../delivery-work/dispatch-actions'
-import type { DeliveryWorkHandlerResult, Error, ResolvedDeliveryHandlerContext, Result } from '../delivery-work/types'
 
 const processDeliveryWorkOperationInputPipe = v.object({
 	deliveryId: idPipe,
@@ -42,44 +47,56 @@ export type Input = Omit<RawInput, 'operation'> & { operation: DeliveryWorkOpera
 export type Operation = (input: Input, context: WorkContext) => Promise<CoreResult<Result, Error>>
 
 export function createProcessDeliveryWorkOperation(runtime: CoreRuntime): Operation {
-	return buildWorkHandler('processDeliveryWorkOperation', processDeliveryWorkOperationInputPipe, async (parsedInput, context) => {
-		const input = parsedInput as Input
-		if (context.signal?.aborted === true) {
-			return {
-				ok: false,
-				error: { type: 'dispatch-attempt-aborted', requestId: input.requestId, attemptNumber: input.attemptNumber },
+	return buildWorkHandler(
+		'processDeliveryWorkOperation',
+		processDeliveryWorkOperationInputPipe,
+		async (parsedInput, context) => {
+			const input = parsedInput as Input
+			if (context.signal?.aborted === true) {
+				return {
+					ok: false,
+					error: {
+						type: 'dispatch-attempt-aborted',
+						requestId: input.requestId,
+						attemptNumber: input.attemptNumber,
+					},
+				}
 			}
-		}
-		const current = await runtime.transactions.run(async ({ storage }) => {
-			const deliveryContext = await buildDeliveryContext(storage, input.deliveryId)
-			if (!deliveryContext.ok) return deliveryContext
+			const current = await runtime.transactions.run(async ({ storage }) => {
+				const deliveryContext = await buildDeliveryContext(storage, input.deliveryId)
+				if (!deliveryContext.ok) return deliveryContext
 
-			const filteredContext = {
-				...deliveryContext.value,
-				dispatchRequests: deliveryContext.value.dispatchRequests.filter((request) => request.id !== input.requestId),
+				const filteredContext = {
+					...deliveryContext.value,
+					dispatchRequests: deliveryContext.value.dispatchRequests.filter(
+						(request) => request.id !== input.requestId,
+					),
+				}
+				const operation = currentOperation(filteredContext, input.operation)
+				return operation.ok
+					? { ok: true, value: { deliveryContext: filteredContext, operation: operation.value } }
+					: operation
+			})
+			if (!current.ok) return current
+			if (!operationsEqual(current.value.operation, input.operation)) {
+				const scheduled = await requestNextScheduler(runtime, input.deliveryId)
+				return scheduled.ok ? { ok: true, value: completed() } : scheduled
 			}
-			const operation = currentOperation(filteredContext, input.operation)
-			return operation.ok ? { ok: true, value: { deliveryContext: filteredContext, operation: operation.value } } : operation
-		})
-		if (!current.ok) return current
-		if (!operationsEqual(current.value.operation, input.operation)) {
+
+			const preflight = await runProcessorPreflight(runtime, current.value.deliveryContext)
+			if (!preflight.ok) return preflight
+			if (!deliveryPreflightChecksPassed(preflight.value.checks)) {
+				return writeFailedPreflightAndRequestScheduler(runtime, input, preflight.value.checks)
+			}
+
+			const handled = await processFreshOperation(runtime, input, preflight.value.context)
+			if (!handled.ok) return handled
+			if (input.operation.scope === 'slice' && input.operation.state === 'executable') return handled
+
 			const scheduled = await requestNextScheduler(runtime, input.deliveryId)
-			return scheduled.ok ? { ok: true, value: completed() } : scheduled
-		}
-
-		const preflight = await runProcessorPreflight(runtime, current.value.deliveryContext)
-		if (!preflight.ok) return preflight
-		if (!deliveryPreflightChecksPassed(preflight.value.checks)) {
-			return writeFailedPreflightAndRequestScheduler(runtime, input, preflight.value.checks)
-		}
-
-		const handled = await processFreshOperation(runtime, input, preflight.value.context)
-		if (!handled.ok) return handled
-		if (input.operation.scope === 'slice' && input.operation.state === 'executable') return handled
-
-		const scheduled = await requestNextScheduler(runtime, input.deliveryId)
-		return scheduled.ok ? handled : scheduled
-	})
+			return scheduled.ok ? handled : scheduled
+		},
+	)
 }
 
 function currentOperation(
@@ -103,8 +120,15 @@ function currentOperation(
 async function runProcessorPreflight(
 	runtime: CoreRuntime,
 	deliveryContext: DeliveryContext,
-): Promise<CoreResult<{ checks: ValidationEvidence[]; context: ResolvedDeliveryHandlerContext }, Exclude<Error, InvalidInputError>>> {
-	const plan = await runtime.transactions.run(({ storage }) => readProviderBackedDeliveryPreflightPlan(storage, deliveryContext))
+): Promise<
+	CoreResult<
+		{ checks: ValidationEvidence[]; context: ResolvedDeliveryHandlerContext },
+		Exclude<Error, InvalidInputError>
+	>
+> {
+	const plan = await runtime.transactions.run(({ storage }) =>
+		readProviderBackedDeliveryPreflightPlan(storage, deliveryContext),
+	)
 	if (!plan.ok) return plan
 
 	const checks = await runProviderBackedDeliveryPreflightChecks(runtime, plan.value)
@@ -177,7 +201,10 @@ async function processFreshDeliveryOperation(
 			const deliveryArtifactId = context.deliveryContext.deliveryArtifact?.id
 			return deliveryArtifactId === undefined
 				? invariant('Delivery Review Surface creation requires a Delivery Artifact.')
-				: handleDeliveryNeedsReviewSurface(runtime, context, { type: 'needs-review-surface', deliveryArtifactId })
+				: handleDeliveryNeedsReviewSurface(runtime, context, {
+						type: 'needs-review-surface',
+						deliveryArtifactId,
+					})
 		}
 		default:
 			throw new Error(`Unexpected Delivery Work Operation state: ${String(operation.state satisfies never)}`)
@@ -201,7 +228,8 @@ async function processFreshSliceOperation(
 				}),
 			)
 		case 'needs-artifact-validation': {
-			const sliceArtifactId = operation.detail?.type === 'artifact' ? operation.detail.artifactId : deliverySlice.artifact?.id
+			const sliceArtifactId =
+				operation.detail?.type === 'artifact' ? operation.detail.artifactId : deliverySlice.artifact?.id
 			return sliceArtifactId === undefined
 				? invariant(`Slice ${operation.sliceId} Artifact is missing from Delivery Context.`)
 				: runtime.transactions.run(async ({ storage }) =>
@@ -213,13 +241,19 @@ async function processFreshSliceOperation(
 					)
 		}
 		case 'needs-review-surface': {
-			const sliceArtifactId = operation.detail?.type === 'artifact' ? operation.detail.artifactId : deliverySlice.artifact?.id
+			const sliceArtifactId =
+				operation.detail?.type === 'artifact' ? operation.detail.artifactId : deliverySlice.artifact?.id
 			return sliceArtifactId === undefined
 				? invariant(`Slice ${operation.sliceId} Artifact is missing from Delivery Context.`)
-				: handleSliceNeedsReviewSurface(runtime, context, deliverySlice.slice, { type: 'needs-review-surface', sliceArtifactId })
+				: handleSliceNeedsReviewSurface(runtime, context, deliverySlice.slice, {
+						type: 'needs-review-surface',
+						sliceArtifactId,
+					})
 		}
 		case 'needs-artifact-creation':
-			return handleSliceNeedsArtifactCreation(runtime, context, deliverySlice.slice, { type: 'needs-artifact-creation' })
+			return handleSliceNeedsArtifactCreation(runtime, context, deliverySlice.slice, {
+				type: 'needs-artifact-creation',
+			})
 		case 'executable':
 			return runtime.transactions.run((transaction) =>
 				handleSliceExecutable(
@@ -272,7 +306,10 @@ async function writeFailedPreflightAndRequestScheduler(
 	})
 }
 
-function requestNextScheduler(runtime: CoreRuntime, deliveryId: Id): Promise<CoreResult<void, Exclude<Error, InvalidInputError>>> {
+function requestNextScheduler(
+	runtime: CoreRuntime,
+	deliveryId: Id,
+): Promise<CoreResult<void, Exclude<Error, InvalidInputError>>> {
 	return runtime.transactions.run(async ({ dispatch }) => {
 		const accepted = await dispatch.request({
 			payload: { type: 'delivery-work-scheduler', deliveryId },

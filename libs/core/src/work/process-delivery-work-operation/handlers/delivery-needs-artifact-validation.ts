@@ -1,6 +1,6 @@
-import { noConfiguredValidationEvidence, writeValidationAction } from './artifact-validation-recording'
 import type { DeliveryWorkState } from '../../../domain/delivery'
 import type { DeliveryHandlerContext, DeliveryWorkHandlerResult } from '../../delivery-work/types'
+import { noConfiguredValidationEvidence, writeValidationAction } from './artifact-validation-recording'
 
 export function handleDeliveryNeedsArtifactValidation(
 	context: DeliveryHandlerContext,
@@ -8,7 +8,10 @@ export function handleDeliveryNeedsArtifactValidation(
 ): Promise<DeliveryWorkHandlerResult> | DeliveryWorkHandlerResult {
 	return writeValidationAction(context, {
 		type: 'validate-delivery-artifact',
-		evidence: noConfiguredValidationEvidence('delivery-branch-validation', 'No Delivery Artifact validation is configured.'),
+		evidence: noConfiguredValidationEvidence(
+			'delivery-branch-validation',
+			'No Delivery Artifact validation is configured.',
+		),
 		dispatch: context.dispatch ?? null,
 	})
 }
@@ -32,7 +35,11 @@ if (import.meta.vitest) {
 				authorized: null,
 				result: {
 					type: 'validate-delivery-artifact',
-					evidence: validationEvidence('delivery-branch-validation', true, 'No Delivery Artifact validation is configured.'),
+					evidence: validationEvidence(
+						'delivery-branch-validation',
+						true,
+						'No Delivery Artifact validation is configured.',
+					),
 					dispatch: null,
 				},
 			})

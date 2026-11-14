@@ -1,5 +1,5 @@
-import type { CoreAgentRunToolDefinition } from './registry'
 import { revisionOutputProposalPipe } from '../../../../domain/proposals'
+import type { CoreAgentRunToolDefinition } from './registry'
 
 export function proposeRevisionOutputTool(): CoreAgentRunToolDefinition {
 	return {
@@ -7,7 +7,8 @@ export function proposeRevisionOutputTool(): CoreAgentRunToolDefinition {
 		contractVersion: 1,
 		description: 'Record a Revision Output proposal for human review.',
 		inputPipe: revisionOutputProposalPipe,
-		promptSnippet: 'Use propose-revision-output when you are ready to submit a complete Revision Output for human review.',
+		promptSnippet:
+			'Use propose-revision-output when you are ready to submit a complete Revision Output for human review.',
 		promptGuidelines: [
 			'Call this tool only when the proposed Revision Output is internally consistent and ready for review.',
 			'Do not use this tool for partial drafts or status updates.',

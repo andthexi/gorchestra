@@ -1,9 +1,3 @@
-import { compareActions, latestAction, latestInTransitDispatchForOperation, latestKnownAction } from './actions'
-import { compareAcceptedThenId } from './dependencies'
-import { firstSyncState, ok, stateOrElseSync } from './result'
-import { currentScopedReviewSurface } from './review-surfaces'
-import { getSliceState } from './slice'
-import type { WorkStateDerivationError, WorkStateResult } from './types'
 import type { Action } from '../../../domain/action'
 import type { Delivery, DeliveryIntegration, DeliveryWorkState } from '../../../domain/delivery'
 import type { DeliveryArtifact } from '../../../domain/delivery-artifact'
@@ -11,6 +5,12 @@ import { type ReviewSurface, type ReviewSurfaceClosed } from '../../../domain/re
 import type { Slice } from '../../../domain/slice'
 import type { Result } from '../../types'
 import type { DeliveryContext } from '../types'
+import { compareActions, latestAction, latestInTransitDispatchForOperation, latestKnownAction } from './actions'
+import { compareAcceptedThenId } from './dependencies'
+import { firstSyncState, ok, stateOrElseSync } from './result'
+import { currentScopedReviewSurface } from './review-surfaces'
+import { getSliceState } from './slice'
+import type { WorkStateDerivationError, WorkStateResult } from './types'
 
 interface DeliveryValidationContext {
 	latestValidation: Action | null
@@ -34,7 +34,10 @@ function deliveryActionsFor(context: DeliveryContext): Action[] {
 	return context.actions.filter((action) => action.deliveryId === context.delivery.id)
 }
 
-function deriveDeliveryStateAfterEarlyGates(context: DeliveryContext, deliveryActions: Action[]): WorkStateResult<DeliveryWorkState> {
+function deriveDeliveryStateAfterEarlyGates(
+	context: DeliveryContext,
+	deliveryActions: Action[],
+): WorkStateResult<DeliveryWorkState> {
 	const artifactDecision = deliveryArtifactDecision(context)
 	if (!artifactDecision.ok) return artifactDecision
 	if (artifactDecision.value.type === 'state') return ok(artifactDecision.value.state)
@@ -70,7 +73,10 @@ function immediateDeliveryLifecycleState(context: DeliveryContext): WorkStateRes
 }
 
 function deliveryDispatchState(context: DeliveryContext): WorkStateResult<DeliveryWorkState | null> {
-	const inTransit = latestInTransitDispatchForOperation(context.dispatchRequests, (operation) => operation.scope === 'delivery')
+	const inTransit = latestInTransitDispatchForOperation(
+		context.dispatchRequests,
+		(operation) => operation.scope === 'delivery',
+	)
 	if (inTransit === null) return ok(null)
 
 	return inTransit.type === 'running' && inTransit.request.lifecycle.type === 'leased'
@@ -80,13 +86,19 @@ function deliveryDispatchState(context: DeliveryContext): WorkStateResult<Delive
 				requestId: inTransit.request.id,
 				attemptNumber: inTransit.request.lifecycle.attempt.number,
 			})
-		: ok({ type: 'operation-queued', operation: inTransit.request.payload.operation, requestId: inTransit.request.id })
+		: ok({
+				type: 'operation-queued',
+				operation: inTransit.request.payload.operation,
+				requestId: inTransit.request.id,
+			})
 }
 
 function deliveryDispatchFailureState(deliveryActions: Action[]): WorkStateResult<DeliveryWorkState | null> {
 	const failure = latestAction(
 		deliveryActions.filter(
-			(action) => action.result.type === 'record-delivery-work-dispatch-failure' && action.result.scope.type === 'delivery',
+			(action) =>
+				action.result.type === 'record-delivery-work-dispatch-failure' &&
+				action.result.scope.type === 'delivery',
 		),
 	)
 	return failure?.result.type === 'record-delivery-work-dispatch-failure'
@@ -109,10 +121,14 @@ function blockedDeliveryIds(context: DeliveryContext): Delivery['id'][] {
 }
 
 function deliveryPreflightState(deliveryActions: Action[]): WorkStateResult<DeliveryWorkState | null> {
-	const latestPreflight = latestAction(deliveryActions.filter((action) => action.result.type === 'validate-preflight'))
+	const latestPreflight = latestAction(
+		deliveryActions.filter((action) => action.result.type === 'validate-preflight'),
+	)
 	if (latestPreflight?.result.type !== 'validate-preflight') return ok(null)
 
-	return preflightChecksPassed(latestPreflight.result.checks) ? ok(null) : ok({ type: 'preflight-failed', actionId: latestPreflight.id })
+	return preflightChecksPassed(latestPreflight.result.checks)
+		? ok(null)
+		: ok({ type: 'preflight-failed', actionId: latestPreflight.id })
 }
 
 function preflightChecksPassed(checks: Extract<Action['result'], { type: 'validate-preflight' }>['checks']): boolean {
@@ -159,39 +175,56 @@ function deriveCompletedSlicesDeliveryState(
 	return deliveryReadyReviewState(context, deliveryActions, deliveryArtifact, validation.latestPassedValidation)
 }
 
-function deliveryValidationContext(deliveryActions: Action[], latestSliceCompletion: Action): DeliveryValidationContext {
+function deliveryValidationContext(
+	deliveryActions: Action[],
+	latestSliceCompletion: Action,
+): DeliveryValidationContext {
 	const validationActions = deliveryActions.filter(
-		(action) => action.result.type === 'validate-delivery-artifact' && compareActions(action, latestSliceCompletion) > 0,
+		(action) =>
+			action.result.type === 'validate-delivery-artifact' && compareActions(action, latestSliceCompletion) > 0,
 	)
 
 	return {
 		latestValidation: latestAction(validationActions),
 		latestPassedValidation: latestAction(
-			validationActions.filter((action) => action.result.type === 'validate-delivery-artifact' && action.result.evidence.passed),
+			validationActions.filter(
+				(action) => action.result.type === 'validate-delivery-artifact' && action.result.evidence.passed,
+			),
 		),
 	}
 }
 
-function deliveryValidationState(deliveryActions: Action[], validation: DeliveryValidationContext): DeliveryWorkState | null {
+function deliveryValidationState(
+	deliveryActions: Action[],
+	validation: DeliveryValidationContext,
+): DeliveryWorkState | null {
 	const operationFailureState = deliveryOperationFailureState(deliveryActions, validation.latestPassedValidation)
 	return operationFailureState ?? failedDeliveryValidationState(validation.latestValidation)
 }
 
-function deliveryOperationFailureState(deliveryActions: Action[], latestPassedValidation: Action | null): DeliveryWorkState | null {
-	const failure = latestPassedValidation === null ? null : latestDeliveryFailureAfter(deliveryActions, latestPassedValidation)
+function deliveryOperationFailureState(
+	deliveryActions: Action[],
+	latestPassedValidation: Action | null,
+): DeliveryWorkState | null {
+	const failure =
+		latestPassedValidation === null ? null : latestDeliveryFailureAfter(deliveryActions, latestPassedValidation)
 	return failure === null ? null : { type: 'delivery-operation-failed', actionId: failure.id }
 }
 
 function failedDeliveryValidationState(latestValidation: Action | null): DeliveryWorkState | null {
 	if (latestValidation?.result.type !== 'validate-delivery-artifact') return null
 
-	return latestValidation.result.evidence.passed ? null : { type: 'delivery-validation-failed', actionId: latestValidation.id }
+	return latestValidation.result.evidence.passed
+		? null
+		: { type: 'delivery-validation-failed', actionId: latestValidation.id }
 }
 
 function latestDeliveryFailureAfter(deliveryActions: Action[], action: Action): Action | null {
 	return latestAction(
 		deliveryActions.filter(
-			(candidate) => candidate.result.type === 'record-delivery-external-operation-failure' && compareActions(candidate, action) > 0,
+			(candidate) =>
+				candidate.result.type === 'record-delivery-external-operation-failure' &&
+				compareActions(candidate, action) > 0,
 		),
 	)
 }
@@ -208,7 +241,12 @@ function deliveryReadyReviewState(
 	const reviewState = deliveryReviewState(reviewSurface.value)
 	if (reviewState !== null) return ok(reviewState)
 
-	return deliveryReviewWaitingState(deliveryActions, deliveryArtifact, latestPassedDeliveryValidation, reviewSurface.value)
+	return deliveryReviewWaitingState(
+		deliveryActions,
+		deliveryArtifact,
+		latestPassedDeliveryValidation,
+		reviewSurface.value,
+	)
 }
 
 function deliveryReviewWaitingState(
@@ -245,14 +283,21 @@ function deliveryReviewState(reviewSurface: ReviewSurface | null): DeliveryWorkS
 		: closedDeliveryReviewState(reviewSurface.id, reviewSurface.closed)
 }
 
-function closedDeliveryReviewState(reviewSurfaceId: ReviewSurface['id'], closed: ReviewSurfaceClosed): DeliveryWorkState | null {
+function closedDeliveryReviewState(
+	reviewSurfaceId: ReviewSurface['id'],
+	closed: ReviewSurfaceClosed,
+): DeliveryWorkState | null {
 	if (closed.type === 'closed-without-merge') return { type: 'delivery-review-failed', reviewSurfaceId }
-	if (closed.type === 'merged') return { type: 'ready-to-ship', integration: { type: 'review-surface-merged', reviewSurfaceId } }
+	if (closed.type === 'merged')
+		return { type: 'ready-to-ship', integration: { type: 'review-surface-merged', reviewSurfaceId } }
 
 	return null
 }
 
-function latestObservedDeliveryIntegration(deliveryActions: Action[], latestPassedDeliveryValidation: Action): Action | null {
+function latestObservedDeliveryIntegration(
+	deliveryActions: Action[],
+	latestPassedDeliveryValidation: Action,
+): Action | null {
 	return latestAction(
 		deliveryActions.filter(
 			(action) =>
@@ -339,7 +384,11 @@ if (import.meta.vitest) {
 				heartbeat: request.accepted,
 				expiresAt: '2026-06-10T12:01:00.000Z',
 			}
-			tx.dispatchRequests.records.set(request.id, { ...request, attemptCount: 1, lifecycle: { type: 'leased', attempt } })
+			tx.dispatchRequests.records.set(request.id, {
+				...request,
+				attemptCount: 1,
+				lifecycle: { type: 'leased', attempt },
+			})
 			expect(deliveryState(tx, testId(8))).toEqual({
 				ok: true,
 				value: {
@@ -378,7 +427,11 @@ if (import.meta.vitest) {
 				id: '01k00000000000000000100037',
 				def: {
 					type: 'depends-on',
-					from: { type: 'delivery', projectId: '01k00000000000000000000030', id: '01k00000000000000000000008' },
+					from: {
+						type: 'delivery',
+						projectId: '01k00000000000000000000030',
+						id: '01k00000000000000000000008',
+					},
 					to: { type: 'delivery', projectId: '01k00000000000000000000030', id: '01k00000000000000000100036' },
 				},
 				created: stamp,
@@ -392,7 +445,10 @@ if (import.meta.vitest) {
 
 		it('derives preflight-failed from the latest failed Delivery preflight check', () => {
 			const { tx } = deliveryFixture({ queued: true })
-			seedAction(tx, { id: 'preflight-failed', result: { type: 'validate-preflight', checks: [failedValidation] } })
+			seedAction(tx, {
+				id: 'preflight-failed',
+				result: { type: 'validate-preflight', checks: [failedValidation] },
+			})
 
 			expect(deliveryState(tx, '01k00000000000000000000008')).toEqual({
 				ok: true,
@@ -412,26 +468,41 @@ if (import.meta.vitest) {
 
 		it('clears preflight-failed when the latest Delivery preflight checks all passed', () => {
 			const { tx } = deliveryFixture({ queued: true })
-			seedAction(tx, { id: 'preflight-failed', result: { type: 'validate-preflight', checks: [failedValidation] } })
+			seedAction(tx, {
+				id: 'preflight-failed',
+				result: { type: 'validate-preflight', checks: [failedValidation] },
+			})
 			seedAction(tx, {
 				id: 'preflight-passed',
 				at: '2026-06-10T12:01:00.000Z',
-				result: { type: 'validate-preflight', checks: [validationEvidence('repository-preflight', true, 'Repository ready.')] },
+				result: {
+					type: 'validate-preflight',
+					checks: [validationEvidence('repository-preflight', true, 'Repository ready.')],
+				},
 			})
 
-			expect(deliveryState(tx, '01k00000000000000000000008')).toEqual({ ok: true, value: { type: 'needs-artifact-creation' } })
+			expect(deliveryState(tx, '01k00000000000000000000008')).toEqual({
+				ok: true,
+				value: { type: 'needs-artifact-creation' },
+			})
 		})
 
 		it('derives needs-artifact-creation after queueing before a Delivery Artifact exists', () => {
 			const { tx } = deliveryFixture({ queued: true })
 
-			expect(deliveryState(tx, '01k00000000000000000000008')).toEqual({ ok: true, value: { type: 'needs-artifact-creation' } })
+			expect(deliveryState(tx, '01k00000000000000000000008')).toEqual({
+				ok: true,
+				value: { type: 'needs-artifact-creation' },
+			})
 		})
 
 		it('derives slices-incomplete when at least one Slice is not complete', () => {
 			const { tx } = deliveryFixture({ queued: true, withDeliveryArtifact: true, withSlice: true })
 
-			expect(deliveryState(tx, '01k00000000000000000000008')).toEqual({ ok: true, value: { type: 'slices-incomplete' } })
+			expect(deliveryState(tx, '01k00000000000000000000008')).toEqual({
+				ok: true,
+				value: { type: 'slices-incomplete' },
+			})
 		})
 
 		it('derives delivery-operation-failed from a Delivery-scoped external failure after passed validation', () => {
@@ -440,7 +511,11 @@ if (import.meta.vitest) {
 			seedAction(tx, {
 				id: 'delivery-operation-failed',
 				at: '2026-06-10T12:04:00.000Z',
-				result: { type: 'record-delivery-external-operation-failure', evidence: externalFailure, dispatch: null },
+				result: {
+					type: 'record-delivery-external-operation-failure',
+					evidence: externalFailure,
+					dispatch: null,
+				},
 			})
 
 			expect(deliveryState(tx, '01k00000000000000000000008')).toEqual({
@@ -461,7 +536,10 @@ if (import.meta.vitest) {
 
 		it('derives delivery-review-failed when the current Delivery Review Surface closed without merge', () => {
 			const { tx } = validatedDeliveryFixture()
-			seedDeliveryReviewSurface(tx, { id: 'delivery-review', closed: { type: 'closed-without-merge', closed: { at: stamp.at } } })
+			seedDeliveryReviewSurface(tx, {
+				id: 'delivery-review',
+				closed: { type: 'closed-without-merge', closed: { at: stamp.at } },
+			})
 
 			expect(deliveryState(tx, '01k00000000000000000000008')).toEqual({
 				ok: true,
@@ -472,7 +550,10 @@ if (import.meta.vitest) {
 		it('derives needs-artifact-validation after all Slices complete before Delivery Artifact validation', () => {
 			const { tx } = completedDeliveryFixture()
 
-			expect(deliveryState(tx, '01k00000000000000000000008')).toEqual({ ok: true, value: { type: 'needs-artifact-validation' } })
+			expect(deliveryState(tx, '01k00000000000000000000008')).toEqual({
+				ok: true,
+				value: { type: 'needs-artifact-validation' },
+			})
 		})
 
 		it('derives needs-review-surface after passed Delivery Artifact validation before review exists', () => {
@@ -512,7 +593,10 @@ if (import.meta.vitest) {
 
 			expect(deliveryState(tx, '01k00000000000000000000008')).toEqual({
 				ok: true,
-				value: { type: 'ready-to-ship', integration: { type: 'review-surface-merged', reviewSurfaceId: 'delivery-review' } },
+				value: {
+					type: 'ready-to-ship',
+					integration: { type: 'review-surface-merged', reviewSurfaceId: 'delivery-review' },
+				},
 			})
 		})
 
@@ -526,7 +610,10 @@ if (import.meta.vitest) {
 
 			expect(deliveryState(tx, '01k00000000000000000000008')).toEqual({
 				ok: true,
-				value: { type: 'ready-to-ship', integration: { type: 'observed-artifact-integration', actionId: 'observe-integration' } },
+				value: {
+					type: 'ready-to-ship',
+					integration: { type: 'observed-artifact-integration', actionId: 'observe-integration' },
+				},
 			})
 		})
 	})
@@ -601,7 +688,11 @@ if (import.meta.vitest) {
 	) {
 		tx.reviewSurfaces.records.set(reviewSurface.id, {
 			id: reviewSurface.id,
-			scope: { type: 'delivery', deliveryId: '01k00000000000000000000008', deliveryArtifactId: '01k00000000000000000000010' },
+			scope: {
+				type: 'delivery',
+				deliveryId: '01k00000000000000000000008',
+				deliveryArtifactId: '01k00000000000000000000010',
+			},
 			config: {
 				provider: 'github',
 				pullRequestNumber: 1,
@@ -615,7 +706,10 @@ if (import.meta.vitest) {
 		})
 	}
 
-	function seedAction(tx: ReturnType<typeof deliveryFixture>['tx'], action: { id: string; at?: string; result: Action['result'] }) {
+	function seedAction(
+		tx: ReturnType<typeof deliveryFixture>['tx'],
+		action: { id: string; at?: string; result: Action['result'] },
+	) {
 		tx.actions.records.set(action.id, {
 			id: action.id,
 			deliveryId: '01k00000000000000000000008',
@@ -661,19 +755,24 @@ if (import.meta.vitest) {
 			delivery,
 			project: tx.projects.records.get(delivery.projectId)!,
 			repository: tx.repositories.records.get(delivery.target.repositoryId)!,
-			deliveryArtifact: [...tx.deliveryArtifacts.records.values()].find((artifact) => artifact.deliveryId === delivery.id) ?? null,
+			deliveryArtifact:
+				[...tx.deliveryArtifacts.records.values()].find((artifact) => artifact.deliveryId === delivery.id) ??
+				null,
 			slices,
 			actions: actions.filter((action) => action.deliveryId === delivery.id),
 			dispatchRequests: [...tx.dispatchRequests.records.values()].filter(
 				(request) =>
-					(request.payload.type === 'delivery-work-scheduler' || request.payload.type === 'delivery-work-operation') &&
+					(request.payload.type === 'delivery-work-scheduler' ||
+						request.payload.type === 'delivery-work-operation') &&
 					request.payload.deliveryId === delivery.id,
 			),
 			agentRuns: [...tx.agentRuns.records.values()].filter(
 				(run) => run.purpose.type === 'execution' && run.purpose.deliveryId === delivery.id,
 			),
 			reviewSurfaces: [...tx.reviewSurfaces.records.values()].filter((surface) =>
-				surface.scope.type === 'delivery' ? surface.scope.deliveryId === delivery.id : sliceIds.has(surface.scope.sliceId),
+				surface.scope.type === 'delivery'
+					? surface.scope.deliveryId === delivery.id
+					: sliceIds.has(surface.scope.sliceId),
 			),
 			deliveryDependencies: deliveryDependencies as DeliveryContext['deliveryDependencies'],
 		})

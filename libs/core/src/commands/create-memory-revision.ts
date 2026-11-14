@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { idPipe } from '../domain/commons'
 import { memoryPipe, type Memory } from '../domain/memory'
 import { memoryBodyPipe, memoryTitlePipe, type MemoryRevision } from '../domain/memory-revision'
@@ -16,6 +15,7 @@ import { buildCommandHandler } from '../utils/command-handler'
 import { auditStamp, createRecordValue, getRequired, nextId, updateRecordValue } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 export const inputPipe = v.object({
 	memoryId: idPipe,
@@ -57,7 +57,10 @@ export function createCreateMemoryRevisionCommand(runtime: CoreRuntime): Operati
 					},
 				}
 			}
-			if (input.title === memory.value.currentRevision.title && input.body === memory.value.currentRevision.body) {
+			if (
+				input.title === memory.value.currentRevision.title &&
+				input.body === memory.value.currentRevision.body
+			) {
 				return { ok: true, value: memory.value }
 			}
 
@@ -87,7 +90,8 @@ export function createCreateMemoryRevisionCommand(runtime: CoreRuntime): Operati
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { context, createTestCoreRuntime, createTestCoreServices, localStamp, stamp } = await import('../utils/test-helpers')
+	const { context, createTestCoreRuntime, createTestCoreServices, localStamp, stamp } =
+		await import('../utils/test-helpers')
 
 	describe('createMemoryRevision command', () => {
 		it('validates input before opening storage', async () => {
@@ -144,7 +148,9 @@ if (import.meta.vitest) {
 				},
 			})
 			expect(options.tx.memoryRevisions.records.get(revision.id)).toEqual(revision)
-			expect(options.tx.memories.records.get('01k00000000000000000000019')).toEqual(result.ok ? result.value : null)
+			expect(options.tx.memories.records.get('01k00000000000000000000019')).toEqual(
+				result.ok ? result.value : null,
+			)
 		})
 
 		it('returns the existing Memory without creating a revision when canonical title and body are unchanged', async () => {
@@ -206,7 +212,10 @@ if (import.meta.vitest) {
 				context,
 			)
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'memory', id: '01k00000000000000000010021' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'memory', id: '01k00000000000000000010021' },
+			})
 		})
 	})
 
@@ -215,7 +224,12 @@ if (import.meta.vitest) {
 			id,
 			parentId: null,
 			created: stamp,
-			currentRevision: { id: '01k00000000000000000100010', title: 'Current', body: 'Current body', created: stamp },
+			currentRevision: {
+				id: '01k00000000000000000100010',
+				title: 'Current',
+				body: 'Current body',
+				created: stamp,
+			},
 		}
 		options.tx.memories.records.set(id, memory)
 		return memory

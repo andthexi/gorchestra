@@ -9,10 +9,12 @@ import {
 	TokenExpired,
 } from 'equipped/errors'
 
-import type { ApiSessionAuthentication } from './session'
 import type { WorkspacePortfolioAccessFailureReason } from '../modules/selection-access'
+import type { ApiSessionAuthentication } from './session'
 
-export function throwSessionAuthenticationError(reason: Extract<ApiSessionAuthentication, { authenticated: false }>['reason']): never {
+export function throwSessionAuthenticationError(
+	reason: Extract<ApiSessionAuthentication, { authenticated: false }>['reason'],
+): never {
 	if (reason === 'expired') throw new TokenExpired()
 	throw new NotAuthenticatedError()
 }

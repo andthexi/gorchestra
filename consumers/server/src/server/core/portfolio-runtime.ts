@@ -7,11 +7,11 @@ import {
 	type Result,
 } from '@gorchestra/core'
 
-import { createCoreServices, type CreateCoreServicesOptions } from './services'
-import { openCorePortfolioStorage } from './storage'
 import type { ServerConsumerCoreDispatchProcessorConfig, ServerConsumerCorePortfolioStorageConfig } from '../config'
 import type { SecretEncryptionKey } from '../modules/secret-protection'
 import type { PortfolioRegistryEntry } from '../storage/schemas'
+import { createCoreServices, type CreateCoreServicesOptions } from './services'
+import { openCorePortfolioStorage } from './storage'
 
 export type PortfolioCoreRuntime = {
 	portfolioId: string
@@ -94,7 +94,8 @@ async function openPortfolioCoreRuntimeWith(
 				coreStorageNamespace: input.portfolio.coreStorageNamespace,
 				dispatchWake: createDispatchWake(),
 				notifications: {
-					publish: (notification) => input.publishNotification({ portfolioId: input.portfolio.id, notification }),
+					publish: (notification) =>
+						input.publishNotification({ portfolioId: input.portfolio.id, notification }),
 				},
 			}),
 		)
@@ -182,7 +183,7 @@ if (import.meta.vitest) {
 	const { afterEach, describe, expect, it, vi } = import.meta.vitest
 	const { mkdtemp, rm } = await import('node:fs/promises')
 	const { tmpdir } = await import('node:os')
-	const { join } = await import('node:path')
+	const path = await import('node:path')
 
 	let tempDataDirs: string[] = []
 
@@ -286,7 +287,7 @@ if (import.meta.vitest) {
 		})
 
 		it('opens an initialized Core and waits for the Dispatch Processor to become ready', async () => {
-			const dataDir = await mkdtemp(join(tmpdir(), 'gorchestra-portfolio-runtime-'))
+			const dataDir = await mkdtemp(path.join(tmpdir(), 'gorchestra-portfolio-runtime-'))
 			tempDataDirs.push(dataDir)
 			const result = await openPortfolioCoreRuntime({
 				portfolio: {
@@ -334,7 +335,10 @@ if (import.meta.vitest) {
 	function testCore(processor: CoreDispatchProcessorHandle): GorchestraCore {
 		return {
 			preflight: () =>
-				Promise.resolve({ ok: true, value: { passed: true, checks: { storage: { ok: true }, secrets: { ok: true } } } }),
+				Promise.resolve({
+					ok: true,
+					value: { passed: true, checks: { storage: { ok: true }, secrets: { ok: true } } },
+				}),
 			dispatch: { startProcessor: () => ({ ok: true, value: processor }) },
 		} as GorchestraCore
 	}

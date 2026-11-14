@@ -16,7 +16,8 @@ export const list = defineOperation({
 		const memoryQuery = context.storage.on(memorySchema).one().id(input.memoryId)
 		const memoryRead = await storageCall(() => memoryQuery.find())
 		if (!memoryRead.ok) return memoryRead
-		if (memoryRead.value === null) return { ok: false, error: { type: 'not-found', resource: 'memory' as const, id: input.memoryId } }
+		if (memoryRead.value === null)
+			return { ok: false, error: { type: 'not-found', resource: 'memory' as const, id: input.memoryId } }
 		const memory = stored(memoryPipe, memoryRead.value)
 		if (!memory.ok) return memory
 		const query = context.storage

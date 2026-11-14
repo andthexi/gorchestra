@@ -1,10 +1,22 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import { archivePeriodPipe, auditStampPipe, idPipe, jsonObjectPipe, nonEmptyTrimmedStringPipe, type JsonObject } from './commons'
-import { listedModelPipe, positiveModelThinkingLevelPipe } from './model'
 import { coreSchema, schemaToPipe } from '../utils/storage/schema'
+import {
+	archivePeriodPipe,
+	auditStampPipe,
+	idPipe,
+	jsonObjectPipe,
+	nonEmptyTrimmedStringPipe,
+	type JsonObject,
+} from './commons'
+import { listedModelPipe, positiveModelThinkingLevelPipe } from './model'
 
-export const modelProviderProtocolPipe = v.in(['openai-responses', 'openai-chat-completions', 'anthropic-messages', 'google-generative-ai'])
+export const modelProviderProtocolPipe = v.in([
+	'openai-responses',
+	'openai-chat-completions',
+	'anthropic-messages',
+	'google-generative-ai',
+])
 export type ModelProviderProtocol = PipeOutput<typeof modelProviderProtocolPipe>
 export type ModelProviderProtocolType = ModelProviderProtocol
 
@@ -76,12 +88,20 @@ export type ModelProviderAuth = PipeOutput<typeof modelProviderAuthPipe>
 export const modelProviderHeaderNamePipe = nonEmptyTrimmedStringPipe.pipe(
 	v.custom((value) => /^[A-Za-z0-9-]+$/.test(value), 'Expected an HTTP header name.'),
 )
-export const modelProviderHeaderPipe = v.object({ name: modelProviderHeaderNamePipe, value: modelProviderAccessValuePipe })
+export const modelProviderHeaderPipe = v.object({
+	name: modelProviderHeaderNamePipe,
+	value: modelProviderAccessValuePipe,
+})
 export type ModelProviderHeader = PipeOutput<typeof modelProviderHeaderPipe>
 
 export const modelProviderHeadersPipe = v
 	.array(modelProviderHeaderPipe)
-	.pipe(v.custom((headers) => hasUniqueHeaderNames(headers), 'Expected Model Provider header names to be unique case-insensitively.'))
+	.pipe(
+		v.custom(
+			(headers) => hasUniqueHeaderNames(headers),
+			'Expected Model Provider header names to be unique case-insensitively.',
+		),
+	)
 
 function hasUniqueHeaderNames(headers: ModelProviderHeader[]): boolean {
 	const seen = new Set<string>()

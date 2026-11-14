@@ -1,6 +1,5 @@
 import { computed, ref, type Ref } from 'vue'
 
-import { useAuth, useSetAuth } from './session'
 import { PortfolioCreationFormDraft, WorkspaceCreationFormDraft } from '../../forms/workspace'
 import { selectedServerSocketIdentity } from '../../utils/selected-server-socket'
 import { useApiAction, useFetchAction } from '../core/action-state'
@@ -8,6 +7,7 @@ import { useOverlay } from '../core/overlay'
 import { useQueryCache } from '../core/query-cache'
 import { useServerApi, type ServerApi } from '../core/server-api'
 import { useServerSocketConnection } from '../core/server-socket'
+import { useAuth, useSetAuth } from './session'
 
 type Workspace = Awaited<ReturnType<ServerApi['listWorkspaces']>>[number]
 type Portfolio = Workspace['portfolios'][number]
@@ -43,7 +43,9 @@ export function useWorkspacesList() {
 		initialData: [] as Workspace[],
 	})
 	const isRefreshingWorkspaces = computed(() => isLoadingWorkspaces.value && hasLoadedWorkspaces.value)
-	const hasSelectablePortfolios = computed(() => workspaces.value.some((workspace) => workspace.portfolios.length > 0))
+	const hasSelectablePortfolios = computed(() =>
+		workspaces.value.some((workspace) => workspace.portfolios.length > 0),
+	)
 	const hasNoSelectablePortfolios = computed(() => hasLoadedWorkspaces.value && !hasSelectablePortfolios.value)
 	const hasNoWorkspaces = computed(() => hasLoadedWorkspaces.value && workspaces.value.length === 0)
 
@@ -165,11 +167,15 @@ export function usePortfolioSelection(options: PortfolioSelectionOptions = {}) {
 	}
 
 	function isSelectingThisPortfolio(workspaceId: string, portfolioId: string): boolean {
-		return isSelectingPortfolio.value && selectingPortfolioKey.value === portfolioActionKey(workspaceId, portfolioId)
+		return (
+			isSelectingPortfolio.value && selectingPortfolioKey.value === portfolioActionKey(workspaceId, portfolioId)
+		)
 	}
 
 	function portfolioSelectionError(workspaceId: string, portfolioId: string): string {
-		return selectingPortfolioKey.value === portfolioActionKey(workspaceId, portfolioId) ? selectPortfolioError.value : ''
+		return selectingPortfolioKey.value === portfolioActionKey(workspaceId, portfolioId)
+			? selectPortfolioError.value
+			: ''
 	}
 
 	return {
@@ -183,14 +189,21 @@ export function usePortfolioSelection(options: PortfolioSelectionOptions = {}) {
 	}
 }
 
-function writePortfolioToWorkspaceCache(queryCache: QueryCacheAccess, cachedWorkspaces: readonly Workspace[], portfolio: Portfolio): void {
+function writePortfolioToWorkspaceCache(
+	queryCache: QueryCacheAccess,
+	cachedWorkspaces: readonly Workspace[],
+	portfolio: Portfolio,
+): void {
 	let foundWorkspace = false
 	const nextWorkspaces = cachedWorkspaces.map((workspace) => {
 		if (workspace.id !== portfolio.workspaceId) return workspace
 		foundWorkspace = true
 		return {
 			...workspace,
-			portfolios: [portfolio, ...workspace.portfolios.filter((existingPortfolio) => existingPortfolio.id !== portfolio.id)],
+			portfolios: [
+				portfolio,
+				...workspace.portfolios.filter((existingPortfolio) => existingPortfolio.id !== portfolio.id),
+			],
 		}
 	})
 

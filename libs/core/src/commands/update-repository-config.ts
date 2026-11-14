@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { idPipe } from '../domain/commons'
 import { repositoryConfigPipe, type Repository } from '../domain/repository'
 import type {
@@ -15,6 +14,7 @@ import { buildCommandHandler } from '../utils/command-handler'
 import { getRequired, listRecords, updateRecordValue } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const updateRepositoryConfigInputPipe = v.object({ repositoryId: idPipe, config: repositoryConfigPipe })
 export type Input = PipeOutput<typeof updateRepositoryConfigInputPipe>
@@ -65,7 +65,10 @@ export function createUpdateRepositoryConfigCommand(runtime: CoreRuntime): Opera
 			}
 			const secretIsArchived = secret.archivePeriods.at(-1)?.unarchived === null
 			if (secretIsArchived) {
-				return { ok: false, error: { type: 'resource-archived', resource: 'secret', id: input.config.secretId } }
+				return {
+					ok: false,
+					error: { type: 'resource-archived', resource: 'secret', id: input.config.secretId },
+				}
 			}
 
 			const repositoriesResult = await listRecords('repository', storage, {
@@ -121,7 +124,10 @@ if (import.meta.vitest) {
 
 			const result = await command(input, context)
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'repository', id: repositoryId } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'repository', id: repositoryId },
+			})
 			expect(options.tx.repositories.records.size).toBe(0)
 		})
 
@@ -144,7 +150,10 @@ if (import.meta.vitest) {
 
 			const result = await command(input, context)
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'secret', id: selectedSecretId } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'secret', id: selectedSecretId },
+			})
 			expect(options.tx.repositories.records.get(repositoryId)?.config).toEqual(originalConfig())
 		})
 
@@ -173,7 +182,10 @@ if (import.meta.vitest) {
 			})
 			const command = createUpdateRepositoryConfigCommand(createTestCoreRuntime(options))
 
-			const result = await command({ ...input, config: { ...input.config, owner: ' OcTo ', name: ' RENAMED ' } }, context)
+			const result = await command(
+				{ ...input, config: { ...input.config, owner: ' OcTo ', name: ' RENAMED ' } },
+				context,
+			)
 
 			expect(result).toEqual({
 				ok: false,
@@ -198,7 +210,10 @@ if (import.meta.vitest) {
 
 			expect(result).toEqual({
 				ok: false,
-				error: { type: 'storage-operation-failed', operation: { type: 'update', resource: 'repository', id: repositoryId } },
+				error: {
+					type: 'storage-operation-failed',
+					operation: { type: 'update', resource: 'repository', id: repositoryId },
+				},
 			})
 			expect(options.tx.repositories.records.get(repositoryId)?.config).toEqual(originalConfig())
 		})

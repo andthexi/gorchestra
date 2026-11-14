@@ -13,7 +13,11 @@ export async function createDeliveryWorkHandlerTestContext(options: { sliceId?: 
 	const services = createTestCoreServices()
 	seedDelivery(services.tx, '01k00000000000000000000008')
 	seedSelectableModel(services.tx, '01k00000000000000000000024')
-	const executionProfile = seedAgentRunProfile(services.tx, '01k00000000000000000000006', '01k00000000000000000000024')
+	const executionProfile = seedAgentRunProfile(
+		services.tx,
+		'01k00000000000000000000006',
+		'01k00000000000000000000024',
+	)
 	if (options.sliceId !== undefined) seedSlice(services.tx, options.sliceId, '01k00000000000000000000008')
 
 	services.tx.deliveries.records.get('01k00000000000000000000008')!.queued = localStamp()

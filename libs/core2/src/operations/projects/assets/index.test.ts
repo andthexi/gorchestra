@@ -44,13 +44,78 @@ describe('project assets', () => {
 					created: { ...asset.created, ignored: true },
 				}
 				adapter.stores.get('assets')!.set(asset.id, stored)
-				expect(requireSuccess(await portfolio.projects.assets.find({ projectId: project.id, assetId: asset.id }))).toEqual(asset)
+				expect(
+					requireSuccess(await portfolio.projects.assets.find({ projectId: project.id, assetId: asset.id })),
+				).toEqual(asset)
 				expect(requireSuccess(await portfolio.projects.assets.list({ projectId: project.id }))).toEqual([asset])
 				expect(requireSuccess(await portfolio.secrets.usages({ secretId: secret.id }))).toEqual([asset])
 				expect(adapter.stores.get('assets')!.get(asset.id)).toEqual(stored)
 			} finally {
 				adapter.createMany = createMany
 			}
+		}, dependencies)
+	})
+	it('validates the whole selected Asset array before sorting without changing native rows', async () => {
+		const { dependencies, codecCalls } = createCountedSecretDependencies()
+		const adapter = dependencies.storage.adapter
+		await withReadyPortfolio(async (portfolio) => {
+			const { project, secret, asset } = await createAssetFixture(portfolio)
+			const baselineCodecs = { ...codecCalls }
+			const first = { ...asset, id: '01k00000000000000000000001' }
+			const last = { ...asset, id: '01k00000000000000000000002' }
+			const selected = [last, first].map((row) => ({
+				...row,
+				ignored: true,
+				spec: { ...row.spec, source: { ...row.spec.source, ignored: true } },
+			}))
+			const before = structuredClone(selected)
+			let rows: Record<string, unknown>[] = selected
+			const findDescriptor = Object.getOwnPropertyDescriptor(adapter, 'findMany')
+			const createDescriptor = Object.getOwnPropertyDescriptor(adapter, 'createMany')
+			const findMany = adapter.findMany.bind(adapter)
+			const createMany = adapter.createMany.bind(adapter)
+			let writes = 0
+			adapter.findMany = async (...args) => {
+				const native = await findMany(...args)
+				return args[0].name === 'assets' ? rows : native
+			}
+			adapter.createMany = (...args) => {
+				writes++
+				return createMany(...args)
+			}
+			try {
+				expect(requireSuccess(await portfolio.projects.assets.list({ projectId: project.id }))).toEqual([
+					first,
+					last,
+				])
+				expect(requireSuccess(await portfolio.secrets.usages({ secretId: secret.id }))).toEqual([first, last])
+				expect(selected).toEqual(before)
+				const corrupt = { ...asset, id: '01k00000000000000000000003', created: null }
+				for (const returned of [
+					[...selected, corrupt],
+					[corrupt, ...selected],
+				]) {
+					rows = returned
+					expect(await portfolio.projects.assets.list({ projectId: project.id })).toEqual({
+						ok: false,
+						error: { type: 'invalid-storage-output' },
+					})
+					expect(await portfolio.secrets.usages({ secretId: secret.id })).toEqual({
+						ok: false,
+						error: { type: 'invalid-storage-output' },
+					})
+					expect(selected).toEqual(before)
+				}
+				expect(writes).toBe(0)
+				expect(codecCalls).toEqual(baselineCodecs)
+			} finally {
+				if (findDescriptor) Object.defineProperty(adapter, 'findMany', findDescriptor)
+				else Reflect.deleteProperty(adapter, 'findMany')
+				if (createDescriptor) Object.defineProperty(adapter, 'createMany', createDescriptor)
+				else Reflect.deleteProperty(adapter, 'createMany')
+			}
+			expect(requireSuccess(await portfolio.projects.assets.list({ projectId: project.id }))).toEqual([asset])
+			expect(requireSuccess(await portfolio.secrets.usages({ secretId: secret.id }))).toEqual([asset])
 		}, dependencies)
 	})
 	it('validates full Asset records delivered by native queries before any use', async () => {
@@ -97,6 +162,73 @@ describe('project assets', () => {
 			}
 		}, dependencies)
 	})
+	it.each(['create', 'find', 'list'] as const)(
+		'requires a full Project before subsequent Asset %s work',
+		async (operation) => {
+			const { dependencies, codecCalls } = createCountedSecretDependencies()
+			const adapter = dependencies.storage.adapter
+			await withReadyPortfolio(async (portfolio) => {
+				const { project, input, asset } = await createAssetFixture(portfolio)
+				codecCalls.encodes = 0
+				const findDescriptor = Object.getOwnPropertyDescriptor(adapter, 'findMany')
+				const createDescriptor = Object.getOwnPropertyDescriptor(adapter, 'createMany')
+				const findMany = adapter.findMany.bind(adapter)
+				const createMany = adapter.createMany.bind(adapter)
+				let writes = 0
+				adapter.createMany = (...args) => {
+					writes++
+					return createMany(...args)
+				}
+				try {
+					for (const { rows, error } of [
+						{ rows: [], error: { type: 'not-found', resource: 'project', id: project.id } },
+						...[
+							{ id: 'invalid' },
+							{ title: '  ' },
+							{ spec: { type: 'unsupported' } },
+							{ created: { ...project.created, cid: undefined } },
+						].map((corruption) => ({
+							rows: [{ ...project, ...corruption }],
+							error: { type: 'invalid-storage-output' },
+						})),
+					]) {
+						const reads: string[] = []
+						adapter.findMany = async (...args) => {
+							reads.push(args[0].name)
+							const selected = await findMany(...args)
+							return args[0].name === 'projects' ? rows : selected
+						}
+						let result: unknown
+						switch (operation) {
+							case 'create':
+								result = await portfolio.projects.assets.create(input)
+								break
+							case 'find':
+								result = await portfolio.projects.assets.find({
+									projectId: project.id,
+									assetId: asset.id,
+								})
+								break
+							case 'list':
+								result = await portfolio.projects.assets.list({ projectId: project.id })
+								break
+							default:
+								throw new Error('Unexpected Asset operation')
+						}
+						expect(result).toEqual({ ok: false, error })
+						expect(reads).toEqual(['projects'])
+						expect({ writes, ...codecCalls }).toEqual({ writes: 0, encodes: 0, decodes: 0 })
+					}
+				} finally {
+					if (findDescriptor) Object.defineProperty(adapter, 'findMany', findDescriptor)
+					else Reflect.deleteProperty(adapter, 'findMany')
+					if (createDescriptor) Object.defineProperty(adapter, 'createMany', createDescriptor)
+					else Reflect.deleteProperty(adapter, 'createMany')
+				}
+				expect(requireSuccess(await portfolio.projects.assets.list({ projectId: project.id }))).toEqual([asset])
+			}, dependencies)
+		},
+	)
 	it('classifies native prerequisite and Asset read failures without writes or closed admission', async () => {
 		const dependencies = createTestDependencies()
 		const adapter = dependencies.storage.adapter
@@ -111,7 +243,9 @@ describe('project assets', () => {
 			}
 			try {
 				for (const table of ['projects', 'secrets', 'assets']) {
+					const reads: string[] = []
 					adapter.findMany = (...args) => {
+						reads.push(args[0].name)
 						if (args[0].name === table) throw new Error('synthetic-PROTECTED')
 						return findMany(...args)
 					}
@@ -120,7 +254,9 @@ describe('project assets', () => {
 						error: { type: 'storage-operation-failed' },
 					})
 					if (table !== 'secrets') {
-						expect(await portfolio.projects.assets.find({ projectId: project.id, assetId: asset.id })).toEqual({
+						expect(
+							await portfolio.projects.assets.find({ projectId: project.id, assetId: asset.id }),
+						).toEqual({
 							ok: false,
 							error: { type: 'storage-operation-failed' },
 						})
@@ -129,6 +265,7 @@ describe('project assets', () => {
 							error: { type: 'storage-operation-failed' },
 						})
 					}
+					if (table === 'projects') expect(reads).toEqual(['projects', 'projects', 'projects'])
 					if (table !== 'projects')
 						expect(await portfolio.secrets.usages({ secretId: secret.id })).toEqual({
 							ok: false,
@@ -140,7 +277,9 @@ describe('project assets', () => {
 				adapter.findMany = findMany
 				adapter.createMany = createMany
 			}
-			expect(requireSuccess(await portfolio.projects.assets.find({ projectId: project.id, assetId: asset.id }))).toEqual(asset)
+			expect(
+				requireSuccess(await portfolio.projects.assets.find({ projectId: project.id, assetId: asset.id })),
+			).toEqual(asset)
 			expect(requireSuccess(await portfolio.projects.assets.list({ projectId: project.id }))).toEqual([asset])
 			expect(requireSuccess(await portfolio.secrets.usages({ secretId: secret.id }))).toEqual([asset])
 		}, dependencies)
@@ -175,13 +314,18 @@ describe('project assets', () => {
 							...input,
 							spec: { ...input.spec, source: { ...input.spec.source, name: 'Different' } },
 						}),
-					).toEqual({ ok: false, error: { type: stage === 'output' ? 'invalid-output' : 'storage-operation-failed' } })
+					).toEqual({
+						ok: false,
+						error: { type: stage === 'output' ? 'invalid-output' : 'storage-operation-failed' },
+					})
 				} finally {
 					adapter.createMany = createMany
 					adapter.session = session
 				}
 				expect(inserted).toBe(stage === 'before-insert' ? 0 : 1)
-				expect(requireSuccess(await portfolio.projects.assets.list({ projectId: project.id }))).toEqual([existing])
+				expect(requireSuccess(await portfolio.projects.assets.list({ projectId: project.id }))).toEqual([
+					existing,
+				])
 				expect(requireSuccess(await portfolio.projects.find({ projectId: project.id }))).toEqual(project)
 				expect(requireSuccess(await portfolio.secrets.find({ secretId: secret.id }))).toEqual(secret)
 				expect(adapter.stores.get('secrets')!.get(secret.id)).toEqual(fullSecret)
@@ -262,7 +406,9 @@ describe('project assets', () => {
 							ok: false,
 							error: {
 								type: 'invalid-input',
-								issues: [{ path: `spec.source.${field}`, message: 'Expected a repository identifier.' }],
+								issues: [
+									{ path: `spec.source.${field}`, message: 'Expected a repository identifier.' },
+								],
 							},
 						})
 					}
@@ -281,7 +427,10 @@ describe('project assets', () => {
 					{ projectId: id, spec: { ...spec, source: { ...spec.source, provider: 'gitlab' } } },
 					{ projectId: id, spec: { ...spec, source: { owner: 'Owner', name: 'Repo' } } },
 				])
-					expect(await Reflect.apply(create, undefined, [input])).toMatchObject({ ok: false, error: { type: 'invalid-input' } })
+					expect(await Reflect.apply(create, undefined, [input])).toMatchObject({
+						ok: false,
+						error: { type: 'invalid-input' },
+					})
 				expect(await Reflect.apply(find, undefined, [{ projectId: id }])).toMatchObject({
 					ok: false,
 					error: { type: 'invalid-input' },
@@ -298,7 +447,9 @@ describe('project assets', () => {
 	})
 	it('preserves accepted punctuation and strips caller-owned identity and nested extras', async () => {
 		await withReadyPortfolio(async (portfolio) => {
-			const project = requireSuccess(await portfolio.projects.create({ title: 'App', spec: { type: 'source-control' } }))
+			const project = requireSuccess(
+				await portfolio.projects.create({ title: 'App', spec: { type: 'source-control' } }),
+			)
 			const secret = requireSuccess(await portfolio.secrets.create({ title: 'Access', value: 'synthetic-pat' }))
 			for (const identifier of ['A.B_c-1', '...', '_', '-']) {
 				const spec = {
@@ -324,11 +475,16 @@ describe('project assets', () => {
 		await withReadyPortfolio(async (foreign) => {
 			const secret = requireSuccess(await foreign.secrets.create({ title: 'Foreign', value: 'synthetic-pat' }))
 			await withReadyPortfolio(async (portfolio) => {
-				const project = requireSuccess(await portfolio.projects.create({ title: 'Local', spec: { type: 'source-control' } }))
+				const project = requireSuccess(
+					await portfolio.projects.create({ title: 'Local', spec: { type: 'source-control' } }),
+				)
 				expect(
 					await portfolio.projects.assets.create({
 						projectId: project.id,
-						spec: { type: 'repository', source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: secret.id } },
+						spec: {
+							type: 'repository',
+							source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: secret.id },
+						},
 					}),
 				).toEqual({ ok: false, error: { type: 'not-found', resource: 'secret', id: secret.id } })
 				expect(requireSuccess(await portfolio.projects.assets.list({ projectId: project.id }))).toEqual([])
@@ -351,16 +507,25 @@ describe('project assets', () => {
 			const asset = requireSuccess(
 				await portfolio.projects.assets.create({
 					projectId: project.id,
-					spec: { type: 'repository', source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: secret.id } },
+					spec: {
+						type: 'repository',
+						source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: secret.id },
+					},
 				}),
 			)
-			const expected = Array.from({ length: 125 }, (_, index) => ({ ...asset, id: `01k${index.toString().padStart(23, '0')}` }))
+			const expected = Array.from({ length: 125 }, (_, index) => ({
+				...asset,
+				id: `01k${index.toString().padStart(23, '0')}`,
+			}))
 			adapter.stores.get('assets')!.clear()
 			for (const row of [...expected].reverse()) adapter.stores.get('assets')!.set(row.id, row)
 			adapter.stores.get('assets')!.set(asset.id, { ...asset, projectId: other.id, created: null })
 			expect(requireSuccess(await list({ projectId: project.id }))).toEqual(expected)
 			adapter.stores.get('assets')!.set(expected[0]!.id, { ...expected[0]!, created: null })
-			expect(await list({ projectId: project.id })).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
+			expect(await list({ projectId: project.id })).toEqual({
+				ok: false,
+				error: { type: 'invalid-storage-output' },
+			})
 			adapter.stores.get('projects')!.set(project.id, { ...project, spec: { type: 'unsupported' } })
 			const findMany = adapter.findMany.bind(adapter)
 			const reads: string[] = []
@@ -369,7 +534,10 @@ describe('project assets', () => {
 				return findMany(...args)
 			}
 			try {
-				expect(await list({ projectId: project.id })).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
+				expect(await list({ projectId: project.id })).toEqual({
+					ok: false,
+					error: { type: 'invalid-storage-output' },
+				})
 				expect(reads).toEqual(['projects'])
 			} finally {
 				adapter.findMany = findMany
@@ -385,7 +553,10 @@ describe('project assets', () => {
 			const asset = requireSuccess(
 				await portfolio.projects.assets.create({
 					projectId: project.id,
-					spec: { type: 'repository', source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: secret.id } },
+					spec: {
+						type: 'repository',
+						source: { provider: 'github', owner: 'Owner', name: 'Repo', secretId: secret.id },
+					},
 				}),
 			)
 			const { find } = portfolio.projects.assets
@@ -404,7 +575,10 @@ describe('project assets', () => {
 				error: { type: 'not-found', resource: 'asset', id: missing },
 			})
 			adapter.stores.get('assets')!.set(asset.id, { ...asset, spec: { ...asset.spec, type: 'unsupported' } })
-			expect(await find({ projectId: other.id, assetId: asset.id })).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
+			expect(await find({ projectId: other.id, assetId: asset.id })).toEqual({
+				ok: false,
+				error: { type: 'invalid-storage-output' },
+			})
 			adapter.stores.get('projects')!.set(other.id, { ...other, created: { ...other.created, cid: undefined } })
 			const findMany = adapter.findMany.bind(adapter)
 			const reads: string[] = []
@@ -440,7 +614,10 @@ describe('project assets', () => {
 				return createMany(...args)
 			}
 			try {
-				expect(await portfolio.projects.assets.create(input)).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
+				expect(await portfolio.projects.assets.create(input)).toEqual({
+					ok: false,
+					error: { type: 'invalid-storage-output' },
+				})
 				expect(writes).toBe(0)
 				expect(adapter.stores.get('assets')!.get(asset.id)).toEqual(asset)
 			} finally {
@@ -455,12 +632,19 @@ describe('project assets', () => {
 		await withReadyPortfolio(async (portfolio) => {
 			const { project, other } = await createProjectPair(portfolio)
 			const secret = requireSuccess(await portfolio.secrets.create({ title: 'Access', value: 'synthetic-pat' }))
-			const replacement = requireSuccess(await portfolio.secrets.create({ title: 'Other access', value: 'synthetic-other' }))
+			const replacement = requireSuccess(
+				await portfolio.secrets.create({ title: 'Other access', value: 'synthetic-other' }),
+			)
 			const input = {
 				projectId: project.id,
 				spec: {
 					type: 'repository' as const,
-					source: { provider: 'github' as const, owner: 'Acme.Tools', name: 'Repo_v2-1', secretId: secret.id },
+					source: {
+						provider: 'github' as const,
+						owner: 'Acme.Tools',
+						name: 'Repo_v2-1',
+						secretId: secret.id,
+					},
 				},
 			}
 			const asset = requireSuccess(await portfolio.projects.assets.create(input))
@@ -480,7 +664,10 @@ describe('project assets', () => {
 						expect(
 							await portfolio.projects.assets.create({
 								...input,
-								spec: { ...input.spec, source: { ...input.spec.source, owner: owner!, name: name!, secretId } },
+								spec: {
+									...input.spec,
+									source: { ...input.spec.source, owner: owner!, name: name!, secretId },
+								},
 							}),
 						).toEqual({ ok: false, error: { type: 'duplicate-asset-target', assetId: asset.id } })
 				}
@@ -491,7 +678,9 @@ describe('project assets', () => {
 					{ ...input.spec.source, owner: 'Acme-Tools' },
 					{ ...input.spec.source, name: 'Repo_v2-10' },
 				])
-					requireSuccess(await portfolio.projects.assets.create({ ...input, spec: { ...input.spec, source } }))
+					requireSuccess(
+						await portfolio.projects.assets.create({ ...input, spec: { ...input.spec, source } }),
+					)
 				expect(writes).toBe(3)
 			} finally {
 				adapter.createMany = createMany
@@ -504,7 +693,9 @@ describe('project assets', () => {
 		const createMany = adapter.createMany.bind(adapter)
 		const findMany = adapter.findMany.bind(adapter)
 		await withReadyPortfolio(async (portfolio) => {
-			const project = requireSuccess(await portfolio.projects.create({ title: 'App', spec: { type: 'source-control' } }))
+			const project = requireSuccess(
+				await portfolio.projects.create({ title: 'App', spec: { type: 'source-control' } }),
+			)
 			const secret = requireSuccess(await portfolio.secrets.create({ title: 'Access', value: 'synthetic-pat' }))
 			const fullSecret = structuredClone(adapter.stores.get('secrets')!.get(secret.id)!)
 			const missing = '01k00000000000000000000001'
@@ -536,7 +727,10 @@ describe('project assets', () => {
 					{ ...project, created: { ...project.created, cid: undefined } },
 				]) {
 					adapter.stores.get('projects')!.set(project.id, corrupt)
-					expect(await portfolio.projects.assets.create(input)).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
+					expect(await portfolio.projects.assets.create(input)).toEqual({
+						ok: false,
+						error: { type: 'invalid-storage-output' },
+					})
 					expect(reads.splice(0)).toEqual(['projects'])
 				}
 				adapter.stores.get('projects')!.set(project.id, project)
@@ -555,7 +749,10 @@ describe('project assets', () => {
 					{ ...fullSecret, created: { ...secret.created, cid: undefined } },
 				]) {
 					adapter.stores.get('secrets')!.set(secret.id, corrupt)
-					expect(await portfolio.projects.assets.create(input)).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
+					expect(await portfolio.projects.assets.create(input)).toEqual({
+						ok: false,
+						error: { type: 'invalid-storage-output' },
+					})
 					expect(reads.splice(0)).toEqual(['projects', 'secrets'])
 				}
 				expect(writes).toBe(0)
@@ -572,7 +769,9 @@ describe('project assets', () => {
 		const dependencies = createTestDependencies()
 		const adapter = dependencies.storage.adapter
 		await withReadyPortfolio(async (portfolio) => {
-			const project = requireSuccess(await portfolio.projects.create({ title: 'App', spec: { type: 'source-control' } }))
+			const project = requireSuccess(
+				await portfolio.projects.create({ title: 'App', spec: { type: 'source-control' } }),
+			)
 			const secret = requireSuccess(await portfolio.secrets.create({ title: 'Access', value: 'synthetic-pat' }))
 			const spec = {
 				type: 'repository' as const,

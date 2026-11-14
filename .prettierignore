@@ -4,3 +4,4 @@ coverage/
 consumers/server/public/*.svg
 .husky/_/
 .trowel/
+pnpm-lock.yaml

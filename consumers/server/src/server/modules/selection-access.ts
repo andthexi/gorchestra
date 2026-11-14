@@ -1,4 +1,3 @@
-import { verifySelectionToken, type SelectedPortfolio } from './selection-cookie'
 import type { ServerStorage } from '../storage/repo'
 import {
 	portfolioRegistryEntrySchema,
@@ -12,6 +11,7 @@ import {
 	type WorkspaceMember,
 	type WorkspaceOwnerRole,
 } from '../storage/schemas'
+import { verifySelectionToken, type SelectedPortfolio } from './selection-cookie'
 
 export type WorkspacePortfolioSelection = {
 	workspaceId: string
@@ -24,7 +24,8 @@ export type ValidateWorkspacePortfolioAccessInput = {
 	selection: WorkspacePortfolioSelection
 }
 
-export type WorkspacePortfolioAccessFailureReason = 'user-not-found' | 'workspace-not-found' | 'not-active-member' | 'portfolio-not-found'
+export type WorkspacePortfolioAccessFailureReason =
+	'user-not-found' | 'workspace-not-found' | 'not-active-member' | 'portfolio-not-found'
 
 export type WorkspacePortfolioAccessResult =
 	| {
@@ -44,7 +45,8 @@ export type ResolveSelectionAccessInput = {
 	signingKey: string
 }
 
-export type SelectionAccessFailureReason = 'missing-token' | 'invalid-token' | 'expired' | WorkspacePortfolioAccessFailureReason
+export type SelectionAccessFailureReason =
+	'missing-token' | 'invalid-token' | 'expired' | WorkspacePortfolioAccessFailureReason
 
 export type SelectionAccessResult =
 	| {
@@ -137,12 +139,15 @@ async function validateRegisteredPortfolioAccess(
 	workspaceMember: WorkspaceMember,
 	portfolio: PortfolioRegistryEntry | null,
 ): Promise<WorkspacePortfolioAccessResult> {
-	if (!portfolio || portfolio.workspaceId !== workspace.id) return { accessible: false, reason: 'portfolio-not-found' }
+	if (!portfolio || portfolio.workspaceId !== workspace.id)
+		return { accessible: false, reason: 'portfolio-not-found' }
 	const activeWorkspaceOwnerRole = await findActiveWorkspaceOwnerRole(input.serverStorage, workspaceMember.id)
 	return { accessible: true, workspace, workspaceMember, portfolio, activeWorkspaceOwnerRole }
 }
 
-function buildVerifySelectionTokenInput(input: ResolveSelectionAccessInput): Parameters<typeof verifySelectionToken>[0] {
+function buildVerifySelectionTokenInput(
+	input: ResolveSelectionAccessInput,
+): Parameters<typeof verifySelectionToken>[0] {
 	return {
 		token: input.selectionToken ?? null,
 		now: input.now,
@@ -158,7 +163,10 @@ async function findWorkspace(serverStorage: ServerStorage, workspaceId: string):
 	return serverStorage.repo.on(workspaceSchema).one().id(workspaceId).find()
 }
 
-async function findPortfolio(serverStorage: ServerStorage, portfolioId: string): Promise<PortfolioRegistryEntry | null> {
+async function findPortfolio(
+	serverStorage: ServerStorage,
+	portfolioId: string,
+): Promise<PortfolioRegistryEntry | null> {
 	return serverStorage.repo.on(portfolioRegistryEntrySchema).one().id(portfolioId).find()
 }
 
@@ -180,7 +188,10 @@ async function findActiveWorkspaceMember(
 	return members.find(isActiveWorkspaceMember) ?? null
 }
 
-async function findActiveWorkspaceOwnerRole(serverStorage: ServerStorage, workspaceMemberId: string): Promise<WorkspaceOwnerRole | null> {
+async function findActiveWorkspaceOwnerRole(
+	serverStorage: ServerStorage,
+	workspaceMemberId: string,
+): Promise<WorkspaceOwnerRole | null> {
 	const roles = await serverStorage.repo
 		.on(workspaceOwnerRoleSchema)
 		.all()
@@ -203,9 +214,12 @@ if (import.meta.vitest) {
 	const { workspaceMemberSchema: testWorkspaceMemberSchema } = await import('../storage/schemas')
 	const { createUser } = await import('./identities')
 	const { buildSelectionCookie, selectionLifetimeSeconds } = await import('./selection-cookie')
-	const { assignWorkspaceOwnerRole, createPortfolioRegistryEntry, createWorkspace, createWorkspaceMember } = await import('./workspaces')
+	const { assignWorkspaceOwnerRole, createPortfolioRegistryEntry, createWorkspace, createWorkspaceMember } =
+		await import('./workspaces')
 
-	const { cleanupTempServerStorage, withTempServerStorage } = createTempServerStorageTestHarness('gorchestra-server-selection-access-')
+	const { cleanupTempServerStorage, withTempServerStorage } = createTempServerStorageTestHarness(
+		'gorchestra-server-selection-access-',
+	)
 	const testNow = new Date('2026-06-19T12:00:00.000Z')
 	const signingKey = 'test-selection-access-signing-key'
 	const missingUserId = '01k00000000000000000000041'
@@ -217,7 +231,12 @@ if (import.meta.vitest) {
 	async function createAccessiblePortfolio(serverStorage: ServerStorage) {
 		const user = await createUser({ serverStorage, now: testNow })
 		const workspace = await createWorkspace({ serverStorage, displayName: 'Workspace', now: testNow })
-		const workspaceMember = await createWorkspaceMember({ serverStorage, workspaceId: workspace.id, userId: user.id, now: testNow })
+		const workspaceMember = await createWorkspaceMember({
+			serverStorage,
+			workspaceId: workspace.id,
+			userId: user.id,
+			now: testNow,
+		})
 		const activeWorkspaceOwnerRole = await assignWorkspaceOwnerRole({
 			serverStorage,
 			workspaceMemberId: workspaceMember.id,
@@ -278,7 +297,13 @@ if (import.meta.vitest) {
 			const afterExpiry = new Date(testNow.getTime() + selectionLifetimeSeconds * 1000)
 
 			await expect(
-				resolveSelectionAccess({ serverStorage, userId: records.user.id, selectionToken: null, now: testNow, signingKey }),
+				resolveSelectionAccess({
+					serverStorage,
+					userId: records.user.id,
+					selectionToken: null,
+					now: testNow,
+					signingKey,
+				}),
 			).resolves.toEqual({ selected: false, reason: 'missing-token' })
 			await expect(
 				resolveSelectionAccess({
@@ -352,7 +377,11 @@ if (import.meta.vitest) {
 	async function testPortfolioMustExistInsideSelectedWorkspace(): Promise<void> {
 		await withTempServerStorage(async (serverStorage) => {
 			const records = await createAccessiblePortfolio(serverStorage)
-			const otherWorkspace = await createWorkspace({ serverStorage, displayName: 'Other Workspace', now: testNow })
+			const otherWorkspace = await createWorkspace({
+				serverStorage,
+				displayName: 'Other Workspace',
+				now: testNow,
+			})
 			const otherPortfolio = await createPortfolioRegistryEntry({
 				serverStorage,
 				workspaceId: otherWorkspace.id,
@@ -379,11 +408,17 @@ if (import.meta.vitest) {
 	}
 
 	describe('Selection access module', () => {
-		it('resolves a valid Selection Cookie to an accessible Workspace and Portfolio', testResolvesAccessibleSelectionCookie)
+		it(
+			'resolves a valid Selection Cookie to an accessible Workspace and Portfolio',
+			testResolvesAccessibleSelectionCookie,
+		)
 		it('returns structured Selection Cookie failure reasons', testSelectionTokenFailures)
 		it('requires the signed-in User to exist', testUserMustExist)
 		it('requires the selected Workspace to exist', testWorkspaceMustExist)
 		it('requires an Active Workspace Member for the signed-in User', testWorkspaceMembershipMustBeActive)
-		it('requires the selected Portfolio to be registered inside the selected Workspace', testPortfolioMustExistInsideSelectedWorkspace)
+		it(
+			'requires the selected Portfolio to be registered inside the selected Workspace',
+			testPortfolioMustExistInsideSelectedWorkspace,
+		)
 	})
 }

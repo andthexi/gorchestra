@@ -1,5 +1,5 @@
-import type { CoreAgentRunToolDefinition } from './registry'
 import { planOutputProposalPipe } from '../../../../domain/proposals'
+import type { CoreAgentRunToolDefinition } from './registry'
 
 export function proposePlanOutputTool(): CoreAgentRunToolDefinition {
 	return {

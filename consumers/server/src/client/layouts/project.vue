@@ -1,12 +1,13 @@
 <template>
-	<PortfolioLayout topbar-search-label="Search this Project…">
+	<PortfolioLayout topbarSearchLabel="Search this Project…">
 		<template #main-header>
 			<header class="border-b border-dimmer px-3 pt-3">
 				<div class="flex flex-wrap items-start justify-between gap-3">
 					<div class="min-w-0">
 						<h1
 							class="m-0 truncate text-sz-section font-semibold tracking-[-0.01em]"
-							:class="isLoadingInitialProject ? 'h-6 w-56 bg-secondary text-transparent' : ''">
+							:class="isLoadingInitialProject ? 'h-6 w-56 bg-secondary text-transparent' : ''"
+						>
 							{{ projectTitle }}
 						</h1>
 						<p v-if="projectSubtitle" class="m-0 mt-1 text-sz-helper text-dim">{{ projectSubtitle }}</p>
@@ -23,15 +24,24 @@
 						:key="to"
 						:to="to"
 						class="border-b-2 px-0 pb-2 text-sz-helper font-semibold"
-						:class="route.path.startsWith(to) ? 'border-primary text-body' : 'text-dim hover:text-body border-transparent'">
+						:class="
+							route.path.startsWith(to)
+								? 'border-primary text-body'
+								: 'text-dim hover:text-body border-transparent'
+						"
+					>
 						{{ label }}
 					</NuxtLink>
 				</nav>
 			</header>
 		</template>
 
-		<section v-if="isLoadingInitialProject" class="border-b border-dimmer px-3 py-4 text-dim">Loading Project…</section>
-		<section v-else-if="projectError" class="border-b border-dimmer px-3 py-4 text-error">{{ projectError }}</section>
+		<section v-if="isLoadingInitialProject" class="border-b border-dimmer px-3 py-4 text-dim">
+			Loading Project…
+		</section>
+		<section v-else-if="projectError" class="border-b border-dimmer px-3 py-4 text-error">
+			{{ projectError }}
+		</section>
 		<slot v-else />
 
 		<template v-if="$slots.right && project" #right>

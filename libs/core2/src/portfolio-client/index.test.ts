@@ -4,7 +4,13 @@ import { InMemoryAdapter } from 'equipped/orm/adapters/in-memory'
 import { v, PipeError } from 'valleyed'
 import { expect, it } from 'vitest'
 
-import { PortfolioClient, type CoreDependencies, type PortfolioSetup, type PortfolioMigration, type Result } from '@gorchestra/core2'
+import {
+	PortfolioClient,
+	type CoreDependencies,
+	type PortfolioSetup,
+	type PortfolioMigration,
+	type Result,
+} from '@gorchestra/core2'
 
 import { createTestDependencies, requireSuccess } from '../testing/fixtures'
 
@@ -113,61 +119,76 @@ it.each([false, true])('drains a pending Secret encoder before cleanup (encoder 
 	}
 })
 
-it.each([false, true])('keeps public Project admission closed throughout shared cleanup (first attempt fails: %s)', async (fail) => {
-	const deps = createTestDependencies()
-	const adapter = deps.storage.adapter
-	const opened = requireSuccess(await PortfolioClient.new(deps))
-	if (opened.state !== 'uninitialized') throw new Error('Expected setup')
-	const client = requireSuccess(await opened.setup())
-	const portfolio = requireSuccess(client.as({ by: 'test' }))
-	const project = requireSuccess(await portfolio.projects.create({ title: 'Before close', spec: { type: 'source-control' } }))
-	const gate = Promise.withResolvers<void>()
-	const entered = Promise.withResolvers<void>()
-	let attempts = 0
-	let reconnects = 0
-	adapter.connect = () => {
-		reconnects++
-		return Promise.resolve()
-	}
-	adapter.disconnect = async () => {
-		attempts++
-		entered.resolve()
-		await gate.promise
-		if (fail && attempts === 1) throw new Error('synthetic-PROTECTED')
-	}
-	try {
-		const first = client.shutdown()
-		const second = opened.shutdown()
-		expect(second).toBe(first)
-		expect(client.as({ by: 'later' })).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
-		expect(await portfolio.projects.create({ title: 'After close', spec: { type: 'source-control' } })).toEqual({
-			ok: false,
-			error: { type: 'storage-operation-failed' },
-		})
-		expect(await portfolio.projects.find({ projectId: project.id })).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
-		expect(await portfolio.projects.list()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
-		await entered.promise
-		expect(attempts).toBe(1)
-		gate.resolve()
-		const expected = fail ? { ok: false, error: { type: 'storage-operation-failed' } } : { ok: true, value: undefined }
-		expect(await first).toEqual(expected)
-		expect(await second).toEqual(expected)
-		expect(await portfolio.projects.list()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
-		// A completed failed attempt retries only on this explicit call.
-		expect(attempts).toBe(1)
-		expect(await client.shutdown()).toEqual({ ok: true, value: undefined })
-		expect(await opened.shutdown()).toEqual({ ok: true, value: undefined })
-		expect(attempts).toBe(fail ? 2 : 1)
-		expect(reconnects).toBe(0)
-		expect(client.as({ by: 'still-closed' })).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
-		expect(await portfolio.projects.list()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
-	} finally {
-		gate.resolve()
-		await opened.shutdown()
-		delete adapter.connect
-		delete adapter.disconnect
-	}
-})
+it.each([false, true])(
+	'keeps public Project admission closed throughout shared cleanup (first attempt fails: %s)',
+	async (fail) => {
+		const deps = createTestDependencies()
+		const adapter = deps.storage.adapter
+		const opened = requireSuccess(await PortfolioClient.new(deps))
+		if (opened.state !== 'uninitialized') throw new Error('Expected setup')
+		const client = requireSuccess(await opened.setup())
+		const portfolio = requireSuccess(client.as({ by: 'test' }))
+		const project = requireSuccess(
+			await portfolio.projects.create({ title: 'Before close', spec: { type: 'source-control' } }),
+		)
+		const gate = Promise.withResolvers<void>()
+		const entered = Promise.withResolvers<void>()
+		let attempts = 0
+		let reconnects = 0
+		adapter.connect = () => {
+			reconnects++
+			return Promise.resolve()
+		}
+		adapter.disconnect = async () => {
+			attempts++
+			entered.resolve()
+			await gate.promise
+			if (fail && attempts === 1) throw new Error('synthetic-PROTECTED')
+		}
+		try {
+			const first = client.shutdown()
+			const second = opened.shutdown()
+			expect(second).toBe(first)
+			expect(client.as({ by: 'later' })).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+			expect(await portfolio.projects.create({ title: 'After close', spec: { type: 'source-control' } })).toEqual(
+				{
+					ok: false,
+					error: { type: 'storage-operation-failed' },
+				},
+			)
+			expect(await portfolio.projects.find({ projectId: project.id })).toEqual({
+				ok: false,
+				error: { type: 'storage-operation-failed' },
+			})
+			expect(await portfolio.projects.list()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+			await entered.promise
+			expect(attempts).toBe(1)
+			gate.resolve()
+			const expected = fail
+				? { ok: false, error: { type: 'storage-operation-failed' } }
+				: { ok: true, value: undefined }
+			expect(await first).toEqual(expected)
+			expect(await second).toEqual(expected)
+			expect(await portfolio.projects.list()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+			// A completed failed attempt retries only on this explicit call.
+			expect(attempts).toBe(1)
+			expect(await client.shutdown()).toEqual({ ok: true, value: undefined })
+			expect(await opened.shutdown()).toEqual({ ok: true, value: undefined })
+			expect(attempts).toBe(fail ? 2 : 1)
+			expect(reconnects).toBe(0)
+			expect(client.as({ by: 'still-closed' })).toEqual({
+				ok: false,
+				error: { type: 'storage-operation-failed' },
+			})
+			expect(await portfolio.projects.list()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+		} finally {
+			gate.resolve()
+			await opened.shutdown()
+			delete adapter.connect
+			delete adapter.disconnect
+		}
+	},
+)
 
 function dependencies(): CoreDependencies<InMemoryAdapter> {
 	return {
@@ -226,7 +247,9 @@ it('uses one resolved physical ledger for opening, locking, recording and reopen
 			if (opened.state !== 'uninitialized') throw new Error('Expected setup')
 			const ready = success(await opened.setup())
 			const portfolio = success(ready.as({ by: 'scoped-test' }))
-			const project = success(await portfolio.projects.create({ title: 'Scoped', spec: { type: 'source-control' } }))
+			const project = success(
+				await portfolio.projects.create({ title: 'Scoped', spec: { type: 'source-control' } }),
+			)
 			expect(await portfolio.projects.find({ projectId: project.id })).toEqual({ ok: true, value: project })
 			const ledger = await load(historyConfig)
 			expect(ledger).toHaveLength(1)
@@ -257,11 +280,15 @@ it('uses one resolved physical ledger for opening, locking, recording and reopen
 it.each(['left', 'right'] as const)('narrows the %s adapter before constructing its dependency pair', async (kind) => {
 	class LeftAdapter extends InMemoryAdapter {
 		readonly kind = 'left'
-		override readonly schemaConfigPipe = v.object({ table: v.string(), scope: v.eq('left') }).pipe(({ table }) => ({ table }))
+		override readonly schemaConfigPipe = v
+			.object({ table: v.string(), scope: v.eq('left') })
+			.pipe(({ table }) => ({ table }))
 	}
 	class RightAdapter extends InMemoryAdapter {
 		readonly kind = 'right'
-		override readonly schemaConfigPipe = v.object({ table: v.string(), scope: v.eq('right') }).pipe(({ table }) => ({ table }))
+		override readonly schemaConfigPipe = v
+			.object({ table: v.string(), scope: v.eq('right') })
+			.pipe(({ table }) => ({ table }))
 	}
 	async function openSelected(adapter: LeftAdapter | RightAdapter) {
 		const secrets = { encode: () => Promise.resolve(null), decode: () => Promise.resolve({}) }
@@ -466,7 +493,10 @@ it('rejects a nonfunction resolver without calling startup or codecs', async () 
 		])
 		expect(result).toEqual({
 			ok: false,
-			error: { type: 'invalid-input', issues: [{ path: 'storage.resolveSchema', message: 'Expected a function.' }] },
+			error: {
+				type: 'invalid-input',
+				issues: [{ path: 'storage.resolveSchema', message: 'Expected a function.' }],
+			},
 		})
 		expect(calls).toEqual([])
 	} finally {
@@ -506,7 +536,10 @@ it.each([
 		const result: unknown = await Reflect.apply(PortfolioClient.new.bind(PortfolioClient), PortfolioClient, [input])
 		expect(result).toEqual({
 			ok: false,
-			error: { type: 'invalid-input', issues: [{ path: `${container}.${key}`, message: 'Expected a function.' }] },
+			error: {
+				type: 'invalid-input',
+				issues: [{ path: `${container}.${key}`, message: 'Expected a function.' }],
+			},
 		})
 		expect(JSON.stringify(result)).not.toContain('synthetic-PROTECTED')
 		expect(calls).toEqual([])
@@ -772,7 +805,12 @@ it('refuses a table added after factory classification before running setup', as
 	const deps = dependencies()
 	const opened = success(await PortfolioClient.new(deps))
 	if (opened.state !== 'uninitialized') throw new Error('Expected setup')
-	await deps.storage.adapter.applyCreateTable({ kind: 'createTable', name: 'external', pk: { name: 'id', type: 'string' }, fields: [] })
+	await deps.storage.adapter.applyCreateTable({
+		kind: 'createTable',
+		name: 'external',
+		pk: { name: 'id', type: 'string' },
+		fields: [],
+	})
 	try {
 		expect(await opened.setup()).toEqual({ ok: false, error: { type: 'storage-not-empty' } })
 		expect(await deps.storage.adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual([])
@@ -781,38 +819,41 @@ it('refuses a table added after factory classification before running setup', as
 	}
 })
 
-it.each(['wrapped', 'replaced'] as const)('handles %s setup rollback without losing safe history failures', async (mode) => {
-	const deps = dependencies()
-	const adapter = deps.storage.adapter
-	const opened = success(await PortfolioClient.new(deps))
-	if (opened.state !== 'uninitialized') throw new Error('Expected setup')
-	await adapter.recordMigration({ table: '_equipped_migrations' }, 'legacy-synthetic-PROTECTED', 0)
-	const original = adapter.session.bind(adapter)
-	const session = original
-	adapter.session = async function (work) {
-		try {
-			return await session(work)
-		} catch (error) {
-			throw mode === 'wrapped'
-				? new EquippedError('synthetic-PROTECTED', { operation: 'session' }, error)
-				: new Error('synthetic-PROTECTED')
+it.each(['wrapped', 'replaced'] as const)(
+	'handles %s setup rollback without losing safe history failures',
+	async (mode) => {
+		const deps = dependencies()
+		const adapter = deps.storage.adapter
+		const opened = success(await PortfolioClient.new(deps))
+		if (opened.state !== 'uninitialized') throw new Error('Expected setup')
+		await adapter.recordMigration({ table: '_equipped_migrations' }, 'legacy-synthetic-PROTECTED', 0)
+		const original = adapter.session.bind(adapter)
+		const session = original
+		adapter.session = async function (work) {
+			try {
+				return await session(work)
+			} catch (error) {
+				throw mode === 'wrapped'
+					? new EquippedError('synthetic-PROTECTED', { operation: 'session' }, error)
+					: new Error('synthetic-PROTECTED')
+			}
 		}
-	}
-	try {
-		expect(await opened.setup()).toEqual({
-			ok: false,
-			error: { type: mode === 'wrapped' ? 'schema-metadata-invalid' : 'storage-operation-failed' },
-		})
-		adapter.session = original
-		expect(await opened.setup()).toEqual({
-			ok: false,
-			error: { type: mode === 'wrapped' ? 'schema-metadata-invalid' : 'storage-operation-failed' },
-		})
-	} finally {
-		adapter.session = original
-		success(await opened.shutdown())
-	}
-})
+		try {
+			expect(await opened.setup()).toEqual({
+				ok: false,
+				error: { type: mode === 'wrapped' ? 'schema-metadata-invalid' : 'storage-operation-failed' },
+			})
+			adapter.session = original
+			expect(await opened.setup()).toEqual({
+				ok: false,
+				error: { type: mode === 'wrapped' ? 'schema-metadata-invalid' : 'storage-operation-failed' },
+			})
+		} finally {
+			adapter.session = original
+			success(await opened.shutdown())
+		}
+	},
+)
 
 it.each([
 	['legacy-synthetic-PROTECTED', 0, 'schema-metadata-invalid'],
@@ -823,7 +864,12 @@ it.each([
 	const adapter = deps.storage.adapter
 	const opened = success(await PortfolioClient.new(deps))
 	if (opened.state !== 'uninitialized') throw new Error('Expected setup')
-	await adapter.applyCreateTable({ kind: 'createTable', name: 'existing', pk: { name: 'id', type: 'string' }, fields: [] })
+	await adapter.applyCreateTable({
+		kind: 'createTable',
+		name: 'existing',
+		pk: { name: 'id', type: 'string' },
+		fields: [],
+	})
 	await adapter.recordMigration({ table: '_equipped_migrations' }, id, at)
 	const before = await adapter.introspect()
 	try {
@@ -907,21 +953,25 @@ it.each(['loadMigrations', 'introspect', 'acquireMigrationLock', 'recordMigratio
 		const adapter = deps.storage.adapter
 		const opened = success(await PortfolioClient.new(deps))
 		if (opened.state !== 'uninitialized') throw new Error('Expected setup')
-		const original = adapter[method]
+		const descriptor = Object.getOwnPropertyDescriptor(adapter, method)
 		Object.defineProperty(adapter, method, {
 			configurable: true,
 			value: () => Promise.reject(new Error('synthetic-PROTECTED')),
 		})
 		try {
 			await expect(opened.setup()).resolves.toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
-			Object.defineProperty(adapter, method, { configurable: true, writable: true, value: original })
+			if (descriptor) Object.defineProperty(adapter, method, descriptor)
+			else Reflect.deleteProperty(adapter, method)
+			expect(Object.getOwnPropertyDescriptor(adapter, method)).toEqual(descriptor)
 			expect(await adapter.introspect()).toEqual([])
 			expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual([])
 			expect(success(await opened.setup()).state).toBe('ready')
 		} finally {
-			Object.defineProperty(adapter, method, { configurable: true, writable: true, value: original })
+			if (descriptor) Object.defineProperty(adapter, method, descriptor)
+			else Reflect.deleteProperty(adapter, method)
 			success(await opened.shutdown())
 		}
+		expect(Object.getOwnPropertyDescriptor(adapter, method)).toEqual(descriptor)
 	},
 )
 
@@ -1037,7 +1087,7 @@ it('joins shared cleanup and closes setup admission synchronously', async () => 
 it.each(['loadMigrations', 'introspect'] as const)('cleans up a factory %s failure', async (method) => {
 	const deps = dependencies()
 	const adapter = deps.storage.adapter
-	const original = adapter[method]
+	const descriptor = Object.getOwnPropertyDescriptor(adapter, method)
 	let cleaned = false
 	adapter.disconnect = () => {
 		cleaned = true
@@ -1048,12 +1098,17 @@ it.each(['loadMigrations', 'introspect'] as const)('cleans up a factory %s failu
 		value: () => Promise.reject(new Error('synthetic-PROTECTED')),
 	})
 	try {
-		await expect(PortfolioClient.new(deps)).resolves.toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+		await expect(PortfolioClient.new(deps)).resolves.toEqual({
+			ok: false,
+			error: { type: 'storage-operation-failed' },
+		})
 		expect(cleaned).toBe(true)
 	} finally {
-		Object.defineProperty(adapter, method, { configurable: true, writable: true, value: original })
+		if (descriptor) Object.defineProperty(adapter, method, descriptor)
+		else Reflect.deleteProperty(adapter, method)
 		delete adapter.disconnect
 	}
+	expect(Object.getOwnPropertyDescriptor(adapter, method)).toEqual(descriptor)
 })
 
 it('awaits cleanup after failed startup without exposing the exception', async () => {
@@ -1124,9 +1179,9 @@ it('explicit setup commits the full catalog and returns a fresh ready view', asy
 			'projects',
 			'secrets',
 		])
-		expect((await deps.storage.adapter.loadMigrations({ table: '_equipped_migrations' })).map(({ id }) => id)).toEqual([
-			'01m76d124c6e848k2hfvb4mar2',
-		])
+		expect(
+			(await deps.storage.adapter.loadMigrations({ table: '_equipped_migrations' })).map(({ id }) => id),
+		).toEqual(['01m76d124c6e848k2hfvb4mar2'])
 		expect(await opened.setup()).toEqual({ ok: false, error: { type: 'storage-already-initialized' } })
 	} finally {
 		success(await opened.shutdown())
@@ -1135,7 +1190,12 @@ it('explicit setup commits the full catalog and returns a fresh ready view', asy
 
 it('refuses a metadata-only application table instead of treating no rows as empty', async () => {
 	const deps = dependencies()
-	await deps.storage.adapter.applyCreateTable({ kind: 'createTable', name: 'existing', pk: { name: 'id', type: 'string' }, fields: [] })
+	await deps.storage.adapter.applyCreateTable({
+		kind: 'createTable',
+		name: 'existing',
+		pk: { name: 'id', type: 'string' },
+		fields: [],
+	})
 	expect(await PortfolioClient.new(deps)).toEqual({ ok: false, error: { type: 'storage-not-empty' } })
 	expect((await deps.storage.adapter.introspect()).map(({ name }) => name)).toEqual(['existing'])
 	expect(await deps.storage.adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual([])

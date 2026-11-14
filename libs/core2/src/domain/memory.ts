@@ -1,8 +1,8 @@
 import { Schema } from 'equipped/orm'
 import { v, type PipeOutput } from 'valleyed'
 
-import { auditStampPipe, idPipe, revisionVersionPipe, titlePipe } from './commons'
 import { requireExplicitId, schemaPipe } from '../storage/schema'
+import { auditStampPipe, idPipe, revisionVersionPipe, titlePipe } from './commons'
 
 export const memorySchema = Schema.from('memories')
 	.pk('id', idPipe, requireExplicitId)

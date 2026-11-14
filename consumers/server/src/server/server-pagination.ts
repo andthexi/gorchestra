@@ -7,7 +7,9 @@ export const serverPositiveIntegerPipe = integerPipe.pipe(v.gte(1))
 export const serverNonNegativeIntegerPipe = integerPipe.pipe(v.gte(0))
 export const maxServerPaginatedQueryLimit = 500
 
-const serverPaginatedQueryLimitInputPipe = v.fromJson(serverPositiveIntegerPipe.pipe(v.lte(maxServerPaginatedQueryLimit)))
+const serverPaginatedQueryLimitInputPipe = v.fromJson(
+	serverPositiveIntegerPipe.pipe(v.lte(maxServerPaginatedQueryLimit)),
+)
 const serverPaginatedQueryPageNumberInputPipe = v.fromJson(serverPositiveIntegerPipe)
 const serverPaginatedQueryBeforeIdInputPipe = v.optional(v.fromJson(serverIdPipe))
 
@@ -30,7 +32,11 @@ export const serverPaginatedQueryInputPipe = v.discriminate(
 	},
 )
 
-export type ServerPaginatedQueryInput = { beforeId?: string | undefined; limit?: number | undefined; page?: number | undefined }
+export type ServerPaginatedQueryInput = {
+	beforeId?: string | undefined
+	limit?: number | undefined
+	page?: number | undefined
+}
 export type ParsedServerPaginatedQueryInput = PipeOutput<typeof serverPaginatedQueryInputPipe>
 
 export type ServerPaginatedQueryEnvelope<T> = {
@@ -80,7 +86,9 @@ if (import.meta.vitest) {
 				valid: true,
 				value: { beforeId, limit: 2, page: 3 },
 			})
-			expect(v.validate(serverPaginatedQueryInputPipe, { beforeId: crypto.randomUUID(), limit: '2' })).toMatchObject({
+			expect(
+				v.validate(serverPaginatedQueryInputPipe, { beforeId: crypto.randomUUID(), limit: '2' }),
+			).toMatchObject({
 				valid: false,
 			})
 		})

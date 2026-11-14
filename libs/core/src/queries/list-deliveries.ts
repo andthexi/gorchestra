@@ -4,7 +4,12 @@ import { idPipe, paginatedQueryEnvelopePipe, paginatedQueryInputPipe } from '../
 import { deliveryReadModelPipe, type Delivery } from '../domain/delivery'
 import type { Repository } from '../domain/repository'
 import type { Slice } from '../domain/slice'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { deliveryReadModels } from '../utils/delivery-read-model'
 import { buildQueryHandler } from '../utils/query-handler'
 import { getRequired, listRecords, listRecordsPaginated } from '../utils/storage/helpers'
@@ -16,7 +21,8 @@ export type Input = UndefinedToOptional<PipeInput<typeof inputPipe>>
 
 export const resultPipe = paginatedQueryEnvelopePipe(deliveryReadModelPipe)
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createListDeliveriesQuery(transactions: CoreTransactions): Operation {
@@ -88,7 +94,10 @@ if (import.meta.vitest) {
 
 			const result = await query({ projectId: '01k00000000000000000000030' })
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'project', id: '01k00000000000000000000030' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'project', id: '01k00000000000000000000030' },
+			})
 		})
 
 		it('lists Deliveries for one Project with repository targets and ordered Slices', async () => {
@@ -140,11 +149,21 @@ if (import.meta.vitest) {
 			)
 			options.tx.slices.records.set(
 				'01k00000000000000000100039',
-				slice({ id: '01k00000000000000000100039', deliveryId: '01k00000000000000000100029', order: 1, title: 'Second' }),
+				slice({
+					id: '01k00000000000000000100039',
+					deliveryId: '01k00000000000000000100029',
+					order: 1,
+					title: 'Second',
+				}),
 			)
 			options.tx.slices.records.set(
 				'01k00000000000000000100038',
-				slice({ id: '01k00000000000000000100038', deliveryId: '01k00000000000000000100029', order: 0, title: 'First' }),
+				slice({
+					id: '01k00000000000000000100038',
+					deliveryId: '01k00000000000000000100029',
+					order: 0,
+					title: 'First',
+				}),
 			)
 			const query = createListDeliveriesQuery(options.transactions)
 
@@ -211,16 +230,33 @@ if (import.meta.vitest) {
 		})
 	})
 
-	function repository(input: { id: string; projectId: string; owner: string; name: string; createdAt?: string }): Repository {
+	function repository(input: {
+		id: string
+		projectId: string
+		owner: string
+		name: string
+		createdAt?: string
+	}): Repository {
 		return {
 			id: input.id,
 			projectId: input.projectId,
-			config: { provider: 'github', owner: input.owner, name: input.name, secretId: '01k00000000000000000000040' },
+			config: {
+				provider: 'github',
+				owner: input.owner,
+				name: input.name,
+				secretId: '01k00000000000000000000040',
+			},
 			created: { origin: 'imported', at: input.createdAt ?? stamp.at },
 		}
 	}
 
-	function delivery(input: { id: string; projectId: string; title: string; repositoryId: string; acceptedAt?: string }): Delivery {
+	function delivery(input: {
+		id: string
+		projectId: string
+		title: string
+		repositoryId: string
+		acceptedAt?: string
+	}): Delivery {
 		const accepted = { origin: 'imported' as const, at: input.acceptedAt ?? stamp.at }
 		return {
 			id: input.id,

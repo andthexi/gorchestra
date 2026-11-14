@@ -24,7 +24,10 @@ import {
 } from '../session'
 
 const emailOtpChallengeBodySchema = v.object({ email: v.string().pipe(v.email()) })
-const emailOtpSignInBodySchema = v.object({ email: v.string().pipe(v.email()), code: v.string().pipe(v.asTrimmed(), v.min<string>(1)) })
+const emailOtpSignInBodySchema = v.object({
+	email: v.string().pipe(v.email()),
+	code: v.string().pipe(v.asTrimmed(), v.min<string>(1)),
+})
 const serverUserResponseSchema = v.object({ id: idPipe, createdAt: isoDateTimePipe })
 const emailAuthenticationIdentityResponseSchema = v.object({
 	id: idPipe,
@@ -49,7 +52,11 @@ export function createAuthApiRouter(context: ServerApiContext) {
 				defaultStatusCode: StatusCodes.NoContent,
 			},
 		})(async (req) => {
-			await createEmailOtpChallenge({ serverCache: context.serverCache, email: req.body.email, now: context.now() })
+			await createEmailOtpChallenge({
+				serverCache: context.serverCache,
+				email: req.body.email,
+				now: context.now(),
+			})
 			return req.res({ status: StatusCodes.NoContent, body: undefined })
 		})
 		.post('/email-otp/sign-in', {

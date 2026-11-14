@@ -47,7 +47,11 @@ const networkPolicyTypePipe = v.in(['allow-all', 'deny-all', 'allow-list'])
 const nonEmptyStringPipe = v.string().pipe(v.min<string>(1, 'Enter a value'))
 const vcpusPipe = v.number().pipe(v.int(), v.gte(1))
 
-export class VercelSecretCredentialsFormDraft extends FormDraft<VercelCredentialsModel, VercelCredentialsModel, VercelCredentialsFields> {
+export class VercelSecretCredentialsFormDraft extends FormDraft<
+	VercelCredentialsModel,
+	VercelCredentialsModel,
+	VercelCredentialsFields
+> {
 	protected readonly rules = {
 		tokenSecretId: nestedFormDraftPipe<FormDraftSelect<string>>(),
 		teamIdSecretId: nestedFormDraftPipe<FormDraftSelect<string>>(),
@@ -131,8 +135,14 @@ export class AgentRunSandboxNetworkPolicyFormDraft extends FormDraft<
 	protected readonly rules = {
 		type: networkPolicyTypePipe,
 		hosts: v.conditional(v.array(nestedFormDraftPipe<StringListItemDraft>()), () => this.type === 'allow-list'),
-		allowSubnets: v.conditional(v.array(nestedFormDraftPipe<StringListItemDraft>()), () => this.type === 'allow-list'),
-		denySubnets: v.conditional(v.array(nestedFormDraftPipe<StringListItemDraft>()), () => this.type === 'allow-list'),
+		allowSubnets: v.conditional(
+			v.array(nestedFormDraftPipe<StringListItemDraft>()),
+			() => this.type === 'allow-list',
+		),
+		denySubnets: v.conditional(
+			v.array(nestedFormDraftPipe<StringListItemDraft>()),
+			() => this.type === 'allow-list',
+		),
 	}
 
 	constructor() {
@@ -195,7 +205,10 @@ export class AgentRunSandboxSourceFormDraft extends FormDraft<
 		ociImage: v.conditional(nonEmptyStringPipe, () => this.type === 'consumer-managed'),
 		runtime: v.conditional(vercelRuntimePipe, () => this.type === 'vercel-runtime'),
 		vcrImage: v.conditional(nonEmptyStringPipe, () => this.type === 'vercel-vcr-image'),
-		credentials: v.conditional(nestedFormDraftPipe<VercelSecretCredentialsFormDraft>(), () => this.type !== 'consumer-managed'),
+		credentials: v.conditional(
+			nestedFormDraftPipe<VercelSecretCredentialsFormDraft>(),
+			() => this.type !== 'consumer-managed',
+		),
 	}
 
 	constructor() {
@@ -223,7 +236,11 @@ export class AgentRunSandboxSourceFormDraft extends FormDraft<
 			case 'vercel-runtime':
 				return { type: 'vercel-runtime', runtime: this.runtime, credentials: this.credentials.toModel() }
 			case 'vercel-vcr-image':
-				return { type: 'vercel-vcr-image', vcrImage: this.vcrImage.trim(), credentials: this.credentials.toModel() }
+				return {
+					type: 'vercel-vcr-image',
+					vcrImage: this.vcrImage.trim(),
+					credentials: this.credentials.toModel(),
+				}
 			default:
 				throw new Error(`Unexpected sandbox source type: ${String(this.type satisfies never)}`)
 		}
@@ -249,7 +266,11 @@ export class AgentRunSandboxSourceFormDraft extends FormDraft<
 	}
 }
 
-export class AgentRunSandboxConfigFormDraft extends FormDraft<AgentRunSandboxConfig, AgentRunSandboxConfig, SandboxConfigFields> {
+export class AgentRunSandboxConfigFormDraft extends FormDraft<
+	AgentRunSandboxConfig,
+	AgentRunSandboxConfig,
+	SandboxConfigFields
+> {
 	protected readonly rules = {
 		source: nestedFormDraftPipe<AgentRunSandboxSourceFormDraft>(),
 		resources: nestedFormDraftPipe<AgentRunSandboxResourcesFormDraft>(),
@@ -317,7 +338,11 @@ if (import.meta.vitest) {
 				source: {
 					type: 'vercel-runtime',
 					runtime: 'node26',
-					credentials: { tokenSecretId: 'secret-token', teamIdSecretId: 'secret-team', projectIdSecretId: 'secret-project' },
+					credentials: {
+						tokenSecretId: 'secret-token',
+						teamIdSecretId: 'secret-team',
+						projectIdSecretId: 'secret-project',
+					},
 				},
 				resources: { vcpus: 2 },
 				networkPolicy: {

@@ -126,7 +126,13 @@ const queryKeys = {
 
 export function useQueryCache() {
 	const controller = useQueryCacheControllerForFetch()
-	return { read: controller.read, invalidate: controller.invalidate, set: controller.set, clear: controller.clear, queryKeys }
+	return {
+		read: controller.read,
+		invalidate: controller.invalidate,
+		set: controller.set,
+		clear: controller.clear,
+		queryKeys,
+	}
 }
 
 export function useQueryCacheControllerForFetch() {
@@ -191,7 +197,8 @@ function createQueryCacheController(snapshot: Ref<QueryCacheSnapshot> | QueryCac
 		entry.data = data
 		entry.hasData = true
 		entry.invalidated = false
-		for (const observer of getRuntimeEntry(serializeQueryKey(queryKey)).observers) tryApplySnapshotToObserver(observer)
+		for (const observer of getRuntimeEntry(serializeQueryKey(queryKey)).observers)
+			tryApplySnapshotToObserver(observer)
 	}
 
 	function clear(queryKey: QueryKey, options: QueryMatchOptions = {}): void {
@@ -230,7 +237,11 @@ function createQueryCacheController(snapshot: Ref<QueryCacheSnapshot> | QueryCac
 		return entry
 	}
 
-	function syncObserverRuntime<T>(observer: QueryObserver<T>): { id: string; key: QueryKey; runtime: RuntimeQueryEntry } {
+	function syncObserverRuntime<T>(observer: QueryObserver<T>): {
+		id: string
+		key: QueryKey
+		runtime: RuntimeQueryEntry
+	} {
 		const key = resolveQueryKeyInput(observer.queryKey)
 		const id = serializeQueryKey(key)
 		const genericObserver = observer as unknown as QueryObserver<unknown>
@@ -396,7 +407,11 @@ function createQueryCacheController(snapshot: Ref<QueryCacheSnapshot> | QueryCac
 	return { attach, ensure, read, refetch, invalidate, set, clear, snapshot: readonly(snapshotRef) }
 }
 
-function detachedObserver<T>(queryKey: QueryKeyInput, initialData: QueryInitialData<T>, fetcher: QueryFetcher<T>): QueryObserver<T> {
+function detachedObserver<T>(
+	queryKey: QueryKeyInput,
+	initialData: QueryInitialData<T>,
+	fetcher: QueryFetcher<T>,
+): QueryObserver<T> {
 	return {
 		queryKey,
 		initialData,
@@ -448,7 +463,11 @@ if (import.meta.vitest) {
 			expect(queryKeys.workspaces()).toEqual(['workspaces'])
 			expect(queryKeys.portfolio.root('portfolio-1')).toEqual(['portfolio', 'portfolio-1'])
 			expect(queryKeys.portfolio.projects('portfolio-1')).toEqual(['portfolio', 'portfolio-1', 'projects'])
-			expect(queryKeys.portfolio.agentRunProfiles('portfolio-1')).toEqual(['portfolio', 'portfolio-1', 'agent-run-profiles'])
+			expect(queryKeys.portfolio.agentRunProfiles('portfolio-1')).toEqual([
+				'portfolio',
+				'portfolio-1',
+				'agent-run-profiles',
+			])
 			expect(queryKeys.portfolio.agentRunProfile('portfolio-1', 'agent-run-profile-1')).toEqual([
 				'portfolio',
 				'portfolio-1',
@@ -462,14 +481,23 @@ if (import.meta.vitest) {
 				'agent-run-profile-1',
 				'references',
 			])
-			expect(queryKeys.portfolio.modelProviders('portfolio-1')).toEqual(['portfolio', 'portfolio-1', 'model-providers'])
+			expect(queryKeys.portfolio.modelProviders('portfolio-1')).toEqual([
+				'portfolio',
+				'portfolio-1',
+				'model-providers',
+			])
 			expect(queryKeys.portfolio.modelProvider('portfolio-1', 'model-provider-1')).toEqual([
 				'portfolio',
 				'portfolio-1',
 				'model-providers',
 				'model-provider-1',
 			])
-			expect(queryKeys.portfolio.project('portfolio-1', 'project-1')).toEqual(['portfolio', 'portfolio-1', 'projects', 'project-1'])
+			expect(queryKeys.portfolio.project('portfolio-1', 'project-1')).toEqual([
+				'portfolio',
+				'portfolio-1',
+				'projects',
+				'project-1',
+			])
 			expect(queryKeys.portfolio.repository('portfolio-1', 'project-1', 'repository-1')).toEqual([
 				'portfolio',
 				'portfolio-1',
@@ -484,22 +512,33 @@ if (import.meta.vitest) {
 				'agent-runs',
 				'agent-run-1',
 			])
-			expect(queryKeys.portfolio.secret('portfolio-1', 'secret-1')).toEqual(['portfolio', 'portfolio-1', 'secrets', 'secret-1'])
+			expect(queryKeys.portfolio.secret('portfolio-1', 'secret-1')).toEqual([
+				'portfolio',
+				'portfolio-1',
+				'secrets',
+				'secret-1',
+			])
 		})
 	})
 
 	describe('Query Key matching', () => {
 		it('uses prefix matching by default', () => {
 			expect(matchesQueryKey(['portfolio', 'p1', 'projects'], ['portfolio', 'p1'])).toBe(true)
-			expect(matchesQueryKey(['portfolio', 'p1', 'projects', 'project-1'], ['portfolio', 'p1', 'projects'])).toBe(true)
+			expect(matchesQueryKey(['portfolio', 'p1', 'projects', 'project-1'], ['portfolio', 'p1', 'projects'])).toBe(
+				true,
+			)
 			expect(matchesQueryKey(['portfolio', 'p2', 'projects'], ['portfolio', 'p1'])).toBe(false)
 		})
 
 		it('supports exact matching', () => {
-			expect(matchesQueryKey(['portfolio', 'p1', 'projects'], ['portfolio', 'p1', 'projects'], { exact: true })).toBe(true)
-			expect(matchesQueryKey(['portfolio', 'p1', 'projects', 'project-1'], ['portfolio', 'p1', 'projects'], { exact: true })).toBe(
-				false,
-			)
+			expect(
+				matchesQueryKey(['portfolio', 'p1', 'projects'], ['portfolio', 'p1', 'projects'], { exact: true }),
+			).toBe(true)
+			expect(
+				matchesQueryKey(['portfolio', 'p1', 'projects', 'project-1'], ['portfolio', 'p1', 'projects'], {
+					exact: true,
+				}),
+			).toBe(false)
 		})
 	})
 
@@ -648,7 +687,9 @@ if (import.meta.vitest) {
 
 		it('keeps stale data and records local errors after background refetch failures', async () => {
 			const cache = createQueryCacheController(createEmptyQueryCacheSnapshot())
-			const observer = createTestObserver(['portfolio', 'p1', 'projects'], [] as string[], () => Promise.resolve(['old']))
+			const observer = createTestObserver(['portfolio', 'p1', 'projects'], [] as string[], () =>
+				Promise.resolve(['old']),
+			)
 			cache.attach(observer)
 			await cache.ensure(observer)
 
@@ -663,7 +704,9 @@ if (import.meta.vitest) {
 
 		it('rejects manual refetch failures while keeping stale data visible', async () => {
 			const cache = createQueryCacheController(createEmptyQueryCacheSnapshot())
-			const observer = createTestObserver(['portfolio', 'p1', 'projects'], [] as string[], () => Promise.resolve(['old']))
+			const observer = createTestObserver(['portfolio', 'p1', 'projects'], [] as string[], () =>
+				Promise.resolve(['old']),
+			)
 			cache.attach(observer)
 			await cache.ensure(observer)
 
@@ -675,7 +718,11 @@ if (import.meta.vitest) {
 		})
 	})
 
-	function createTestObserver<T>(queryKey: QueryKeyInput, initialData: QueryInitialData<T>, fetcher: () => Promise<T>): QueryObserver<T> {
+	function createTestObserver<T>(
+		queryKey: QueryKeyInput,
+		initialData: QueryInitialData<T>,
+		fetcher: () => Promise<T>,
+	): QueryObserver<T> {
 		return {
 			queryKey,
 			initialData,

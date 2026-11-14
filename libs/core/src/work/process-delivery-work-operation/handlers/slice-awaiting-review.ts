@@ -1,6 +1,6 @@
-import { noObservedChange } from './result'
 import type { Slice, SliceWorkState } from '../../../domain/slice'
 import type { DeliveryWorkHandlerResult } from '../../delivery-work/types'
+import { noObservedChange } from './result'
 
 export function handleSliceAwaitingReview(
 	slice: Slice,

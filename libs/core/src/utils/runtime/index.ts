@@ -48,7 +48,11 @@ function coreRuntimeShell(services: CoreServices, overrides: CoreRuntimeOverride
 	}
 }
 
-function coreProvidersFor(services: CoreServices, transactions: CoreTransactions, overrides: CoreRuntimeOverrides): CoreProviders {
+function coreProvidersFor(
+	services: CoreServices,
+	transactions: CoreTransactions,
+	overrides: CoreRuntimeOverrides,
+): CoreProviders {
 	return overrides.providers ?? createCoreProviders(services, transactions)
 }
 
@@ -89,7 +93,10 @@ if (import.meta.vitest) {
 				'createArtifactBranch',
 				'createReviewSurface',
 			])
-			expect(Object.keys(runtime.providers.modelProviderProtocols)).toEqual(['preflightModel', 'resolveLanguageModel'])
+			expect(Object.keys(runtime.providers.modelProviderProtocols)).toEqual([
+				'preflightModel',
+				'resolveLanguageModel',
+			])
 			expect(typeof runtime.agentRuns.runExecutionAgentRun).toBe('function')
 			expect(typeof runtime.agentRuns.runModelAgentRun).toBe('function')
 			expect(typeof runtime.notifications.emit).toBe('function')

@@ -1,8 +1,8 @@
-import { createTestCoreServices, stamp, testModelAgentRun } from './test-helpers'
 import type { AgentRun } from '../domain/agent-run'
 import type { AgentRunEvent } from '../domain/agent-run-event'
 import type { RevisionGate } from '../domain/revision-gate'
 import type { CoreServices } from '../services'
+import { createTestCoreServices, stamp, testModelAgentRun } from './test-helpers'
 
 export function planningAgentRunFixture(overrides: Partial<Pick<CoreServices, 'dispatchWake'>> = {}) {
 	const options = createTestCoreServices(overrides)
@@ -18,14 +18,20 @@ export function planningAgentRunFixture(overrides: Partial<Pick<CoreServices, 'd
 	return options
 }
 
-export function revisionPlanningAgentRunFixture(closed: boolean, overrides: Partial<Pick<CoreServices, 'dispatchWake'>> = {}) {
+export function revisionPlanningAgentRunFixture(
+	closed: boolean,
+	overrides: Partial<Pick<CoreServices, 'dispatchWake'>> = {},
+) {
 	const options = createTestCoreServices(overrides)
 	options.tx.agentRuns.records.set('01k00000000000000000000002', revisionPlanningAgentRun())
 	options.tx.revisionGates.records.set('01k00000000000000000000039', revisionGate(closed))
 	return options
 }
 
-export function autonomousAgentRunFixture(completed: boolean, overrides: Partial<Pick<CoreServices, 'dispatchWake'>> = {}) {
+export function autonomousAgentRunFixture(
+	completed: boolean,
+	overrides: Partial<Pick<CoreServices, 'dispatchWake'>> = {},
+) {
 	const options = createTestCoreServices(overrides)
 	options.tx.agentRuns.records.set('01k00000000000000000000002', {
 		...planningAgentRun(),
@@ -68,7 +74,11 @@ function revisionGate(closed: boolean): RevisionGate {
 	return {
 		id: '01k00000000000000000000039',
 		agentRunId: '01k00000000000000000000002',
-		scope: { type: 'delivery-artifact', deliveryId: '01k00000000000000000000008', deliveryArtifactId: '01k00000000000000000000010' },
+		scope: {
+			type: 'delivery-artifact',
+			deliveryId: '01k00000000000000000000008',
+			deliveryArtifactId: '01k00000000000000000000010',
+		},
 		reviewSurfaceId: '01k00000000000000000000037',
 		opened: stamp,
 		closed: closed ? { type: 'closed-without-revision', closed: stamp } : null,

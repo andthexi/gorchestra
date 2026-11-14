@@ -53,7 +53,9 @@ export function createGetMemoryQuery(transactions: CoreTransactions): Operation 
 				where: (filter, fields) => filter.eq(fields.parentId, memory.value.id),
 				orderBy: [{ field: 'id', direction: 'desc' }],
 			})
-			return children.ok ? { ok: true, value: { ...memory.value, revisions: revisions.value, children: children.value } } : children
+			return children.ok
+				? { ok: true, value: { ...memory.value, revisions: revisions.value, children: children.value } }
+				: children
 		}),
 	)
 }
@@ -78,7 +80,11 @@ if (import.meta.vitest) {
 
 		it('returns a ListedMemory with revisions and direct children in id-desc order', async () => {
 			const options = createTestCoreServices()
-			const parent = memory({ id: '01k00000000000000000100008', title: 'Parent', currentRevisionId: '01k00000000000000000100011' })
+			const parent = memory({
+				id: '01k00000000000000000100008',
+				title: 'Parent',
+				currentRevisionId: '01k00000000000000000100011',
+			})
 			const childB = memory({ id: '01k00000000000000000100006', parentId: parent.id, title: 'Beta' })
 			const childA = memory({ id: '01k00000000000000000100005', parentId: parent.id, title: 'Alpha' })
 			const revisionOlder = revision({
@@ -94,7 +100,8 @@ if (import.meta.vitest) {
 				createdAt: '2026-06-10T00:00:00.000Z',
 			})
 			for (const record of [parent, childB, childA]) options.tx.memories.records.set(record.id, record)
-			for (const record of [revisionOlder, revisionCurrent]) options.tx.memoryRevisions.records.set(record.id, record)
+			for (const record of [revisionOlder, revisionCurrent])
+				options.tx.memoryRevisions.records.set(record.id, record)
 
 			const result = await createGetMemoryQuery(options.transactions)({ memoryId: parent.id })
 
@@ -105,9 +112,14 @@ if (import.meta.vitest) {
 		})
 
 		it('returns not-found when the target Memory does not exist', async () => {
-			const result = await createGetMemoryQuery(createTestCoreServices().transactions)({ memoryId: '01k00000000000000000000019' })
+			const result = await createGetMemoryQuery(createTestCoreServices().transactions)({
+				memoryId: '01k00000000000000000000019',
+			})
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'memory', id: '01k00000000000000000000019' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'memory', id: '01k00000000000000000000019' },
+			})
 		})
 
 		it('returns invariant-violation when current revision is missing from revision history', async () => {
@@ -125,7 +137,8 @@ if (import.meta.vitest) {
 				ok: false,
 				error: {
 					type: 'invariant-violation',
-					message: 'Memory 01k00000000000000000000019 current revision 01k00000000000000000010020 is missing.',
+					message:
+						'Memory 01k00000000000000000000019 current revision 01k00000000000000000010020 is missing.',
 				},
 			})
 		})
@@ -146,7 +159,12 @@ if (import.meta.vitest) {
 		})
 	})
 
-	function memory(input: { id: string; title: string; parentId?: string | null; currentRevisionId?: string }): Memory {
+	function memory(input: {
+		id: string
+		title: string
+		parentId?: string | null
+		currentRevisionId?: string
+	}): Memory {
 		return {
 			id: input.id,
 			parentId: input.parentId ?? null,

@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { idPipe } from '../domain/commons'
 import { type Model } from '../domain/model'
 import type {
@@ -15,6 +14,7 @@ import { buildCommandHandler } from '../utils/command-handler'
 import { unarchiveStoredRecordWithAudit } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const unarchiveModelInputPipe = v.object({ modelId: idPipe })
 export type Input = PipeOutput<typeof unarchiveModelInputPipe>
@@ -50,7 +50,10 @@ if (import.meta.vitest) {
 
 			const result = await command({ modelId: '01k00000000000000000000024' }, context)
 
-			expect(result).toMatchObject({ ok: true, value: { archivePeriods: [{ archived: stamp, unarchived: localStamp() }] } })
+			expect(result).toMatchObject({
+				ok: true,
+				value: { archivePeriods: [{ archived: stamp, unarchived: localStamp() }] },
+			})
 		})
 	})
 }

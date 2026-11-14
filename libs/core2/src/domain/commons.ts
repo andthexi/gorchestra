@@ -14,7 +14,9 @@ export const protectedStringPipe = v
 // JavaScript $ also matches before a final newline; enforce exact length too.
 export const idPipe = v
 	.custom<string>((value) => typeof value === 'string', 'Expected a Core id.')
-	.pipe(v.custom((value) => value.length === 26 && /^[0-7][0-9a-hjkmnp-tv-z]{25}$/.test(value), 'Expected a Core id.'))
+	.pipe(
+		v.custom((value) => value.length === 26 && /^[0-7][0-9a-hjkmnp-tv-z]{25}$/.test(value), 'Expected a Core id.'),
+	)
 
 export const revisionVersionPipe = v
 	.number('Expected a positive safe integer.')
@@ -26,7 +28,9 @@ export const appliedAtPipe = v
 
 const attributionFields = {
 	by: v.custom<string>((value) => typeof value === 'string', 'Expected attribution by to be a string.'),
-	cid: v.nullable(v.custom<string>((value) => typeof value === 'string', 'Expected attribution cid to be a string or null.')),
+	cid: v.nullable(
+		v.custom<string>((value) => typeof value === 'string', 'Expected attribution cid to be a string or null.'),
+	),
 }
 export const attributionPipe = v.object({ ...attributionFields, cid: v.defaults(attributionFields.cid, null) })
 
@@ -55,7 +59,9 @@ if (import.meta.vitest) {
 		['protected string', protectedStringPipe, '  synthetic-secret É\n', 'Expected a nonempty string.'],
 		['id', idPipe, '01k00000000000000000000001', 'Expected a Core id.'],
 	])('rejects nonprimitive %s before inspecting or transforming it', (_name, pipe, text, message) => {
-		const spoof: unknown = JSON.parse('{"constructor":{"name":"String"},"length":26,"payload":"synthetic-NONSTRING"}')
+		const spoof: unknown = JSON.parse(
+			'{"constructor":{"name":"String"},"length":26,"payload":"synthetic-NONSTRING"}',
+		)
 		const boxed: unknown = Object(text)
 		const hostile = {
 			get constructor() {
@@ -134,8 +140,13 @@ if (import.meta.vitest) {
 
 	it('validates exact local UTC ISO audit stamps and strips undeclared fields', () => {
 		const stamp = { src: 'local', at: '2024-02-29T12:34:56.789Z', by: '', cid: '  call\n' }
-		expect(v.validate(auditStampPipe, { ...stamp, ignored: 'synthetic-protected' })).toEqual({ valid: true, value: stamp })
-		expect(v.validate(auditStampPipe, { src: 'local', at: '1970-01-01T00:00:00.000Z', by: ' ', cid: null })).toEqual({
+		expect(v.validate(auditStampPipe, { ...stamp, ignored: 'synthetic-protected' })).toEqual({
+			valid: true,
+			value: stamp,
+		})
+		expect(
+			v.validate(auditStampPipe, { src: 'local', at: '1970-01-01T00:00:00.000Z', by: ' ', cid: null }),
+		).toEqual({
 			valid: true,
 			value: { src: 'local', at: '1970-01-01T00:00:00.000Z', by: ' ', cid: null },
 		})
@@ -152,7 +163,12 @@ if (import.meta.vitest) {
 		]) {
 			expect(v.validate(auditStampPipe, { ...stamp, at }).valid).toBe(false)
 		}
-		for (const value of [{ ...stamp, src: 'imported' }, { ...stamp, by: null }, { src: 'local', at: stamp.at }, null]) {
+		for (const value of [
+			{ ...stamp, src: 'imported' },
+			{ ...stamp, by: null },
+			{ src: 'local', at: stamp.at },
+			null,
+		]) {
 			expect(v.validate(auditStampPipe, value).valid).toBe(false)
 		}
 	})
@@ -175,7 +191,10 @@ if (import.meta.vitest) {
 		expect(v.validate(attributionPipe, { by: '' })).toEqual({ valid: true, value: { by: '', cid: null } })
 		for (const cid of ['', ' 	\n ', null, undefined]) {
 			const input = { by: '  caller É\n', cid, ignored: 'synthetic-secret' }
-			expect(v.validate(attributionPipe, input)).toEqual({ valid: true, value: { by: '  caller É\n', cid: cid ?? null } })
+			expect(v.validate(attributionPipe, input)).toEqual({
+				valid: true,
+				value: { by: '  caller É\n', cid: cid ?? null },
+			})
 		}
 		for (const value of [{}, { by: null }, { by: 1 }, { by: '', cid: 1 }, { by: '', cid: {} }]) {
 			expect(v.validate(attributionPipe, value).valid).toBe(false)
@@ -201,7 +220,11 @@ if (import.meta.vitest) {
 	})
 
 	it('accepts only exact lowercase ULIDs without overflow or repair', () => {
-		for (const value of ['00000000000000000000000000', '01k00000000000000000000001', '7zzzzzzzzzzzzzzzzzzzzzzzzz']) {
+		for (const value of [
+			'00000000000000000000000000',
+			'01k00000000000000000000001',
+			'7zzzzzzzzzzzzzzzzzzzzzzzzz',
+		]) {
 			expect(v.validate(idPipe, value)).toEqual({ valid: true, value })
 		}
 		for (const value of [

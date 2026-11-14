@@ -1,7 +1,7 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import { auditStampPipe, idPipe, nonEmptyTrimmedStringPipe } from './commons'
 import { coreSchema, schemaToPipe } from '../utils/storage/schema'
+import { auditStampPipe, idPipe, nonEmptyTrimmedStringPipe } from './commons'
 
 export const memoryTitlePipe = nonEmptyTrimmedStringPipe
 export const memoryBodyPipe = v.string().pipe(v.asTrimmed())

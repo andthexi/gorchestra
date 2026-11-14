@@ -1,4 +1,3 @@
-import { getRequired } from './command-storage'
 import type { AgentRun } from '../domain/agent-run'
 import type {
 	AgentRunNotActiveError,
@@ -8,6 +7,7 @@ import type {
 	StorageOperationFailedError,
 } from '../errors'
 import type { CoreStorage } from '../services'
+import { getRequired } from './command-storage'
 import type { Result } from './types'
 
 type InteractiveAgentRunError =
@@ -26,7 +26,9 @@ export async function requireInteractiveAgentRunOpen(
 	return interactiveAgentRun(agentRun.value)
 }
 
-function interactiveAgentRun(agentRun: AgentRun): Result<AgentRun, AgentRunNotInteractiveError | AgentRunNotActiveError> {
+function interactiveAgentRun(
+	agentRun: AgentRun,
+): Result<AgentRun, AgentRunNotInteractiveError | AgentRunNotActiveError> {
 	if (agentRun.purpose.type !== 'planning' && agentRun.purpose.type !== 'revision-planning') {
 		return { ok: false, error: { type: 'agent-run-not-interactive', agentRunId: agentRun.id } }
 	}
@@ -66,7 +68,10 @@ if (import.meta.vitest) {
 
 			const result = await requireInteractiveAgentRunOpen(options.storage, '01k00000000000000000000002')
 
-			expect(result).toEqual({ ok: false, error: { type: 'agent-run-not-interactive', agentRunId: '01k00000000000000000000002' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'agent-run-not-interactive', agentRunId: '01k00000000000000000000002' },
+			})
 		})
 	})
 

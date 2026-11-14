@@ -16,5 +16,7 @@ export async function readRequiredWorkspaceFile(
 }
 
 function directoryMessage(action: 'read' | 'edit', path: string): string {
-	return action === 'read' ? `Cannot read directory as a file: ${path}. Use ls instead.` : `Cannot edit directory as a file: ${path}.`
+	return action === 'read'
+		? `Cannot read directory as a file: ${path}. Use ls instead.`
+		: `Cannot edit directory as a file: ${path}.`
 }

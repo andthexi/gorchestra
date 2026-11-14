@@ -3,9 +3,17 @@ import { v, type PipeOutput } from 'valleyed'
 import type { AgentRunProfile } from '../domain/agent-run-profile'
 import type { AgentRunRuntimeRequirement, VercelSandboxCredentialsSecretRefs } from '../domain/agent-run-runtime'
 import { idPipe, type Id } from '../domain/commons'
-import { modelProviderProtocolForSource, type ModelProvider, type ModelProviderAccessValue } from '../domain/model-provider'
+import {
+	modelProviderProtocolForSource,
+	type ModelProvider,
+	type ModelProviderAccessValue,
+} from '../domain/model-provider'
 import type { Repository } from '../domain/repository'
-import { secretReferencePipe, type AgentRunProfileSandboxCredentialSecretReference, type SecretReference } from '../domain/secret'
+import {
+	secretReferencePipe,
+	type AgentRunProfileSandboxCredentialSecretReference,
+	type SecretReference,
+} from '../domain/secret'
 export type {
 	AgentRunProfileEnvironmentSecretReference,
 	AgentRunProfileRunCommandSecretReference,
@@ -15,7 +23,12 @@ export type {
 	RepositoryAccessSecretReference,
 	SecretReference,
 } from '../domain/secret'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import type { CoreStorage } from '../services'
 import { isArchived } from '../utils/command-storage'
 import { buildQueryHandler } from '../utils/query-handler'
@@ -28,7 +41,8 @@ export type Input = PipeOutput<typeof inputPipe>
 
 export const resultPipe = v.array(secretReferencePipe)
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createListSecretReferencesQuery(transactions: CoreTransactions): Operation {
@@ -176,9 +190,16 @@ function agentRunProfileSandboxCredentialSecretReferences(
 			return []
 		case 'vercel-runtime':
 		case 'vercel-vcr-image':
-			return vercelCredentialSecretReferences(profile, profile.sandboxConfig.source.credentials, secretIds, active)
+			return vercelCredentialSecretReferences(
+				profile,
+				profile.sandboxConfig.source.credentials,
+				secretIds,
+				active,
+			)
 		default:
-			throw new Error(`Unexpected Agent Run Sandbox source type: ${String(profile.sandboxConfig.source satisfies never)}`)
+			throw new Error(
+				`Unexpected Agent Run Sandbox source type: ${String(profile.sandboxConfig.source satisfies never)}`,
+			)
 	}
 }
 
@@ -220,11 +241,17 @@ function modelProviderSecretReferences(modelProvider: ModelProvider, secretIds: 
 	const archived = isArchived(modelProvider.archivePeriods)
 	return [
 		...modelProviderAuthSecretReference(modelProvider, secretIds, archived),
-		...modelProvider.headers.flatMap((header) => modelProviderHeaderSecretReference(modelProvider, header, secretIds, archived)),
+		...modelProvider.headers.flatMap((header) =>
+			modelProviderHeaderSecretReference(modelProvider, header, secretIds, archived),
+		),
 	]
 }
 
-function modelProviderAuthSecretReference(modelProvider: ModelProvider, secretIds: Set<Id>, archived: boolean): SecretReferenceMatch[] {
+function modelProviderAuthSecretReference(
+	modelProvider: ModelProvider,
+	secretIds: Set<Id>,
+	archived: boolean,
+): SecretReferenceMatch[] {
 	const secretId = modelProvider.auth === null ? null : secretIdFromAccessValue(modelProvider.auth.value)
 	return secretId !== null && secretIds.has(secretId)
 		? [
@@ -350,7 +377,10 @@ if (import.meta.vitest) {
 
 			const result = await query({ secretId: '01k00000000000000000000040' })
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'secret', id: '01k00000000000000000000040' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'secret', id: '01k00000000000000000000040' },
+			})
 		})
 
 		it('returns display-ready references for all Core Secret usages', async () => {
@@ -449,11 +479,15 @@ if (import.meta.vitest) {
 			const options = createTestCoreServices()
 			seedSecret(options.tx, '01k00000000000000000000040')
 			seedAgentRunProfile(options.tx, 'profile-active-z', '01k00000000000000000000024', {
-				runtimeRequirements: [{ type: 'environment-secret', envName: 'Z_ACTIVE', secretId: '01k00000000000000000000040' }],
+				runtimeRequirements: [
+					{ type: 'environment-secret', envName: 'Z_ACTIVE', secretId: '01k00000000000000000000040' },
+				],
 			})
 			seedAgentRunProfile(options.tx, 'profile-inactive-a', '01k00000000000000000000024', {
 				archived: true,
-				runtimeRequirements: [{ type: 'environment-secret', envName: 'A_INACTIVE', secretId: '01k00000000000000000000040' }],
+				runtimeRequirements: [
+					{ type: 'environment-secret', envName: 'A_INACTIVE', secretId: '01k00000000000000000000040' },
+				],
 			})
 			const query = createListSecretReferencesQuery(options.transactions)
 
@@ -517,7 +551,10 @@ if (import.meta.vitest) {
 					label: 'Install packages',
 					command: { executable: 'pnpm', args: ['install'], cwd: '/workspace/repos/repository-1' },
 					root: false,
-					commandSecretEnv: { NPM_TOKEN: '01k00000000000000000000040', OTHER_TOKEN: '01k00000000000000000000041' },
+					commandSecretEnv: {
+						NPM_TOKEN: '01k00000000000000000000040',
+						OTHER_TOKEN: '01k00000000000000000000041',
+					},
 				},
 			],
 		})

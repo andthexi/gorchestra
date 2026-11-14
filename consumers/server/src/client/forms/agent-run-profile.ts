@@ -1,11 +1,11 @@
 import { FormDraft, nestedFormDraftPipe, type FormDraftArray } from '@gorchestra/form-draft'
 import { v } from 'valleyed'
 
+import type { AgentRunProfileInput, ModelUseConfig } from '../composables/core/server-api'
 import type { RuntimeRequirementFormDraft } from './agent-run-runtime-requirements'
 import { runtimeRequirementFormArray } from './agent-run-runtime-requirements'
 import { AgentRunSandboxConfigFormDraft } from './agent-run-sandbox-config'
 import { ModelUseFormDraft } from './model-use'
-import type { AgentRunProfileInput, ModelUseConfig } from '../composables/core/server-api'
 
 type AgentRunProfileFormFields = {
 	name: string
@@ -14,7 +14,11 @@ type AgentRunProfileFormFields = {
 	sandboxConfig: AgentRunSandboxConfigFormDraft
 }
 
-export class AgentRunProfileFormDraft extends FormDraft<AgentRunProfileInput, AgentRunProfileInput, AgentRunProfileFormFields> {
+export class AgentRunProfileFormDraft extends FormDraft<
+	AgentRunProfileInput,
+	AgentRunProfileInput,
+	AgentRunProfileFormFields
+> {
 	#secretOptions: readonly string[] | null = null
 
 	protected readonly rules = {

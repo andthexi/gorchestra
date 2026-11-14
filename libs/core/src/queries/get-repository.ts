@@ -85,7 +85,10 @@ if (import.meta.vitest) {
 			options.tx.repositories.records.set('01k00000000000000000000034', storedRepository)
 			const query = createGetRepositoryQuery(options.transactions)
 
-			const result = await query({ projectId: '01k00000000000000000000030', repositoryId: '01k00000000000000000000034' })
+			const result = await query({
+				projectId: '01k00000000000000000000030',
+				repositoryId: '01k00000000000000000000034',
+			})
 
 			expect(result).toEqual({ ok: true, value: storedRepository })
 		})
@@ -94,13 +97,24 @@ if (import.meta.vitest) {
 			const options = createTestCoreServices()
 			options.tx.repositories.records.set(
 				'01k00000000000000000000034',
-				repository({ id: '01k00000000000000000000034', projectId: '01k00000000000000000000030', owner: 'Octo', name: 'Repo' }),
+				repository({
+					id: '01k00000000000000000000034',
+					projectId: '01k00000000000000000000030',
+					owner: 'Octo',
+					name: 'Repo',
+				}),
 			)
 			const query = createGetRepositoryQuery(options.transactions)
 
-			const result = await query({ projectId: '01k00000000000000000000030', repositoryId: '01k00000000000000000000034' })
+			const result = await query({
+				projectId: '01k00000000000000000000030',
+				repositoryId: '01k00000000000000000000034',
+			})
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'project', id: '01k00000000000000000000030' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'project', id: '01k00000000000000000000030' },
+			})
 		})
 
 		it('returns not-found when the Repository does not belong to the Project', async () => {
@@ -108,21 +122,43 @@ if (import.meta.vitest) {
 			seedProject(options.tx, '01k00000000000000000000030')
 			options.tx.repositories.records.set(
 				'01k00000000000000000000034',
-				repository({ id: '01k00000000000000000000034', projectId: '01k00000000000000000000031', owner: 'Octo', name: 'Repo' }),
+				repository({
+					id: '01k00000000000000000000034',
+					projectId: '01k00000000000000000000031',
+					owner: 'Octo',
+					name: 'Repo',
+				}),
 			)
 			const query = createGetRepositoryQuery(options.transactions)
 
-			const result = await query({ projectId: '01k00000000000000000000030', repositoryId: '01k00000000000000000000034' })
+			const result = await query({
+				projectId: '01k00000000000000000000030',
+				repositoryId: '01k00000000000000000000034',
+			})
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'repository', id: '01k00000000000000000000034' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'repository', id: '01k00000000000000000000034' },
+			})
 		})
 	})
 
-	function repository(input: { id: string; projectId: string; owner: string; name: string; createdAt?: string }): Repository {
+	function repository(input: {
+		id: string
+		projectId: string
+		owner: string
+		name: string
+		createdAt?: string
+	}): Repository {
 		return {
 			id: input.id,
 			projectId: input.projectId,
-			config: { provider: 'github', owner: input.owner, name: input.name, secretId: '01k00000000000000000000040' },
+			config: {
+				provider: 'github',
+				owner: input.owner,
+				name: input.name,
+				secretId: '01k00000000000000000000040',
+			},
 			created: { origin: 'imported', at: input.createdAt ?? '2026-06-10T00:00:00.000Z' },
 		}
 	}

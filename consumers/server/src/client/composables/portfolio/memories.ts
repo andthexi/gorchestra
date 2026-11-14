@@ -39,7 +39,15 @@ export function useMemoryChildren(parentId: MemoryParentIdRef) {
 	})
 	const isRefreshingMemories = computed(() => isLoadingMemories.value && hasLoadedMemories.value)
 
-	return { memories, isLoadingMemories, memoriesError, hasLoadedMemories, isRefreshingMemories, fetchNextMemories, hasNextMemories }
+	return {
+		memories,
+		isLoadingMemories,
+		memoriesError,
+		hasLoadedMemories,
+		isRefreshingMemories,
+		fetchNextMemories,
+		hasNextMemories,
+	}
 }
 
 export function useMemoryDetail(memoryId: Ref<string>) {

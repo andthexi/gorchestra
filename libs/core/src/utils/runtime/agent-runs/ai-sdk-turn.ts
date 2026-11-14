@@ -9,6 +9,10 @@ import {
 	type ToolSet,
 } from 'ai'
 
+import type { AgentRunEvent } from '../../../domain/agent-run-event'
+import type { ModelThinkingLevel } from '../../../domain/model'
+import { providerFailureReason } from '../../providers/model-provider-protocol/provider-failures'
+import type { Result } from '../../types'
 import { AISDKTurnRecorder } from './ai-sdk-turn-recorder'
 import type { TurnModelUse } from './turn-model-use'
 import type {
@@ -18,10 +22,6 @@ import type {
 	ModelAgentTurnThinking,
 	RunModelAgentRunOptions,
 } from './types'
-import type { AgentRunEvent } from '../../../domain/agent-run-event'
-import type { ModelThinkingLevel } from '../../../domain/model'
-import { providerFailureReason } from '../../providers/model-provider-protocol/provider-failures'
-import type { Result } from '../../types'
 
 type AISDKTurnOutput = {
 	turnOutcome: Extract<AgentRunEvent['body'], { type: 'turn-ended' }>['outcome']
@@ -35,7 +35,10 @@ export async function runAISDKTurn(
 	turnStarted: AgentRunEvent,
 	turnModelUse: TurnModelUse,
 	messages: ModelMessage[],
-	resolution: { languageModel: LanguageModel; providerOptions: Record<string, Record<string, JSONValue>> | undefined },
+	resolution: {
+		languageModel: LanguageModel
+		providerOptions: Record<string, Record<string, JSONValue>> | undefined
+	},
 	options: RunModelAgentRunOptions,
 ): Promise<Result<AISDKTurnOutput, AgentRunRuntimeError>> {
 	const recorder = new AISDKTurnRecorder(runtime, state, turnStarted, turnModelUse, options)
@@ -54,9 +57,12 @@ export async function runAISDKTurn(
 				: { reasoning: aiSdkReasoningForThinking(turnModelUse.thinking) }),
 			...(resolution.providerOptions === undefined ? {} : { providerOptions: resolution.providerOptions }),
 			onLanguageModelCallStart: (
-				event: Parameters<NonNullable<Parameters<typeof streamText<ToolSet>>[0]['onLanguageModelCallStart']>>[0],
+				event: Parameters<
+					NonNullable<Parameters<typeof streamText<ToolSet>>[0]['onLanguageModelCallStart']>
+				>[0],
 			) => recorder.onLanguageModelCallStart(event.callId),
-			onLanguageModelCallEnd: (event: LanguageModelCallEndEvent<ToolSet>) => recorder.onLanguageModelCallEnd(event),
+			onLanguageModelCallEnd: (event: LanguageModelCallEndEvent<ToolSet>) =>
+				recorder.onLanguageModelCallEnd(event),
 			onChunk: ({ chunk }: { chunk: TextStreamPart<ToolSet> }) => recorder.onChunk(chunk),
 			...(options.signal === undefined ? {} : { abortSignal: options.signal }),
 		}
@@ -66,7 +72,9 @@ export async function runAISDKTurn(
 			if (part.type === 'error') throw part.error
 		}
 		const recorded = recorder.operationError()
-		return recorded === null ? { ok: true, value: { turnOutcome: { type: 'completed' } } } : { ok: false, error: recorded }
+		return recorded === null
+			? { ok: true, value: { turnOutcome: { type: 'completed' } } }
+			: { ok: false, error: recorded }
 	} catch (error) {
 		const recorded = recorder.operationError()
 		if (recorded !== null) return { ok: false, error: recorded }
@@ -89,7 +97,10 @@ function promptFromMessages(messages: ModelMessage[]): { instructions: string | 
 		else modelMessages.push(message)
 	}
 
-	return { instructions: instructionParts.length === 0 ? undefined : instructionParts.join('\n\n'), messages: modelMessages }
+	return {
+		instructions: instructionParts.length === 0 ? undefined : instructionParts.join('\n\n'),
+		messages: modelMessages,
+	}
 }
 
 function aiSdkReasoningForThinking(thinking: ModelAgentTurnThinking): ModelThinkingLevel | undefined {

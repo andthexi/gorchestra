@@ -155,7 +155,8 @@ export function useServerSocketConnection(): ServerSocketConnection {
 	const nuxtApp = tryUseNuxtApp()
 	if (nuxtApp === null) throw new Error('Server Socket connection requires an active Nuxt app context')
 	const appWithSocket = nuxtApp as NuxtAppWithServerSocketRuntime
-	if (appWithSocket[serverSocketRuntimeKey] === undefined) appWithSocket[serverSocketRuntimeKey] = createBrowserServerSocketRuntime()
+	if (appWithSocket[serverSocketRuntimeKey] === undefined)
+		appWithSocket[serverSocketRuntimeKey] = createBrowserServerSocketRuntime()
 	return appWithSocket[serverSocketRuntimeKey]
 }
 
@@ -178,7 +179,11 @@ if (import.meta.vitest) {
 				},
 			})
 
-			const ready = connection.connect({ sessionId: 'session-1', workspaceId: 'workspace-1', portfolioId: 'portfolio-1' })
+			const ready = connection.connect({
+				sessionId: 'session-1',
+				workspaceId: 'workspace-1',
+				portfolioId: 'portfolio-1',
+			})
 			expect(calls).toEqual([
 				{
 					url: 'https://gorchestra.example',
@@ -215,10 +220,18 @@ if (import.meta.vitest) {
 		it('replaces changed selected identity and fences stale client callbacks', async () => {
 			const clients: FakeSocket[] = []
 			const connection = testConnection(clients)
-			const first = connection.connect({ sessionId: 'session-1', workspaceId: 'workspace-1', portfolioId: 'portfolio-1' })
+			const first = connection.connect({
+				sessionId: 'session-1',
+				workspaceId: 'workspace-1',
+				portfolioId: 'portfolio-1',
+			})
 			const firstOutcome = first.catch((error: unknown) => error)
 
-			const second = connection.connect({ sessionId: 'session-2', workspaceId: 'workspace-1', portfolioId: 'portfolio-2' })
+			const second = connection.connect({
+				sessionId: 'session-2',
+				workspaceId: 'workspace-1',
+				portfolioId: 'portfolio-2',
+			})
 			expect(clients).toHaveLength(2)
 			expect(clients[0]?.disconnectCalls).toBe(1)
 			clients[0]?.dispatch('connect')
@@ -264,7 +277,11 @@ if (import.meta.vitest) {
 		it('keeps selected UI alive while transport reconnects', async () => {
 			const clients: FakeSocket[] = []
 			const connection = testConnection(clients)
-			const ready = connection.connect({ sessionId: 'session-1', workspaceId: 'workspace-1', portfolioId: 'portfolio-1' })
+			const ready = connection.connect({
+				sessionId: 'session-1',
+				workspaceId: 'workspace-1',
+				portfolioId: 'portfolio-1',
+			})
 			clients[0]?.dispatch('connect')
 			await ready
 
@@ -281,13 +298,19 @@ if (import.meta.vitest) {
 			const identity = { sessionId: 'session-1', workspaceId: 'workspace-1', portfolioId: 'portfolio-1' }
 			const first = connection.connect(identity)
 			const second = connection.connect(identity)
-			const failures = Promise.all([first.catch((error: unknown) => error), second.catch((error: unknown) => error)])
+			const failures = Promise.all([
+				first.catch((error: unknown) => error),
+				second.catch((error: unknown) => error),
+			])
 
 			await vi.advanceTimersByTimeAsync(connectionTimeoutMs - 1)
 			expect(connection.status.value).toBe('connecting')
 			await vi.advanceTimersByTimeAsync(1)
 
-			await expect(failures).resolves.toEqual([new Error(serverSocketUnavailableMessage), new Error(serverSocketUnavailableMessage)])
+			await expect(failures).resolves.toEqual([
+				new Error(serverSocketUnavailableMessage),
+				new Error(serverSocketUnavailableMessage),
+			])
 			expect(connection.status.value).toBe('reconnecting')
 		})
 	})

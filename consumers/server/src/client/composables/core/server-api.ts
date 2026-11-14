@@ -20,7 +20,8 @@ export type CreateMemoryRevisionInput = {
 }
 
 export type JsonObject = Record<string, unknown>
-export type ModelProviderProtocol = 'openai-responses' | 'openai-chat-completions' | 'anthropic-messages' | 'google-generative-ai'
+export type ModelProviderProtocol =
+	'openai-responses' | 'openai-chat-completions' | 'anthropic-messages' | 'google-generative-ai'
 export type ModelProviderProtocolType = ModelProviderProtocol
 export type ModelProviderSource =
 	| { type: 'openai-responses' }
@@ -58,7 +59,11 @@ export type AgentRunRunCommandRequirement = {
 }
 export type AgentRunRuntimeRequirement = AgentRunEnvironmentSecretRequirement | AgentRunRunCommandRequirement
 export type VercelRuntime = 'node26' | 'node24' | 'node22' | 'python3.13'
-export type VercelSandboxCredentialsSecretRefs = { tokenSecretId: string; teamIdSecretId: string; projectIdSecretId: string }
+export type VercelSandboxCredentialsSecretRefs = {
+	tokenSecretId: string
+	teamIdSecretId: string
+	projectIdSecretId: string
+}
 export type AgentRunSandboxSourceConfig =
 	| { type: 'consumer-managed'; ociImage: string }
 	| { type: 'vercel-runtime'; runtime: VercelRuntime; credentials: VercelSandboxCredentialsSecretRefs }
@@ -89,8 +94,11 @@ export type DeliveryWorkConfigInput = {
 
 export type ProjectConfigInput = { work: DeliveryWorkConfigInput }
 
-export type SendAgentRunMessageInput = { parts: Array<{ type: 'text'; text: string; metadata: Record<string, unknown> | null }> }
-export type PaginatedQueryInput = { beforeId?: string; limit?: number } | { beforeId?: string; limit: number; page: number }
+export type SendAgentRunMessageInput = {
+	parts: Array<{ type: 'text'; text: string; metadata: Record<string, unknown> | null }>
+}
+export type PaginatedQueryInput =
+	{ beforeId?: string; limit?: number } | { beforeId?: string; limit: number; page: number }
 
 export type CreateModelProviderInput = {
 	name: string
@@ -192,7 +200,10 @@ export function createServerApi(options: ServerApiOptions = {}) {
 			return routes.request('get', '/api/portfolio/projects/:projectId', { params: { projectId } })
 		},
 		async setProjectConfig(projectId: string, input: { config: ProjectConfigInput }) {
-			return routes.request('put', '/api/portfolio/projects/:projectId/config', { params: { projectId }, body: input })
+			return routes.request('put', '/api/portfolio/projects/:projectId/config', {
+				params: { projectId },
+				body: input,
+			})
 		},
 		async listPlans(projectId: string, input: PaginatedQueryInput) {
 			return routes.request('get', '/api/portfolio/projects/:projectId/plans', {
@@ -200,14 +211,24 @@ export function createServerApi(options: ServerApiOptions = {}) {
 				query: paginationQuery(input),
 			})
 		},
-		async createPlan(projectId: string, input: { title: string; initialMessage: string; agentRunProfileId: string }) {
-			return routes.request('post', '/api/portfolio/projects/:projectId/plans', { params: { projectId }, body: input })
+		async createPlan(
+			projectId: string,
+			input: { title: string; initialMessage: string; agentRunProfileId: string },
+		) {
+			return routes.request('post', '/api/portfolio/projects/:projectId/plans', {
+				params: { projectId },
+				body: input,
+			})
 		},
 		async getPlan(projectId: string, planId: string) {
-			return routes.request('get', '/api/portfolio/projects/:projectId/plans/:planId', { params: { projectId, planId } })
+			return routes.request('get', '/api/portfolio/projects/:projectId/plans/:planId', {
+				params: { projectId, planId },
+			})
 		},
 		async closePlan(projectId: string, planId: string) {
-			return routes.request('post', '/api/portfolio/projects/:projectId/plans/:planId/close', { params: { projectId, planId } })
+			return routes.request('post', '/api/portfolio/projects/:projectId/plans/:planId/close', {
+				params: { projectId, planId },
+			})
 		},
 		async getAgentRun(agentRunId: string) {
 			return routes.request('get', '/api/portfolio/agent-runs/:agentRunId', { params: { agentRunId } })
@@ -219,9 +240,15 @@ export function createServerApi(options: ServerApiOptions = {}) {
 			})
 		},
 		async sendAgentRunMessage(agentRunId: string, input: SendAgentRunMessageInput) {
-			return routes.request('post', '/api/portfolio/agent-runs/:agentRunId/messages', { params: { agentRunId }, body: input })
+			return routes.request('post', '/api/portfolio/agent-runs/:agentRunId/messages', {
+				params: { agentRunId },
+				body: input,
+			})
 		},
-		async addAgentRunRuntimeRequirementOverride(agentRunId: string, input: { requirements: AgentRunRuntimeRequirement[] }) {
+		async addAgentRunRuntimeRequirementOverride(
+			agentRunId: string,
+			input: { requirements: AgentRunRuntimeRequirement[] },
+		) {
 			return routes.request('post', '/api/portfolio/agent-runs/:agentRunId/runtime-requirement-overrides', {
 				params: { agentRunId },
 				body: input,
@@ -234,7 +261,9 @@ export function createServerApi(options: ServerApiOptions = {}) {
 			return routes.request('post', '/api/portfolio/agent-run-profiles', { body: input })
 		},
 		async getAgentRunProfile(agentRunProfileId: string) {
-			return routes.request('get', '/api/portfolio/agent-run-profiles/:agentRunProfileId', { params: { agentRunProfileId } })
+			return routes.request('get', '/api/portfolio/agent-run-profiles/:agentRunProfileId', {
+				params: { agentRunProfileId },
+			})
 		},
 		async preflightAgentRunProfile(agentRunProfileId: string) {
 			return routes.request('post', '/api/portfolio/agent-run-profiles/:agentRunProfileId/preflight', {
@@ -253,7 +282,9 @@ export function createServerApi(options: ServerApiOptions = {}) {
 			})
 		},
 		async archiveAgentRunProfile(agentRunProfileId: string) {
-			return routes.request('post', '/api/portfolio/agent-run-profiles/:agentRunProfileId/archive', { params: { agentRunProfileId } })
+			return routes.request('post', '/api/portfolio/agent-run-profiles/:agentRunProfileId/archive', {
+				params: { agentRunProfileId },
+			})
 		},
 		async unarchiveAgentRunProfile(agentRunProfileId: string) {
 			return routes.request('post', '/api/portfolio/agent-run-profiles/:agentRunProfileId/unarchive', {
@@ -267,16 +298,25 @@ export function createServerApi(options: ServerApiOptions = {}) {
 			return routes.request('post', '/api/portfolio/model-providers', { body: input })
 		},
 		async getModelProvider(modelProviderId: string) {
-			return routes.request('get', '/api/portfolio/model-providers/:modelProviderId', { params: { modelProviderId } })
+			return routes.request('get', '/api/portfolio/model-providers/:modelProviderId', {
+				params: { modelProviderId },
+			})
 		},
 		async updateModelProvider(modelProviderId: string, input: UpdateModelProviderInput) {
-			return routes.request('put', '/api/portfolio/model-providers/:modelProviderId', { params: { modelProviderId }, body: input })
+			return routes.request('put', '/api/portfolio/model-providers/:modelProviderId', {
+				params: { modelProviderId },
+				body: input,
+			})
 		},
 		async archiveModelProvider(modelProviderId: string) {
-			return routes.request('post', '/api/portfolio/model-providers/:modelProviderId/archive', { params: { modelProviderId } })
+			return routes.request('post', '/api/portfolio/model-providers/:modelProviderId/archive', {
+				params: { modelProviderId },
+			})
 		},
 		async unarchiveModelProvider(modelProviderId: string) {
-			return routes.request('post', '/api/portfolio/model-providers/:modelProviderId/unarchive', { params: { modelProviderId } })
+			return routes.request('post', '/api/portfolio/model-providers/:modelProviderId/unarchive', {
+				params: { modelProviderId },
+			})
 		},
 		async createModel(modelProviderId: string, input: CreateModelInput) {
 			return routes.request('post', '/api/portfolio/model-providers/:modelProviderId/models', {
@@ -336,7 +376,10 @@ export function createServerApi(options: ServerApiOptions = {}) {
 			projectId: string,
 			input: { config: { provider: 'github'; owner: string; name: string; secretId: string } },
 		) {
-			return routes.request('post', '/api/portfolio/projects/:projectId/repositories', { params: { projectId }, body: input })
+			return routes.request('post', '/api/portfolio/projects/:projectId/repositories', {
+				params: { projectId },
+				body: input,
+			})
 		},
 		async getRepository(projectId: string, repositoryId: string) {
 			return routes.request('get', '/api/portfolio/projects/:projectId/repositories/:repositoryId', {
@@ -361,7 +404,10 @@ export function createServerApi(options: ServerApiOptions = {}) {
 			return routes.request('put', '/api/portfolio/secrets/:secretId', { params: { secretId }, body: input })
 		},
 		async replaceSecretValue(secretId: string, input: { value: string }) {
-			return routes.request('post', '/api/portfolio/secrets/:secretId/value', { params: { secretId }, body: input })
+			return routes.request('post', '/api/portfolio/secrets/:secretId/value', {
+				params: { secretId },
+				body: input,
+			})
 		},
 		async archiveSecret(secretId: string) {
 			return routes.request('post', '/api/portfolio/secrets/:secretId/archive', { params: { secretId } })
@@ -381,13 +427,19 @@ export function createServerApi(options: ServerApiOptions = {}) {
 			return routes.request('get', '/api/portfolio/memories/:memoryId', { params: { memoryId } })
 		},
 		async createMemoryRevision(memoryId: string, input: CreateMemoryRevisionInput) {
-			return routes.request('post', '/api/portfolio/memories/:memoryId/revisions', { params: { memoryId }, body: input })
+			return routes.request('post', '/api/portfolio/memories/:memoryId/revisions', {
+				params: { memoryId },
+				body: input,
+			})
 		},
 		async createWorkspace(input: { displayName: string }) {
 			return routes.request('post', '/api/workspaces', { body: input })
 		},
 		async createWorkspacePortfolio(workspaceId: string, input: { displayName: string }) {
-			return routes.request('post', '/api/workspaces/:workspaceId/portfolios', { params: { workspaceId }, body: input })
+			return routes.request('post', '/api/workspaces/:workspaceId/portfolios', {
+				params: { workspaceId },
+				body: input,
+			})
 		},
 		async getSelection() {
 			return routes.request('get', '/api/selection')
@@ -438,7 +490,10 @@ function serverApiBoundaryHandler(error: unknown): (() => void | Promise<void>) 
 
 function shouldHandleAuthenticationLost(error: unknown): boolean {
 	const statusCode = getHttpStatusCode(error)
-	return typeof window !== 'undefined' && (statusCode === notAuthenticatedStatusCode || statusCode === tokenExpiredStatusCode)
+	return (
+		typeof window !== 'undefined' &&
+		(statusCode === notAuthenticatedStatusCode || statusCode === tokenExpiredStatusCode)
+	)
 }
 
 function shouldHandlePreconditionRequired(error: unknown): boolean {

@@ -1,7 +1,8 @@
 <template>
 	<label
 		class="relative inline-flex max-w-full cursor-pointer items-start gap-2 text-sz-helper disabled:cursor-not-allowed"
-		:class="[disabled ? 'cursor-not-allowed opacity-60' : '', reverse ? 'flex-row-reverse' : '']">
+		:class="[disabled ? 'cursor-not-allowed opacity-60' : '', reverse ? 'flex-row-reverse' : '']"
+	>
 		<input class="peer sr-only" type="checkbox" :checked="isSelected" :disabled="disabled" @change="toggle" />
 		<span v-if="type === 'checkbox'" aria-hidden="true" :class="checkboxClass">
 			<span :class="isSelected ? '' : 'opacity-0'">✓</span>
@@ -31,6 +32,8 @@ const props = withDefaults(
 	}>(),
 	{
 		type: 'checkbox',
+		value: undefined,
+		uncheckedValue: undefined,
 		disabled: false,
 		description: undefined,
 		reverse: false,
@@ -41,7 +44,9 @@ const model = defineModel<T | T[]>({ required: true })
 const checkedValue = computed<T>(() => props.value ?? (true as T))
 const uncheckedValue = computed<T>(() => props.uncheckedValue ?? (false as T))
 const isSelected = computed(() =>
-	Array.isArray(model.value) ? arrayIncludes(model.value, checkedValue.value) : differ.equal(model.value, checkedValue.value),
+	Array.isArray(model.value)
+		? arrayIncludes(model.value, checkedValue.value)
+		: differ.equal(model.value, checkedValue.value),
 )
 const checkboxClass = computed(() => [
 	'mt-0.5 flex size-4 shrink-0 items-center justify-center border text-[10px] font-semibold leading-none transition peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary',
@@ -66,7 +71,9 @@ function toggledScalar(): T {
 }
 
 function toggledArray(values: T[]): T[] {
-	return isSelected.value ? values.filter((value) => !differ.equal(value, checkedValue.value)) : [...values, checkedValue.value]
+	return isSelected.value
+		? values.filter((value) => !differ.equal(value, checkedValue.value))
+		: [...values, checkedValue.value]
 }
 
 function arrayIncludes(values: T[], value: T): boolean {

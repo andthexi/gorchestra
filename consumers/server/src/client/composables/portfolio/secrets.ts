@@ -40,7 +40,15 @@ export function useSecretsList() {
 	})
 	const isRefreshingSecrets = computed(() => isLoadingSecrets.value && hasLoadedSecrets.value)
 
-	return { secrets, isLoadingSecrets, secretsError, hasLoadedSecrets, isRefreshingSecrets, fetchNextSecrets, hasNextSecrets }
+	return {
+		secrets,
+		isLoadingSecrets,
+		secretsError,
+		hasLoadedSecrets,
+		isRefreshingSecrets,
+		fetchNextSecrets,
+		hasNextSecrets,
+	}
 }
 
 export function useSecretDetail(secretId: Ref<string>) {
@@ -104,7 +112,13 @@ export function useSecretMetadataUpdate(secretId: Ref<string>, options: SecretMu
 		return secret
 	})
 
-	return { secretMetadataForm, isUpdatingSecretMetadata, updateSecretMetadataError, updateSecretMetadata, resetUpdateSecretMetadata }
+	return {
+		secretMetadataForm,
+		isUpdatingSecretMetadata,
+		updateSecretMetadataError,
+		updateSecretMetadata,
+		resetUpdateSecretMetadata,
+	}
 }
 
 export function useSecretValueReplacement(secretId: Ref<string>, options: SecretMutationOptions = {}) {
@@ -127,7 +141,13 @@ export function useSecretValueReplacement(secretId: Ref<string>, options: Secret
 		return secret
 	})
 
-	return { secretValueReplacementForm, isReplacingSecretValue, replaceSecretValueError, replaceSecretValue, resetReplaceSecretValue }
+	return {
+		secretValueReplacementForm,
+		isReplacingSecretValue,
+		replaceSecretValueError,
+		replaceSecretValue,
+		resetReplaceSecretValue,
+	}
 }
 
 export function useSecretLifecycleActions(secretId: Ref<string>, options: SecretLifecycleOptions = {}) {
@@ -142,7 +162,9 @@ export function useSecretLifecycleActions(secretId: Ref<string>, options: Secret
 		reset: resetSecretLifecycle,
 	} = useApiAction(async (action: SecretLifecycleAction) => {
 		const secret =
-			action === 'archive' ? await serverApi.archiveSecret(secretId.value) : await serverApi.unarchiveSecret(secretId.value)
+			action === 'archive'
+				? await serverApi.archiveSecret(secretId.value)
+				: await serverApi.unarchiveSecret(secretId.value)
 		updateSecretCaches(queryCache, portfolio.value.id, secret)
 		toast.success({ title: action === 'archive' ? 'Secret archived.' : 'Secret unarchived.', body: secret.name })
 		await options.onSuccess?.(secret, action)
@@ -155,12 +177,18 @@ export function useSecretLifecycleActions(secretId: Ref<string>, options: Secret
 export function useActiveSecretSelectOptions() {
 	const secretsList = useSecretsList()
 	const activeSecrets = computed(() => secretsList.secrets.value.filter((secret) => !secret.archived))
-	const activeSecretOptions = computed(() => activeSecrets.value.map((secret) => ({ value: secret.id, label: secret.name })))
+	const activeSecretOptions = computed(() =>
+		activeSecrets.value.map((secret) => ({ value: secret.id, label: secret.name })),
+	)
 
 	return { ...secretsList, activeSecrets, activeSecretOptions }
 }
 
-function updateSecretCaches(queryCache: ReturnType<typeof useQueryCache>, portfolioId: string, secret: SecretDetails): void {
+function updateSecretCaches(
+	queryCache: ReturnType<typeof useQueryCache>,
+	portfolioId: string,
+	secret: SecretDetails,
+): void {
 	const { queryKeys } = queryCache
 	queryCache.set(queryKeys.portfolio.secret(portfolioId, secret.id), secret)
 	queryCache.invalidate(queryKeys.portfolio.secrets(portfolioId), { exact: true })

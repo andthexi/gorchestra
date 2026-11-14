@@ -66,7 +66,11 @@ function microsandboxCoreSandbox(name: string, sandbox: Sandbox) {
 	}
 }
 
-async function createMicrosandboxSandbox(name: string, config: ConsumerManagedSandboxConfig, hostWorkspaceDir: string): Promise<Sandbox> {
+async function createMicrosandboxSandbox(
+	name: string,
+	config: ConsumerManagedSandboxConfig,
+	hostWorkspaceDir: string,
+): Promise<Sandbox> {
 	await mkdir(hostWorkspaceDir, { recursive: true })
 
 	let builder = Sandbox.builder(name)
@@ -149,7 +153,10 @@ async function deleteExistingPath(fs: SandboxFsOps, path: string): Promise<void>
 }
 
 function sandboxFileEntry(entry: { path: string; kind: string }): SandboxFileEntry {
-	return { name: basename(entry.path), type: entry.kind === 'file' || entry.kind === 'directory' ? entry.kind : 'other' }
+	return {
+		name: basename(entry.path),
+		type: entry.kind === 'file' || entry.kind === 'directory' ? entry.kind : 'other',
+	}
 }
 
 async function ensureDir(fs: SandboxFsOps, path: string): Promise<void> {
@@ -182,7 +189,10 @@ function microsandboxName(coreStorageNamespace: string, key: string): string {
 	return `gorchestra-${digest}`
 }
 
-function applyNetworkPolicy(builder: SandboxBuilder, policy: ConsumerManagedSandboxConfig['networkPolicy']): SandboxBuilder {
+function applyNetworkPolicy(
+	builder: SandboxBuilder,
+	policy: ConsumerManagedSandboxConfig['networkPolicy'],
+): SandboxBuilder {
 	switch (policy.type) {
 		case 'allow-all':
 			return builder
@@ -237,7 +247,9 @@ if (import.meta.vitest) {
 		it('creates deterministic namespaced sandbox names', () => {
 			expect(microsandboxName('portfolio-1', 'agent-run-1')).toMatch(/^gorchestra-[A-Za-z0-9_-]+$/)
 			expect(microsandboxName('portfolio-1', 'agent-run-1')).toBe(microsandboxName('portfolio-1', 'agent-run-1'))
-			expect(microsandboxName('portfolio-1', 'agent-run-1')).not.toBe(microsandboxName('portfolio-2', 'agent-run-1'))
+			expect(microsandboxName('portfolio-1', 'agent-run-1')).not.toBe(
+				microsandboxName('portfolio-2', 'agent-run-1'),
+			)
 		})
 
 		it('derives parent directories for sandbox file writes', () => {

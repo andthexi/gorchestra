@@ -1,6 +1,11 @@
-import { normalizeEmailAddress } from './email-otp'
 import type { ServerStorage } from '../storage/repo'
-import { emailAuthenticationIdentitySchema, userSchema, type EmailAuthenticationIdentity, type ServerUser } from '../storage/schemas'
+import {
+	emailAuthenticationIdentitySchema,
+	userSchema,
+	type EmailAuthenticationIdentity,
+	type ServerUser,
+} from '../storage/schemas'
+import { normalizeEmailAddress } from './email-otp'
 
 export type FindEmailAuthenticationIdentityInput = {
 	serverStorage: ServerStorage
@@ -68,7 +73,9 @@ export async function getOrCreateUserByVerifiedEmail(
 	input: GetOrCreateUserByVerifiedEmailInput,
 ): Promise<GetOrCreateUserByVerifiedEmailResult> {
 	const email = requireEmailAddress(input.email)
-	return input.serverStorage.repo.session(async () => getOrCreateUserByVerifiedEmailInStorage(input.serverStorage, email, input.now))
+	return input.serverStorage.repo.session(async () =>
+		getOrCreateUserByVerifiedEmailInStorage(input.serverStorage, email, input.now),
+	)
 }
 
 async function getOrCreateUserByVerifiedEmailInStorage(
@@ -172,19 +179,32 @@ if (import.meta.vitest) {
 
 	async function testVerifiedEmailIsStoredNormalized(): Promise<void> {
 		await withTempServerStorage(async (serverStorage) => {
-			const result = await getOrCreateUserByVerifiedEmail({ serverStorage, email: '  Person+Ops@Example.COM  ', now: testNow })
+			const result = await getOrCreateUserByVerifiedEmail({
+				serverStorage,
+				email: '  Person+Ops@Example.COM  ',
+				now: testNow,
+			})
 
 			expect(result.emailAuthenticationIdentity.email).toBe('person+ops@example.com')
-			expect(await findEmailAuthenticationIdentityByEmail({ serverStorage, email: 'person+ops@example.com' })).toEqual(
-				result.emailAuthenticationIdentity,
-			)
+			expect(
+				await findEmailAuthenticationIdentityByEmail({ serverStorage, email: 'person+ops@example.com' }),
+			).toEqual(result.emailAuthenticationIdentity)
 		})
 	}
 
 	describe('Server identity storage', () => {
-		it('creates a User and Email Authentication Identity for a verified email address', testVerifiedEmailCreatesUserAndIdentity)
-		it('returns the existing User for an existing Email Authentication Identity', testVerifiedEmailReusesExistingIdentityUser)
+		it(
+			'creates a User and Email Authentication Identity for a verified email address',
+			testVerifiedEmailCreatesUserAndIdentity,
+		)
+		it(
+			'returns the existing User for an existing Email Authentication Identity',
+			testVerifiedEmailReusesExistingIdentityUser,
+		)
 		it('persists Email Authentication Identity links in Server storage', testEmailIdentityPersistsAcrossStorageOpen)
-		it('stores verified email addresses in normalized form behind the email field', testVerifiedEmailIsStoredNormalized)
+		it(
+			'stores verified email addresses in normalized form behind the email field',
+			testVerifiedEmailIsStoredNormalized,
+		)
 	})
 }

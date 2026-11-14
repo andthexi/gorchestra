@@ -14,10 +14,10 @@ import {
 } from '../domain/dispatch-request'
 import type { InvalidCoreServiceOutputError, InvariantViolationError, StorageOperationFailedError } from '../errors'
 import type { CoreStorage } from '../services'
-import { exclusiveAgentRunClaim } from './claims'
 import { nextId, runtimeRecord, type CoreRuntimeValues } from '../utils/runtime-values'
 import { withExplicitCoreStorageId } from '../utils/storage/schema'
 import type { Result } from '../utils/types'
+import { exclusiveAgentRunClaim } from './claims'
 
 export interface DispatchAcceptance {
 	requestId: Id
@@ -25,7 +25,8 @@ export interface DispatchAcceptance {
 	wakeNeeded: boolean
 }
 
-export type DispatchAcceptanceError = InvalidCoreServiceOutputError | StorageOperationFailedError | InvariantViolationError
+export type DispatchAcceptanceError =
+	InvalidCoreServiceOutputError | StorageOperationFailedError | InvariantViolationError
 
 export interface DispatchAcceptanceContext {
 	storage: CoreStorage
@@ -40,7 +41,11 @@ export async function acceptDispatchRequest(
 	if (!parsed.valid) return invariant('Core built invalid Dispatch Request input.')
 
 	try {
-		const coordination = await context.storage.on(dispatchCoordinationSchema).one().id(dispatchCoordinationId).find()
+		const coordination = await context.storage
+			.on(dispatchCoordinationSchema)
+			.one()
+			.id(dispatchCoordinationId)
+			.find()
 		if (coordination === null) return invariant('Dispatch Coordination singleton is missing.')
 		await context.storage
 			.on(dispatchCoordinationSchema)
@@ -56,7 +61,9 @@ export async function acceptDispatchRequest(
 	if (!matching.ok) return matching
 	if (matching.value.length > 2) return invariant('Dispatch deduplication class has too many nonterminal requests.')
 
-	const pendingOrWaiting = matching.value.find((request) => request.lifecycle.type === 'pending' || request.lifecycle.type === 'waiting')
+	const pendingOrWaiting = matching.value.find(
+		(request) => request.lifecycle.type === 'pending' || request.lifecycle.type === 'waiting',
+	)
 	if (pendingOrWaiting !== undefined) {
 		const coalesced = await coalesceReason(context.storage, pendingOrWaiting, parsed.value.reason)
 		return coalesced.ok
@@ -92,7 +99,9 @@ async function matchingNonterminalRequests(
 		ok: true,
 		value: records.filter(
 			(request) =>
-				request.lifecycle.type === 'pending' || request.lifecycle.type === 'waiting' || request.lifecycle.type === 'leased',
+				request.lifecycle.type === 'pending' ||
+				request.lifecycle.type === 'waiting' ||
+				request.lifecycle.type === 'leased',
 		),
 	}
 }
@@ -111,7 +120,9 @@ async function coalesceReason(
 			.one()
 			.id(request.id)
 			.update({ reasons: [...request.reasons, reason] })
-		return updated === null ? invariant('Dispatch Request disappeared during acceptance.') : { ok: true, value: undefined }
+		return updated === null
+			? invariant('Dispatch Request disappeared during acceptance.')
+			: { ok: true, value: undefined }
 	} catch (error) {
 		return storageBoundaryFailure('dispatch-request', 'update', request.id, error)
 	}

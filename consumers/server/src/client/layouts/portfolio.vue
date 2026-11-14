@@ -20,7 +20,9 @@
 		<template #topbar-right>
 			<slot name="topbar-right">
 				<div class="flex items-center justify-end gap-2">
-					<UiButton type="button" variant="secondary" :loading="isSigningOut" @click="signOut()">Sign out</UiButton>
+					<UiButton type="button" variant="secondary" :loading="isSigningOut" @click="signOut()"
+						>Sign out</UiButton
+					>
 				</div>
 				<p v-if="signOutError" class="mt-1 text-right text-sz-helper text-error">{{ signOutError }}</p>
 			</slot>
@@ -37,7 +39,8 @@
 						</div>
 						<NuxtLink
 							to="/select"
-							class="shrink-0 border border-dimmer bg-secondary px-2 py-1 text-sz-micro font-semibold text-secondary-contrast hover:border-primary">
+							class="shrink-0 border border-dimmer bg-secondary px-2 py-1 text-sz-micro font-semibold text-secondary-contrast hover:border-primary"
+						>
 							Change
 						</NuxtLink>
 					</div>
@@ -47,7 +50,8 @@
 							:key="item.to"
 							:to="item.to"
 							class="flex min-h-8 items-center justify-between gap-2 px-3 py-2 text-sz-helper font-semibold"
-							:class="navItemClass(item.to)">
+							:class="navItemClass(item.to)"
+						>
 							<span>{{ item.label }}</span>
 						</NuxtLink>
 					</nav>

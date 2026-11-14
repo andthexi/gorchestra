@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { nonEmptyTrimmedStringPipe } from '../domain/commons'
 import {
 	modelProviderAuthPipe,
@@ -18,10 +17,17 @@ import type {
 	StorageOperationFailedError,
 } from '../errors'
 import { buildCommandHandler } from '../utils/command-handler'
-import { auditStamp, createRecordValue, listRecordsByIds, nextId, secretReferencesFromModelProviderConfig } from '../utils/command-storage'
+import {
+	auditStamp,
+	createRecordValue,
+	listRecordsByIds,
+	nextId,
+	secretReferencesFromModelProviderConfig,
+} from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import { validateActiveSecretReferencesFromRecords } from '../utils/secrets'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const createModelProviderInputPipe = v.object({
 	name: nonEmptyTrimmedStringPipe,
@@ -52,28 +58,30 @@ export function createCreateModelProviderCommand(runtime: CoreRuntime): Operatio
 		const id = nextId(runtime.values)
 		if (!id.ok) return Promise.resolve(id)
 
-		return runtime.transactions.run(async ({ storage }): Promise<CoreResult<ModelProvider, Exclude<Error, InvalidInputError>>> => {
-			const secretIds = secretReferencesFromModelProviderConfig(input.auth, input.headers)
-			const secrets = await listRecordsByIds('secret', storage, secretIds)
-			if (!secrets.ok) return secrets
+		return runtime.transactions.run(
+			async ({ storage }): Promise<CoreResult<ModelProvider, Exclude<Error, InvalidInputError>>> => {
+				const secretIds = secretReferencesFromModelProviderConfig(input.auth, input.headers)
+				const secrets = await listRecordsByIds('secret', storage, secretIds)
+				if (!secrets.ok) return secrets
 
-			const validReferences = validateActiveSecretReferencesFromRecords(secretIds, secrets.value)
-			if (!validReferences.ok) return validReferences
+				const validReferences = validateActiveSecretReferencesFromRecords(secretIds, secrets.value)
+				if (!validReferences.ok) return validReferences
 
-			const provider: ModelProvider = {
-				id: id.value,
-				name: input.name,
-				source: input.source,
-				auth: input.auth,
-				headers: input.headers,
-				providerOptions: input.providerOptions,
-				created: stamp.value,
-				updated: null,
-				archivePeriods: [],
-			}
+				const provider: ModelProvider = {
+					id: id.value,
+					name: input.name,
+					source: input.source,
+					auth: input.auth,
+					headers: input.headers,
+					providerOptions: input.providerOptions,
+					created: stamp.value,
+					updated: null,
+					archivePeriods: [],
+				}
 
-			return createRecordValue('model-provider', storage, provider)
-		})
+				return createRecordValue('model-provider', storage, provider)
+			},
+		)
 	})
 }
 
@@ -90,7 +98,11 @@ if (import.meta.vitest) {
 			const result = await command(
 				{
 					name: '  Anthropic  ',
-					source: { type: 'custom-hosted', protocol: 'anthropic-messages', baseUrl: ' https://api.example.com ' },
+					source: {
+						type: 'custom-hosted',
+						protocol: 'anthropic-messages',
+						baseUrl: ' https://api.example.com ',
+					},
 					auth: null,
 					headers: [],
 					providerOptions: { beta: true },
@@ -103,7 +115,11 @@ if (import.meta.vitest) {
 				value: {
 					id: '01k00000000000000000010001',
 					name: 'Anthropic',
-					source: { type: 'custom-hosted', protocol: 'anthropic-messages', baseUrl: 'https://api.example.com' },
+					source: {
+						type: 'custom-hosted',
+						protocol: 'anthropic-messages',
+						baseUrl: 'https://api.example.com',
+					},
 					auth: null,
 					headers: [],
 					providerOptions: { beta: true },

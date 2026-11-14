@@ -2,66 +2,87 @@
 	<NuxtLayout name="portfolio">
 		<header class="border-b border-dimmer px-3 py-3">
 			<h1 class="m-0 text-sz-section font-semibold tracking-[-0.01em]">New Model Provider</h1>
-			<p class="m-0 mt-1 text-sz-helper text-dim">Create a provider endpoint, then add Models from its detail page.</p>
+			<p class="m-0 mt-1 text-sz-helper text-dim">
+				Create a provider endpoint, then add Models from its detail page.
+			</p>
 		</header>
 
 		<section class="border-b border-dimmer">
 			<UiForm class="gap-0!" @submit.prevent="createProvider()">
 				<section class="border-b border-dimmer px-3 py-3">
 					<div class="grid gap-3 md:grid-cols-2">
-						<UiFormGroup label="Provider name" for-id="provider-name" :error="providerForm.errors.name">
+						<UiFormGroup label="Provider name" forId="provider-name" :error="providerForm.errors.name">
 							<UiInput
 								id="provider-name"
 								v-model="providerForm.name"
 								required
 								placeholder="OpenAI production"
-								:invalid="!!providerForm.errors.name" />
+								:invalid="!!providerForm.errors.name"
+							/>
 						</UiFormGroup>
-						<UiFormGroup label="Source" for-id="provider-source" :error="providerForm.errors.sourceType">
+						<UiFormGroup label="Source" forId="provider-source" :error="providerForm.errors.sourceType">
 							<UiSelect
 								id="provider-source"
 								v-model="providerForm.sourceType"
 								:options="sourceOptions"
 								placeholder="Select source"
-								:invalid="!!providerForm.errors.sourceType" />
+								:invalid="!!providerForm.errors.sourceType"
+							/>
 						</UiFormGroup>
 					</div>
 					<div class="mt-3 grid gap-3">
 						<template v-if="providerForm.sourceType === 'custom-hosted'">
-							<UiFormGroup label="Custom protocol" for-id="provider-protocol" :error="providerForm.errors.customProtocol">
+							<UiFormGroup
+								label="Custom protocol"
+								forId="provider-protocol"
+								:error="providerForm.errors.customProtocol"
+							>
 								<UiSelect
 									id="provider-protocol"
 									v-model="providerForm.customProtocol"
 									:options="protocolOptions"
 									placeholder="Select protocol"
-									:invalid="!!providerForm.errors.customProtocol" />
+									:invalid="!!providerForm.errors.customProtocol"
+								/>
 							</UiFormGroup>
-							<UiFormGroup label="Base URL" for-id="provider-base-url" :error="providerForm.errors.customBaseUrl">
+							<UiFormGroup
+								label="Base URL"
+								forId="provider-base-url"
+								:error="providerForm.errors.customBaseUrl"
+							>
 								<UiInput
 									id="provider-base-url"
 									v-model="providerForm.customBaseUrl"
 									required
 									placeholder="https://api.example.com/v1"
-									:invalid="!!providerForm.errors.customBaseUrl" />
+									:invalid="!!providerForm.errors.customBaseUrl"
+								/>
 							</UiFormGroup>
 						</template>
-						<UiFormGroup label="API key Secret" for-id="provider-auth-secret" :error="providerForm.errors.authSecretId">
+						<UiFormGroup
+							label="API key Secret"
+							forId="provider-auth-secret"
+							:error="providerForm.errors.authSecretId"
+						>
 							<UiSelect
 								id="provider-auth-secret"
 								v-model="providerForm.authSecretId"
 								:options="authSecretOptions"
 								placeholder="No auth Secret"
-								:invalid="!!providerForm.errors.authSecretId" />
+								:invalid="!!providerForm.errors.authSecretId"
+							/>
 						</UiFormGroup>
 						<UiFormGroup
 							label="Provider options JSON"
-							for-id="provider-options"
-							:error="providerForm.errors.providerOptionsText">
+							forId="provider-options"
+							:error="providerForm.errors.providerOptionsText"
+						>
 							<UiTextarea
 								id="provider-options"
 								v-model="providerForm.providerOptionsText"
 								placeholder='{ "serviceTier": "flex" }'
-								:invalid="!!providerForm.errors.providerOptionsText" />
+								:invalid="!!providerForm.errors.providerOptionsText"
+							/>
 						</UiFormGroup>
 					</div>
 				</section>
@@ -74,36 +95,51 @@
 								Header values are Secret-backed and never entered as plaintext here.
 							</p>
 						</div>
-						<UiButton type="button" variant="secondary" @click="providerForm.headers.add()">Add header</UiButton>
+						<UiButton type="button" variant="secondary" @click="providerForm.headers.add()"
+							>Add header</UiButton
+						>
 					</div>
-					<div v-if="providerForm.headers.length === 0" class="border-t border-dimmer px-3 py-3 text-sz-helper text-dim">
+					<div
+						v-if="providerForm.headers.length === 0"
+						class="border-t border-dimmer px-3 py-3 text-sz-helper text-dim"
+					>
 						No custom headers configured.
 					</div>
 					<div v-else class="border-t border-dimmer">
 						<div
 							v-for="(header, index) in providerForm.headers"
 							:key="index"
-							class="grid gap-3 border-b border-dimmer px-3 py-3 md:grid-cols-[1fr_1fr_auto]">
-							<UiFormGroup label="Header name" :for-id="`provider-header-name-${index}`" :error="header.errors.name">
+							class="grid gap-3 border-b border-dimmer px-3 py-3 md:grid-cols-[1fr_1fr_auto]"
+						>
+							<UiFormGroup
+								label="Header name"
+								:forId="`provider-header-name-${index}`"
+								:error="header.errors.name"
+							>
 								<UiInput
 									:id="`provider-header-name-${index}`"
 									v-model="header.name"
 									placeholder="X-Provider-Header"
-									:invalid="!!header.errors.name" />
+									:invalid="!!header.errors.name"
+								/>
 							</UiFormGroup>
 							<UiFormGroup
 								label="Header Secret"
-								:for-id="`provider-header-secret-${index}`"
-								:error="header.errors.valueSecretId">
+								:forId="`provider-header-secret-${index}`"
+								:error="header.errors.valueSecretId"
+							>
 								<UiSelect
 									:id="`provider-header-secret-${index}`"
 									v-model="header.valueSecretId"
 									:options="headerSecretOptions"
 									placeholder="Select Secret"
-									:invalid="!!header.errors.valueSecretId" />
+									:invalid="!!header.errors.valueSecretId"
+								/>
 							</UiFormGroup>
 							<div class="self-end">
-								<UiButton type="button" variant="ghost" @click="providerForm.headers.delete(index)">Remove</UiButton>
+								<UiButton type="button" variant="ghost" @click="providerForm.headers.delete(index)"
+									>Remove</UiButton
+								>
 							</div>
 						</div>
 					</div>
@@ -111,8 +147,12 @@
 
 				<section class="px-3 py-3">
 					<div class="flex flex-wrap items-center gap-2">
-						<UiButton type="submit" :loading="isCreatingProvider" :disabled="!providerForm.valid">Create Provider</UiButton>
-						<NuxtLink class="px-3 py-1.5 text-sz-helper font-semibold text-dim hover:text-body" to="/models/providers"
+						<UiButton type="submit" :loading="isCreatingProvider" :disabled="!providerForm.valid"
+							>Create Provider</UiButton
+						>
+						<NuxtLink
+							class="px-3 py-1.5 text-sz-helper font-semibold text-dim hover:text-body"
+							to="/models/providers"
 							>Cancel</NuxtLink
 						>
 					</div>
@@ -126,8 +166,8 @@
 				<section class="border-b border-dimmer px-3 py-3">
 					<h2 class="m-0 text-sz-helper font-semibold">Protocol</h2>
 					<p class="m-0 mt-1 text-sz-helper leading-5 text-dim">
-						Protocol is immutable after creation. Create a separate Model Provider if the endpoint uses a different provider
-						protocol.
+						Protocol is immutable after creation. Create a separate Model Provider if the endpoint uses a
+						different provider protocol.
 					</p>
 				</section>
 				<section class="border-b border-dimmer px-3 py-3">
@@ -141,7 +181,10 @@
 					<p class="m-0 mt-1 text-sz-helper leading-5 text-dim">
 						Create Secrets first if this provider needs an API key or custom headers.
 					</p>
-					<NuxtLink class="mt-2 inline-flex text-sz-helper font-semibold text-primary hover:brightness-110" to="/secrets/new">
+					<NuxtLink
+						class="mt-2 inline-flex text-sz-helper font-semibold text-primary hover:brightness-110"
+						to="/secrets/new"
+					>
 						New Secret
 					</NuxtLink>
 				</section>
@@ -161,9 +204,9 @@ import UiSelect from '../../../components/ui/UiSelect.vue'
 import UiText from '../../../components/ui/UiText.vue'
 import UiTextarea from '../../../components/ui/UiTextarea.vue'
 import type { ModelProviderProtocolType } from '../../../composables/core/server-api'
-import type { ModelProviderSourceType } from '../../../forms/model-provider'
 import { useModelProviderCreate } from '../../../composables/portfolio/models/providers'
 import { useActiveSecretSelectOptions } from '../../../composables/portfolio/secrets'
+import type { ModelProviderSourceType } from '../../../forms/model-provider'
 
 definePageMeta({ middleware: ['has-selection'] })
 

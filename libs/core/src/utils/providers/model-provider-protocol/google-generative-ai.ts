@@ -1,8 +1,8 @@
 import { createGoogle } from '@ai-sdk/google'
 
+import type { ModelProvider } from '../../../domain/model-provider'
 import { resolveProviderOptions } from './options'
 import type { AISDKLanguageModelResolution, ModelProviderProtocolAccess, ModelProviderProtocolProvider } from './types'
-import type { ModelProvider } from '../../../domain/model-provider'
 
 export type GoogleGenerativeAIModelProviderProtocolProvider = ModelProviderProtocolProvider<'google-generative-ai'>
 
@@ -27,7 +27,10 @@ export function createGoogleGenerativeAIModelProviderProtocolProvider(
 	}
 }
 
-function createGoogleGenerativeAIProvider(input: { modelProvider: ModelProvider; access: ModelProviderProtocolAccess }) {
+function createGoogleGenerativeAIProvider(input: {
+	modelProvider: ModelProvider
+	access: ModelProviderProtocolAccess
+}) {
 	return createGoogle({
 		apiKey: input.access.auth?.plaintext ?? '',
 		...baseUrlConfig(input.modelProvider),

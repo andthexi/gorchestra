@@ -2,20 +2,26 @@ import { v, type PipeOutput } from 'valleyed'
 
 import { idPipe } from '../domain/commons'
 import { listedSecretPipe } from '../domain/secret'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
-import { listSecretReferencesBySecretId } from './list-secret-references'
-import { listSecret } from './list-secrets'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { buildQueryHandler } from '../utils/query-handler'
 import { getRequired } from '../utils/storage/helpers'
 import type { CoreTransactions } from '../utils/transactions'
 import type { Result as CoreResult } from '../utils/types'
+import { listSecretReferencesBySecretId } from './list-secret-references'
+import { listSecret } from './list-secrets'
 
 export const inputPipe = v.object({ secretId: idPipe })
 export type Input = PipeOutput<typeof inputPipe>
 
 export const resultPipe = listedSecretPipe
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createGetSecretQuery(transactions: CoreTransactions): Operation {
@@ -25,7 +31,9 @@ export function createGetSecretQuery(transactions: CoreTransactions): Operation 
 			if (!secret.ok) return secret
 
 			const references = await listSecretReferencesBySecretId(storage, [input.secretId])
-			return references.ok ? { ok: true, value: listSecret(secret.value, references.value.get(input.secretId) ?? []) } : references
+			return references.ok
+				? { ok: true, value: listSecret(secret.value, references.value.get(input.secretId) ?? []) }
+				: references
 		}),
 	)
 }
@@ -74,7 +82,9 @@ if (import.meta.vitest) {
 			const options = createTestCoreServices()
 			seedSecret(options.tx, '01k00000000000000000000040')
 			seedAgentRunProfile(options.tx, '01k00000000000000000000006', '01k00000000000000000000024', {
-				runtimeRequirements: [{ type: 'environment-secret', envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' }],
+				runtimeRequirements: [
+					{ type: 'environment-secret', envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' },
+				],
 			})
 			const query = createGetSecretQuery(options.transactions)
 
@@ -107,7 +117,10 @@ if (import.meta.vitest) {
 
 			const result = await query({ secretId: '01k00000000000000000000040' })
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'secret', id: '01k00000000000000000000040' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'secret', id: '01k00000000000000000000040' },
+			})
 		})
 	})
 }

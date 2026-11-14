@@ -97,7 +97,10 @@ async function routeAgentRunModelTurn(
 	}
 	return completedHandlerResult(
 		attempt,
-		await work.runModelAgentRun({ agentRunId: payload.agentRunId }, { correlationId: attempt.request.id, signal: attempt.signal }),
+		await work.runModelAgentRun(
+			{ agentRunId: payload.agentRunId },
+			{ correlationId: attempt.request.id, signal: attempt.signal },
+		),
 		'processed',
 	)
 }

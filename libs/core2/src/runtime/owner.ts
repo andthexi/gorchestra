@@ -21,7 +21,9 @@ export class Owner {
 	) {}
 
 	build() {
-		this.#repo = Repo.from<StorageAdapter>(this.dependencies.storage.adapter).resolve(this.dependencies.storage.resolveSchema).build()
+		this.#repo = Repo.from<StorageAdapter>(this.dependencies.storage.adapter)
+			.resolve(this.dependencies.storage.resolveSchema)
+			.build()
 		this.#migrator = Migrator.from<StorageAdapter>(this.#repo).withLock().migrations(this.catalog).build()
 	}
 
@@ -35,7 +37,9 @@ export class Owner {
 		return this.#migrator
 	}
 
-	async inspect(): Promise<Result<'empty' | 'migration' | 'ready', Exclude<SetupError, { type: 'storage-already-initialized' }>>> {
+	async inspect(): Promise<
+		Result<'empty' | 'migration' | 'ready', Exclude<SetupError, { type: 'storage-already-initialized' }>>
+	> {
 		const adapter = this.dependencies.storage.adapter
 		let history: unknown
 		try {
@@ -63,7 +67,9 @@ export class Owner {
 	async confirmMigrationRun(): Promise<Result<void, StorageOperationFailedError>> {
 		let history: unknown
 		try {
-			history = await this.dependencies.storage.adapter.loadMigrations(this.repo.resolveConfig('_equipped_migrations'))
+			history = await this.dependencies.storage.adapter.loadMigrations(
+				this.repo.resolveConfig('_equipped_migrations'),
+			)
 		} catch {
 			// An ordinary read failure can still unwind successfully and permit retry.
 			return { ok: false, error: { type: 'storage-operation-failed' } }
@@ -125,17 +131,22 @@ if (import.meta.vitest) {
 		const { projectSchema } = await import('../domain/project')
 		const { withExplicitId } = await import('../storage/schema')
 		const { migrations } = await import('../storage/migrations')
-		function buildOwner<A extends StorageAdapter>(dependencies: CoreDependencies<A>, catalog: readonly Migration<StorageAdapter>[]) {
+		function buildOwner<A extends StorageAdapter>(
+			dependencies: CoreDependencies<A>,
+			catalog: readonly Migration<StorageAdapter>[],
+		) {
 			const owner = new Owner(dependencies, catalog)
 			owner.build()
 			return owner
 		}
 		const configurations: Array<{ table: string; scope: 'selected' }> = []
 		class ScopedAdapter extends InMemoryAdapter {
-			override readonly schemaConfigPipe = v.object({ table: v.string(), scope: v.eq('selected') }).pipe((config) => {
-				configurations.push(config)
-				return { table: config.table }
-			})
+			override readonly schemaConfigPipe = v
+				.object({ table: v.string(), scope: v.eq('selected') })
+				.pipe((config) => {
+					configurations.push(config)
+					return { table: config.table }
+				})
 		}
 		const adapter = ScopedAdapter.create({})
 		const resolveSchema: CoreDependencies<ScopedAdapter>['storage']['resolveSchema'] = (name) => ({

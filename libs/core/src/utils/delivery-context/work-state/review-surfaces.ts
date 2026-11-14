@@ -1,13 +1,16 @@
-import { invariant, ok } from './result'
-import type { ReplacedReviewSurface, WorkStateResult } from './types'
 import type { Id } from '../../../domain/commons'
 import type { ReviewSurface } from '../../../domain/review-surface'
+import { invariant, ok } from './result'
+import type { ReplacedReviewSurface, WorkStateResult } from './types'
 
 export function currentScopedReviewSurface(reviewSurfaces: ReviewSurface[]): WorkStateResult<ReviewSurface | null> {
 	const first = firstReviewSurface(reviewSurfaces)
 	if (first === null) return ok(null)
 
-	return followReviewSurfaceReplacementChain(first, new Map(reviewSurfaces.map((reviewSurface) => [reviewSurface.id, reviewSurface])))
+	return followReviewSurfaceReplacementChain(
+		first,
+		new Map(reviewSurfaces.map((reviewSurface) => [reviewSurface.id, reviewSurface])),
+	)
 }
 
 export function compareCreatedThenId(left: ReviewSurface, right: ReviewSurface): number {
@@ -21,7 +24,10 @@ function firstReviewSurface(reviewSurfaces: ReviewSurface[]): ReviewSurface | nu
 	return [...reviewSurfaces].sort(compareCreatedThenId)[0] ?? null
 }
 
-function followReviewSurfaceReplacementChain(first: ReviewSurface, byId: Map<Id, ReviewSurface>): WorkStateResult<ReviewSurface> {
+function followReviewSurfaceReplacementChain(
+	first: ReviewSurface,
+	byId: Map<Id, ReviewSurface>,
+): WorkStateResult<ReviewSurface> {
 	let current = first
 	const seen = new Set<Id>()
 

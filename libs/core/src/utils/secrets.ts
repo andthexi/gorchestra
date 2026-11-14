@@ -23,7 +23,10 @@ import type { Result } from './types'
 
 type ActiveSecretValueRefs = Record<Id, Result<ResolvableSecretValue, ResourceNotFoundError | ResourceArchivedError>>
 type ResolvedSecretValueResults = Record<Id, Result<string, SecretResolutionFailedError>>
-type ActiveSecretValueResults = Record<Id, Result<string, ResourceNotFoundError | ResourceArchivedError | SecretResolutionFailedError>>
+type ActiveSecretValueResults = Record<
+	Id,
+	Result<string, ResourceNotFoundError | ResourceArchivedError | SecretResolutionFailedError>
+>
 
 export type ValidateActiveSecretResult = Result<
 	Secret,
@@ -35,11 +38,17 @@ export type ValidateActiveSecretReferencesResult = Result<
 	ResourceNotFoundError | ResourceArchivedError | StorageOperationFailedError | InvalidCoreServiceOutputError
 >
 
-export type ReadActiveSecretValueRefsResult = Result<ActiveSecretValueRefs, StorageOperationFailedError | InvalidCoreServiceOutputError>
+export type ReadActiveSecretValueRefsResult = Result<
+	ActiveSecretValueRefs,
+	StorageOperationFailedError | InvalidCoreServiceOutputError
+>
 
 export type ResolveSecretValueRefsResult = Result<ResolvedSecretValueResults, InvalidCoreServiceOutputError>
 
-export type ResolveActiveSecretValuesResult = Result<ActiveSecretValueResults, StorageOperationFailedError | InvalidCoreServiceOutputError>
+export type ResolveActiveSecretValuesResult = Result<
+	ActiveSecretValueResults,
+	StorageOperationFailedError | InvalidCoreServiceOutputError
+>
 
 export async function validateActiveSecret(storage: CoreStorage, secretId: Id): Promise<ValidateActiveSecretResult> {
 	const secrets = await listSecretRecords(storage, [secretId])
@@ -52,7 +61,10 @@ export async function validateActiveSecret(storage: CoreStorage, secretId: Id): 
 		: { ok: true, value: secret }
 }
 
-export async function validateActiveSecretReferences(storage: CoreStorage, secretIds: Id[]): Promise<ValidateActiveSecretReferencesResult> {
+export async function validateActiveSecretReferences(
+	storage: CoreStorage,
+	secretIds: Id[],
+): Promise<ValidateActiveSecretReferencesResult> {
 	const uniqueSecretIds = uniqueIds(secretIds)
 	if (uniqueSecretIds.length === 0) return validateActiveSecretReferencesFromRecords(uniqueSecretIds, [])
 
@@ -76,7 +88,10 @@ export function validateActiveSecretReferencesFromRecords(
 	return { ok: true, value: undefined }
 }
 
-export async function readActiveSecretValueRefs(storage: CoreStorage, secretIds: Id[]): Promise<ReadActiveSecretValueRefsResult> {
+export async function readActiveSecretValueRefs(
+	storage: CoreStorage,
+	secretIds: Id[],
+): Promise<ReadActiveSecretValueRefsResult> {
 	const uniqueSecretIds = uniqueIds(secretIds)
 	if (uniqueSecretIds.length === 0) return { ok: true, value: {} }
 
@@ -87,7 +102,8 @@ export async function readActiveSecretValueRefs(storage: CoreStorage, secretIds:
 	const value: ActiveSecretValueRefs = {}
 	for (const secretId of uniqueSecretIds) {
 		const secret = secretsById.get(secretId)
-		if (secret === undefined) value[secretId] = { ok: false, error: { type: 'not-found', resource: 'secret', id: secretId } }
+		if (secret === undefined)
+			value[secretId] = { ok: false, error: { type: 'not-found', resource: 'secret', id: secretId } }
 		else if (isArchived(secret.archivePeriods))
 			value[secretId] = { ok: false, error: { type: 'resource-archived', resource: 'secret', id: secretId } }
 		else value[secretId] = { ok: true, value: { secretId: secret.id, valueRef: secret.valueRef } }
@@ -154,7 +170,10 @@ async function listSecretRecords(
 						pipeError: PipeError.root('Stored Core record failed schema validation.', null),
 					},
 				}
-			: { ok: false, error: { type: 'storage-operation-failed', operation: { type: 'list', resource: 'secret' } } }
+			: {
+					ok: false,
+					error: { type: 'storage-operation-failed', operation: { type: 'list', resource: 'secret' } },
+				}
 	}
 }
 
@@ -167,7 +186,10 @@ function uniqueIds(ids: Id[]): Id[] {
 	return [...new Set(ids)]
 }
 
-function resolvedSecretValueResults(secrets: ResolvableSecretValue[], values: ResolvedSecretValues): ResolvedSecretValueResults {
+function resolvedSecretValueResults(
+	secrets: ResolvableSecretValue[],
+	values: ResolvedSecretValues,
+): ResolvedSecretValueResults {
 	const results: ResolvedSecretValueResults = {}
 	for (const secret of secrets) {
 		const value = values[secret.secretId]
@@ -198,7 +220,9 @@ if (import.meta.vitest) {
 				secretRecord('01k00000000000000000000041', true),
 			])
 
-			await expect(validateActiveSecret(storage, '01k00000000000000000000040')).resolves.toMatchObject({ ok: true })
+			await expect(validateActiveSecret(storage, '01k00000000000000000000040')).resolves.toMatchObject({
+				ok: true,
+			})
 			await expect(validateActiveSecret(storage, '01k00000000000000000000041')).resolves.toEqual({
 				ok: false,
 				error: { type: 'resource-archived', resource: 'secret', id: '01k00000000000000000000041' },
@@ -207,7 +231,10 @@ if (import.meta.vitest) {
 
 		it('validates active Secret references with a batched lookup and returns the first caller-ordered failure', async () => {
 			const result = await validateActiveSecretReferences(
-				storageWithSecrets([secretRecord('01k00000000000000000000040'), secretRecord('01k00000000000000000000041', true)]),
+				storageWithSecrets([
+					secretRecord('01k00000000000000000000040'),
+					secretRecord('01k00000000000000000000041', true),
+				]),
 				['01k00000000000000000000042', '01k00000000000000000000041', '01k00000000000000000000042'],
 			)
 
@@ -219,8 +246,16 @@ if (import.meta.vitest) {
 
 		it('reads active Secret value refs in one batched storage call and reports missing or inactive Secrets per id', async () => {
 			const result = await readActiveSecretValueRefs(
-				storageWithSecrets([secretRecord('01k00000000000000000000040'), secretRecord('01k00000000000000000000041', true)]),
-				['01k00000000000000000000040', '01k00000000000000000000041', '01k00000000000000000000042', '01k00000000000000000000040'],
+				storageWithSecrets([
+					secretRecord('01k00000000000000000000040'),
+					secretRecord('01k00000000000000000000041', true),
+				]),
+				[
+					'01k00000000000000000000040',
+					'01k00000000000000000000041',
+					'01k00000000000000000000042',
+					'01k00000000000000000000040',
+				],
 			)
 
 			expect(result).toEqual({
@@ -354,7 +389,9 @@ if (import.meta.vitest) {
 			created: { origin: 'imported', at: '2026-06-01T00:00:00.000Z' },
 			updated: null,
 			valueReplaced: null,
-			archivePeriods: archived ? [{ archived: { origin: 'imported', at: '2026-06-01T00:00:00.000Z' }, unarchived: null }] : [],
+			archivePeriods: archived
+				? [{ archived: { origin: 'imported', at: '2026-06-01T00:00:00.000Z' }, unarchived: null }]
+				: [],
 		}
 	}
 }

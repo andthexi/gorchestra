@@ -9,7 +9,10 @@ const emailPipe = v.string().pipe(v.email(), v.min(1))
 const displayNamePipe = v.string().pipe(v.asTrimmed(), v.min(1))
 const coreStorageNamespacePipe = v.string().pipe(v.asTrimmed(), v.min(1))
 
-export const userSchema = Schema.from('users').pk('id', serverIdPipe, createServerId).field('createdAt', isoDateTimePipe).build()
+export const userSchema = Schema.from('users')
+	.pk('id', serverIdPipe, createServerId)
+	.field('createdAt', isoDateTimePipe)
+	.build()
 
 export const emailAuthenticationIdentitySchema = Schema.from('email_authentication_identities')
 	.pk('id', serverIdPipe, createServerId)

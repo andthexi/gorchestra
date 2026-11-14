@@ -2,6 +2,10 @@ import { Domain, Queries } from '@gorchestra/core'
 import { Router } from 'equipped/server'
 import { v } from 'valleyed'
 
+import type { ServerApiContext } from '../../context'
+import { throwCoreOperationError } from '../../errors'
+import { type SelectedPortfolioCoreContext, withSelectedPortfolioCore } from '../../portfolio-context'
+import { coreIdPipe } from '../../schemas'
 import {
 	createModelProviderRequestSchema,
 	createModelRequestSchema,
@@ -15,10 +19,6 @@ import {
 	type UpdateModelProviderRequest,
 	type UpdateModelRequest,
 } from './shared'
-import type { ServerApiContext } from '../../context'
-import { throwCoreOperationError } from '../../errors'
-import { type SelectedPortfolioCoreContext, withSelectedPortfolioCore } from '../../portfolio-context'
-import { coreIdPipe } from '../../schemas'
 
 export function createModelProvidersApiRouter(context: ServerApiContext) {
 	return new Router()
@@ -56,7 +56,9 @@ export function createModelProvidersApiRouter(context: ServerApiContext) {
 				params: v.object({ modelProviderId: coreIdPipe, modelId: coreIdPipe }),
 				response: Queries.ListModelReferences.resultPipe,
 			},
-		})(async (req) => listSelectedModelReferences(context, req.cookies, req.params.modelProviderId, req.params.modelId))
+		})(async (req) =>
+			listSelectedModelReferences(context, req.cookies, req.params.modelProviderId, req.params.modelId),
+		)
 		.put('/model-providers/:modelProviderId', {
 			schema: {
 				cookies: portfolioRequestCookieSchema,
@@ -94,7 +96,9 @@ export function createModelProvidersApiRouter(context: ServerApiContext) {
 				body: updateModelRequestSchema,
 				response: Domain.Model.modelPipe,
 			},
-		})(async (req) => updateSelectedModel(context, req.cookies, req.params.modelProviderId, req.params.modelId, req.body))
+		})(async (req) =>
+			updateSelectedModel(context, req.cookies, req.params.modelProviderId, req.params.modelId, req.body),
+		)
 		.post('/model-providers/:modelProviderId/models/:modelId/archive', {
 			schema: {
 				cookies: portfolioRequestCookieSchema,
@@ -149,7 +153,8 @@ function getSelectedModel(
 	return withSelectedPortfolioCore(context, cookies, async ({ core }) => {
 		const model = await core.queries.getModel({ modelId })
 		if (!model.ok) return throwCoreOperationError(model.error)
-		if (model.value.provider.id !== modelProviderId) throwCoreOperationError({ type: 'not-found', resource: 'model', id: modelId })
+		if (model.value.provider.id !== modelProviderId)
+			throwCoreOperationError({ type: 'not-found', resource: 'model', id: modelId })
 		return model.value
 	})
 }
@@ -185,7 +190,10 @@ function updateSelectedModelProvider(
 	input: UpdateModelProviderRequest,
 ): Promise<Domain.ModelProvider.ModelProvider> {
 	return withSelectedPortfolioCore(context, cookies, async ({ core, workspaceMember }) => {
-		const provider = await core.commands.updateModelProvider({ modelProviderId, ...input }, commandContext(workspaceMember.id))
+		const provider = await core.commands.updateModelProvider(
+			{ modelProviderId, ...input },
+			commandContext(workspaceMember.id),
+		)
 		return provider.ok ? provider.value : throwCoreOperationError(provider.error)
 	})
 }
@@ -196,7 +204,10 @@ function archiveSelectedModelProvider(
 	modelProviderId: string,
 ): Promise<Domain.ModelProvider.ModelProvider> {
 	return withSelectedPortfolioCore(context, cookies, async ({ core, workspaceMember }) => {
-		const provider = await core.commands.archiveModelProvider({ modelProviderId }, commandContext(workspaceMember.id))
+		const provider = await core.commands.archiveModelProvider(
+			{ modelProviderId },
+			commandContext(workspaceMember.id),
+		)
 		return provider.ok ? provider.value : throwCoreOperationError(provider.error)
 	})
 }
@@ -207,7 +218,10 @@ function unarchiveSelectedModelProvider(
 	modelProviderId: string,
 ): Promise<Domain.ModelProvider.ModelProvider> {
 	return withSelectedPortfolioCore(context, cookies, async ({ core, workspaceMember }) => {
-		const provider = await core.commands.unarchiveModelProvider({ modelProviderId }, commandContext(workspaceMember.id))
+		const provider = await core.commands.unarchiveModelProvider(
+			{ modelProviderId },
+			commandContext(workspaceMember.id),
+		)
 		return provider.ok ? provider.value : throwCoreOperationError(provider.error)
 	})
 }
@@ -219,7 +233,10 @@ function createSelectedModel(
 	input: CreateModelRequest,
 ): Promise<Domain.Model.Model> {
 	return withSelectedPortfolioCore(context, cookies, async ({ core, workspaceMember }) => {
-		const model = await core.commands.createModel({ providerId: modelProviderId, ...input }, commandContext(workspaceMember.id))
+		const model = await core.commands.createModel(
+			{ providerId: modelProviderId, ...input },
+			commandContext(workspaceMember.id),
+		)
 		return model.ok ? model.value : throwCoreOperationError(model.error)
 	})
 }
@@ -285,7 +302,8 @@ async function ensureModelBelongsToProvider(
 	const model = await core.queries.getModel({ modelId })
 	if (!model.ok) return throwCoreOperationError(model.error)
 
-	if (model.value.provider.id !== modelProviderId) throwCoreOperationError({ type: 'not-found', resource: 'model', id: modelId })
+	if (model.value.provider.id !== modelProviderId)
+		throwCoreOperationError({ type: 'not-found', resource: 'model', id: modelId })
 }
 
 function commandContext(workspaceMemberId: string) {

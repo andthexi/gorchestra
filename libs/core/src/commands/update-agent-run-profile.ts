@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import type { AgentRunProfile } from '../domain/agent-run-profile'
 import { agentRunRuntimeRequirementsPipe, agentRunSandboxConfigPipe } from '../domain/agent-run-runtime'
 import { idPipe, nonEmptyTrimmedStringPipe } from '../domain/commons'
@@ -11,6 +10,7 @@ import { buildCommandHandler } from '../utils/command-handler'
 import { auditStamp, getRequired, updateRecordValue, validateAgentRunProfileConfig } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const updateAgentRunProfileInputPipe = v.object({
 	agentRunProfileId: idPipe,
@@ -35,21 +35,23 @@ export function createUpdateAgentRunProfileCommand(runtime: CoreRuntime): Operat
 		const stamp = auditStamp(runtime.values, context)
 		if (!stamp.ok) return stamp
 
-		return runtime.transactions.run(async ({ storage }): Promise<CoreResult<AgentRunProfile, Exclude<Error, InvalidInputError>>> => {
-			const existing = await getRequired('agent-run-profile', storage, input.agentRunProfileId)
-			if (!existing.ok) return existing
+		return runtime.transactions.run(
+			async ({ storage }): Promise<CoreResult<AgentRunProfile, Exclude<Error, InvalidInputError>>> => {
+				const existing = await getRequired('agent-run-profile', storage, input.agentRunProfileId)
+				if (!existing.ok) return existing
 
-			const configValidation = await validateAgentRunProfileConfig(storage, input)
-			if (!configValidation.ok) return configValidation
+				const configValidation = await validateAgentRunProfileConfig(storage, input)
+				if (!configValidation.ok) return configValidation
 
-			return updateRecordValue('agent-run-profile', storage, input.agentRunProfileId, {
-				name: input.name,
-				modelUse: input.modelUse,
-				runtimeRequirements: input.runtimeRequirements,
-				sandboxConfig: input.sandboxConfig,
-				updated: stamp.value,
-			})
-		})
+				return updateRecordValue('agent-run-profile', storage, input.agentRunProfileId, {
+					name: input.name,
+					modelUse: input.modelUse,
+					runtimeRequirements: input.runtimeRequirements,
+					sandboxConfig: input.sandboxConfig,
+					updated: stamp.value,
+				})
+			},
+		)
 	})
 }
 

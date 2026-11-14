@@ -1,5 +1,10 @@
 import { v, type Pipe } from 'valleyed'
 
+import { agentRunToolSetPipe, type AgentRunToolSet } from '../../../../domain/agent-run'
+import { type AgentRunToolOutput } from '../../../../domain/agent-run-event'
+import type { InvariantViolationError } from '../../../../errors'
+import type { Result } from '../../../types'
+import type { AgentRunProviderTool, CoreAgentRunToolContext } from '../types'
 import { editTool } from './edit'
 import { findTool } from './find'
 import { grepTool } from './grep'
@@ -10,11 +15,6 @@ import { readTool } from './read'
 import { toolOutput } from './results'
 import { shTool } from './sh'
 import { writeTool } from './write'
-import { agentRunToolSetPipe, type AgentRunToolSet } from '../../../../domain/agent-run'
-import { type AgentRunToolOutput } from '../../../../domain/agent-run-event'
-import type { InvariantViolationError } from '../../../../errors'
-import type { Result } from '../../../types'
-import type { AgentRunProviderTool, CoreAgentRunToolContext } from '../types'
 
 export type WorkspaceMutationKind = 'read-only' | 'file-mutator' | 'global-mutator'
 
@@ -31,7 +31,12 @@ export interface CoreAgentRunToolDefinition<TInput = unknown> {
 }
 
 export const readOnlyWorkspaceToolNames = Object.freeze(['read', 'grep', 'find', 'ls'] as const)
-export const writeCapableWorkspaceToolNames = Object.freeze([...readOnlyWorkspaceToolNames, 'sh', 'edit', 'write'] as const)
+export const writeCapableWorkspaceToolNames = Object.freeze([
+	...readOnlyWorkspaceToolNames,
+	'sh',
+	'edit',
+	'write',
+] as const)
 
 const registeredToolDefinitions = Object.freeze([
 	readTool(),
@@ -53,7 +58,9 @@ export function agentRunToolSetFromNames(names: readonly string[]): Result<Agent
 	return parsed.valid ? { ok: true, value: parsed.value } : invariant('Resolved Agent Run Tool Set is invalid.')
 }
 
-export function resolveToolSet(toolSet: AgentRunToolSet): Result<CoreAgentRunToolDefinition[], InvariantViolationError> {
+export function resolveToolSet(
+	toolSet: AgentRunToolSet,
+): Result<CoreAgentRunToolDefinition[], InvariantViolationError> {
 	const definitions: CoreAgentRunToolDefinition[] = []
 	for (const entry of toolSet) {
 		const definition = definitionForEntry(entry)
@@ -69,7 +76,10 @@ export function providerTool(tool: CoreAgentRunToolDefinition): AgentRunProvider
 
 export { toolOutput }
 
-export function validateToolInput(tool: CoreAgentRunToolDefinition, input: unknown): { ok: true; value: unknown } | { ok: false } {
+export function validateToolInput(
+	tool: CoreAgentRunToolDefinition,
+	input: unknown,
+): { ok: true; value: unknown } | { ok: false } {
 	const result = v.validate(tool.inputPipe, input)
 	return result.valid ? { ok: true, value: result.value } : { ok: false }
 }

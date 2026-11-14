@@ -1,5 +1,9 @@
 import { useQueryCache } from '../composables/core/query-cache'
-import { setAuthenticationLostHandler, setPreconditionRequiredHandler, setServerApiOptionsResolver } from '../composables/core/server-api'
+import {
+	setAuthenticationLostHandler,
+	setPreconditionRequiredHandler,
+	setServerApiOptionsResolver,
+} from '../composables/core/server-api'
 import { useServerSocketConnection } from '../composables/core/server-socket'
 
 export default defineNuxtPlugin((nuxtApp) => {

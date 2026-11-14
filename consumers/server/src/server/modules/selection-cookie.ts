@@ -106,11 +106,15 @@ function buildSelectionTokenCookie(token: string): ServerSelectionCookie {
 
 function getVerifiedSelectionPayload(
 	input: VerifySelectionTokenInput,
-): { verified: true; payload: SelectionJwtPayload } | { verified: false; reason: 'missing-token' | 'invalid-token' | 'expired' } {
+):
+	| { verified: true; payload: SelectionJwtPayload }
+	| { verified: false; reason: 'missing-token' | 'invalid-token' | 'expired' } {
 	if (!input.token) return { verified: false, reason: 'missing-token' }
 	const payloadLookup = verifySelectionJwt(input.token, input.signingKey)
 	if (!payloadLookup.verified) return payloadLookup
-	return isExpiredSelectionPayload(payloadLookup.payload, input.now) ? { verified: false, reason: 'expired' } : payloadLookup
+	return isExpiredSelectionPayload(payloadLookup.payload, input.now)
+		? { verified: false, reason: 'expired' }
+		: payloadLookup
 }
 
 function signSelectionJwt(payload: SelectionJwtPayload, signingKey: string): string {
@@ -200,7 +204,10 @@ if (import.meta.vitest) {
 		const [header, body, signature] = built.token.split('.')
 		const tamperedToken = `${header}.${Buffer.from(JSON.stringify({ typ: 'gorchestra-selection', workspaceId: tamperedWorkspaceId, portfolioId, iat: 1, exp: 2 })).toString('base64url')}.${signature}`
 
-		expect(verifySelectionToken({ token: null, now: testNow, signingKey })).toEqual({ selected: false, reason: 'missing-token' })
+		expect(verifySelectionToken({ token: null, now: testNow, signingKey })).toEqual({
+			selected: false,
+			reason: 'missing-token',
+		})
 		expect(verifySelectionToken({ token: `${built.token}x`, now: testNow, signingKey })).toEqual({
 			selected: false,
 			reason: 'invalid-token',
@@ -240,7 +247,10 @@ if (import.meta.vitest) {
 	describe('Selection Cookie', () => {
 		it('builds a browser-readable signed Workspace and Portfolio Selection Cookie', testBuildsSelectionCookie)
 		it('verifies a valid Selection Cookie token', testVerifiesSelectionToken)
-		it('rejects missing, malformed, and tampered Selection Cookie tokens', testRejectsMissingInvalidAndTamperedSelectionTokens)
+		it(
+			'rejects missing, malformed, and tampered Selection Cookie tokens',
+			testRejectsMissingInvalidAndTamperedSelectionTokens,
+		)
 		it('rejects expired Selection Cookie tokens', testRejectsExpiredSelectionTokens)
 		it('builds delete metadata for clearing the Selection Cookie', testBuildsDeleteSelectionCookie)
 	})

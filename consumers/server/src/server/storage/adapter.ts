@@ -17,7 +17,9 @@ export type ServerStorageAdapter = OrmAdapter &
 		>
 	>
 
-export type ServerStorageConfigResolver<A extends ServerStorageAdapter = ServerStorageAdapter> = (name: string) => InferAdapterConfig<A>
+export type ServerStorageConfigResolver<A extends ServerStorageAdapter = ServerStorageAdapter> = (
+	name: string,
+) => InferAdapterConfig<A>
 
 export type ServerStorageBackend<A extends ServerStorageAdapter = ServerStorageAdapter> = {
 	adapter: A
@@ -28,4 +30,6 @@ export type ServerStorageAdapterFactoryInput = {
 	dataDir: string
 }
 
-export type ServerStorageAdapterFactory = (input: ServerStorageAdapterFactoryInput) => ServerStorageBackend | Promise<ServerStorageBackend>
+export type ServerStorageAdapterFactory = (
+	input: ServerStorageAdapterFactoryInput,
+) => ServerStorageBackend | Promise<ServerStorageBackend>

@@ -21,8 +21,11 @@ type AxiosRouteTransport = {
 
 type RouteMethod<Contract extends RouteContract> = keyof Contract & string
 type RoutePath<Contract extends RouteContract, Method extends RouteMethod<Contract>> = keyof Contract[Method] & string
-type RouteBody<Contract extends RouteContract, Method extends RouteMethod<Contract>, Path extends RoutePath<Contract, Method>> =
-	RouteOutput<Contract, Method, Path> extends { body: infer Body } ? Body : never
+type RouteBody<
+	Contract extends RouteContract,
+	Method extends RouteMethod<Contract>,
+	Path extends RoutePath<Contract, Method>,
+> = RouteOutput<Contract, Method, Path> extends { body: infer Body } ? Body : never
 
 type IsExactly<A, B> =
 	(<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
@@ -43,8 +46,12 @@ type BodyInput<Input> = 'body' extends keyof Input
 		: { body: Input['body'] }
 	: EmptyRouteInput
 
-type ParamsInput<Input> = 'params' extends keyof Input ? OptionalWhenDefault<'params', Input['params'], DefaultParams> : EmptyRouteInput
-type QueryInput<Input> = 'query' extends keyof Input ? OptionalWhenDefault<'query', Input['query'], DefaultQuery> : EmptyRouteInput
+type ParamsInput<Input> = 'params' extends keyof Input
+	? OptionalWhenDefault<'params', Input['params'], DefaultParams>
+	: EmptyRouteInput
+type QueryInput<Input> = 'query' extends keyof Input
+	? OptionalWhenDefault<'query', Input['query'], DefaultQuery>
+	: EmptyRouteInput
 type HeadersInput<Input> = 'headers' extends keyof Input
 	? OptionalWhenDefault<'headers', Input['headers'], DefaultHeaders>
 	: EmptyRouteInput
@@ -58,7 +65,11 @@ type ClientRouteInput<
 	QueryInput<RouteInput<Contract, Method, Path>> &
 	HeadersInput<RouteInput<Contract, Method, Path>>
 
-type ClientRouteInputArgs<Contract extends RouteContract, Method extends RouteMethod<Contract>, Path extends RoutePath<Contract, Method>> =
+type ClientRouteInputArgs<
+	Contract extends RouteContract,
+	Method extends RouteMethod<Contract>,
+	Path extends RoutePath<Contract, Method>,
+> =
 	EmptyRouteInput extends ClientRouteInput<Contract, Method, Path>
 		? [input?: ClientRouteInput<Contract, Method, Path>]
 		: [input: ClientRouteInput<Contract, Method, Path>]
@@ -67,7 +78,9 @@ const apiPathPrefix = '/api'
 const noContentStatusCode = 204
 const routeParamPrimitiveTypes = new Set(['string', 'number', 'boolean', 'bigint'])
 
-export function createRouteContractAxiosClient<Contract extends RouteContract = ServerRouteContract>(client: AxiosRouteTransport) {
+export function createRouteContractAxiosClient<Contract extends RouteContract = ServerRouteContract>(
+	client: AxiosRouteTransport,
+) {
 	return {
 		async request<Method extends RouteMethod<Contract>, Path extends RoutePath<Contract, Method>>(
 			method: Method,
@@ -93,7 +106,8 @@ export function createRouteContractAxiosClient<Contract extends RouteContract = 
 
 function toAxiosPath(path: string): string {
 	if (path === apiPathPrefix) return '/'
-	if (!path.startsWith(`${apiPathPrefix}/`)) throw new Error(`Server API contract path must start with ${apiPathPrefix}: ${path}`)
+	if (!path.startsWith(`${apiPathPrefix}/`))
+		throw new Error(`Server API contract path must start with ${apiPathPrefix}: ${path}`)
 	return path.slice(apiPathPrefix.length)
 }
 
@@ -106,7 +120,8 @@ function applyPathParams(path: string, params: unknown): string {
 }
 
 function routeParamToString(value: unknown, key: string, path: string): string {
-	if (!isRouteParamPrimitive(value)) throw new Error(`Route param "${key}" for ${path} must be a string, number, boolean, or bigint`)
+	if (!isRouteParamPrimitive(value))
+		throw new Error(`Route param "${key}" for ${path} must be a string, number, boolean, or bigint`)
 	return String(value)
 }
 
@@ -150,7 +165,12 @@ if (import.meta.vitest) {
 		}
 		delete: {
 			'/api/projects/:projectId': {
-				input: { params: { projectId: string }; query: DefaultQuery; headers: DefaultHeaders; cookies: DefaultCookies }
+				input: {
+					params: { projectId: string }
+					query: DefaultQuery
+					headers: DefaultHeaders
+					cookies: DefaultCookies
+				}
 				output: {
 					body: undefined
 					headers: Record<never, never>
@@ -171,7 +191,10 @@ if (import.meta.vitest) {
 
 		it('interpolates and encodes path params', () => {
 			expect(
-				applyPathParams('/projects/:projectId/repositories/:repositoryId', { projectId: 'Project A', repositoryId: 'r/1' }),
+				applyPathParams('/projects/:projectId/repositories/:repositoryId', {
+					projectId: 'Project A',
+					repositoryId: 'r/1',
+				}),
 			).toBe('/projects/Project%20A/repositories/r%2F1')
 			expect(() => applyPathParams('/projects/:projectId', {})).toThrow('Missing route param "projectId"')
 		})
@@ -231,9 +254,9 @@ if (import.meta.vitest) {
 					body: { title: 'Build' },
 				}),
 			).toEqualTypeOf<Promise<{ id: string }>>()
-			expectTypeOf(routeClient.request('delete', '/api/projects/:projectId', { params: { projectId: 'project-1' } })).toEqualTypeOf<
-				Promise<undefined>
-			>()
+			expectTypeOf(
+				routeClient.request('delete', '/api/projects/:projectId', { params: { projectId: 'project-1' } }),
+			).toEqualTypeOf<Promise<undefined>>()
 		})
 	})
 }

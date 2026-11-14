@@ -16,7 +16,10 @@ export const find = defineOperation({
 		const read = await storageCall(() => query.find())
 		if (!read.ok) return read
 		if (read.value === null)
-			return { ok: false, error: { type: 'not-found', resource: 'memory-revision' as const, id: input.revisionId } }
+			return {
+				ok: false,
+				error: { type: 'not-found', resource: 'memory-revision' as const, id: input.revisionId },
+			}
 		return stored(memoryRevisionPipe, read.value)
 	},
 })

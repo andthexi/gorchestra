@@ -1,9 +1,9 @@
 import { v, type Pipe, type PipeInput, type PipeOutput } from 'valleyed'
 
-import type { CommandStubError, InvalidInputError, NotImplementedError } from '../errors'
-import type { Result } from './types'
 import { commandContextPipe, type CommandContext } from '../commands/types'
+import type { CommandStubError, InvalidInputError, NotImplementedError } from '../errors'
 import { validateCoreInput } from '../validation'
+import type { Result } from './types'
 
 export const buildCommandHandler =
 	<T extends Pipe<unknown, unknown>, TValue, TError>(

@@ -12,16 +12,15 @@ import type {
 import type { Result } from '../../types'
 
 export type WorkStateDerivationError =
-	| InvalidCoreServiceOutputError
-	| ResourceNotFoundError
-	| StorageOperationFailedError
-	| InvariantViolationError
+	InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError | InvariantViolationError
 
 export type WorkStateResult<T> = Result<T, WorkStateDerivationError>
 export type MaybeStateResult<T> = WorkStateResult<T | null>
 export type MaybeStateStep<T> = () => MaybeStateResult<T> | Promise<MaybeStateResult<T>>
 
-export type ActionOfType<TType extends ActionResult['type']> = Action & { result: Extract<ActionResult, { type: TType }> }
+export type ActionOfType<TType extends ActionResult['type']> = Action & {
+	result: Extract<ActionResult, { type: TType }>
+}
 export type SliceDeliveryValidationAction = ActionOfType<'validate-slice-delivery-artifact'>
 export type DeliveryDependencyLink = Link & {
 	def: Extract<Link['def'], { type: 'depends-on'; from: { type: 'delivery' }; to: { type: 'delivery' } }>

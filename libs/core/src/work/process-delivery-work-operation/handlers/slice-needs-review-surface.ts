@@ -1,14 +1,17 @@
-import { actionRecord, externalOperationEvidence } from './result'
 import type { Action } from '../../../domain/action'
 import type { ReviewSurface } from '../../../domain/review-surface'
 import type { Slice, SliceWorkState } from '../../../domain/slice'
 import type { InvariantViolationError } from '../../../errors'
-import type { SourceControlCreateReviewSurfaceInput, SourceControlReviewSurfaceCreation } from '../../../utils/providers/source-control'
+import type {
+	SourceControlCreateReviewSurfaceInput,
+	SourceControlReviewSurfaceCreation,
+} from '../../../utils/providers/source-control'
 import type { CoreRuntime } from '../../../utils/runtime'
 import { nextId, runtimeRecord } from '../../../utils/runtime-values'
 import { createRecord } from '../../../utils/storage/helpers'
 import type { Result as CoreResult } from '../../../utils/types'
 import type { ResolvedDeliveryHandlerContext, DeliveryWorkHandlerResult } from '../../delivery-work/types'
+import { actionRecord, externalOperationEvidence } from './result'
 
 type SliceNeedsReviewSurfaceState = Extract<SliceWorkState, { type: 'needs-review-surface' }>
 
@@ -57,7 +60,10 @@ function sliceReviewSurfaceInput(
 	if (deliveryArtifact === null) {
 		return {
 			ok: false,
-			error: { type: 'invariant-violation', message: 'Slice Review Surface creation requires a Delivery Artifact.' },
+			error: {
+				type: 'invariant-violation',
+				message: 'Slice Review Surface creation requires a Delivery Artifact.',
+			},
 		}
 	}
 
@@ -65,7 +71,10 @@ function sliceReviewSurfaceInput(
 	if (storedSlice?.artifact?.id !== state.sliceArtifactId) {
 		return {
 			ok: false,
-			error: { type: 'invariant-violation', message: 'Slice Review Surface creation requires the claimed Slice Artifact.' },
+			error: {
+				type: 'invariant-violation',
+				message: 'Slice Review Surface creation requires the claimed Slice Artifact.',
+			},
 		}
 	}
 
@@ -212,7 +221,11 @@ if (import.meta.vitest) {
 			expect(result).toEqual({ ok: true, value: { processedCount: 1, failures: [] } })
 			expect(context.tx.reviewSurfaces.records.get('01k00000000000000000010001')).toEqual({
 				id: '01k00000000000000000010001',
-				scope: { type: 'slice', sliceId: '01k00000000000000000000042', sliceArtifactId: '01k00000000000000000000045' },
+				scope: {
+					type: 'slice',
+					sliceId: '01k00000000000000000000042',
+					sliceArtifactId: '01k00000000000000000000045',
+				},
 				config: {
 					provider: 'github',
 					pullRequestNumber: 12,

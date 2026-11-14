@@ -17,7 +17,10 @@ export function nextTurnClaim(events: AgentRunEvent[]): TurnReasonClaim | null {
 		.find(
 			(event): event is TurnStartedEvent =>
 				event.body.type === 'turn-started' &&
-				!events.some((candidate) => candidate.body.type === 'turn-ended' && candidate.body.turnStartedEventId === event.id),
+				!events.some(
+					(candidate) =>
+						candidate.body.type === 'turn-ended' && candidate.body.turnStartedEventId === event.id,
+				),
 		)
 	if (openTurn !== undefined) {
 		return { reason: openTurn.body.reason, contextThroughEventId, turnStartedEvent: openTurn }
@@ -48,7 +51,10 @@ function hasBlockingOperatorInterrupt(events: AgentRunEvent[]): boolean {
 function unprocessedInputEventIds(events: AgentRunEvent[]): Id[] {
 	const latestTurnStarted = latestEventId(events, (event) => event.body.type === 'turn-started')
 	return events
-		.filter((event) => (latestTurnStarted === null || event.id > latestTurnStarted) && event.body.type === 'input-message')
+		.filter(
+			(event) =>
+				(latestTurnStarted === null || event.id > latestTurnStarted) && event.body.type === 'input-message',
+		)
 		.map((event) => event.id)
 }
 

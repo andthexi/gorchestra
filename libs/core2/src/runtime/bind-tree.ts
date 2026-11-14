@@ -38,7 +38,8 @@ export function bindTree<T extends OperationGroup['children']>(
 	// The mapped keys and leaves come from these actual entries, not a facade stub.
 	return Object.fromEntries(
 		Object.entries(tree).map(([key, node]) => {
-			if ((node.children !== undefined) === (typeof node.handler === 'function')) throw new Error('Invalid operation node')
+			if ((node.children !== undefined) === (typeof node.handler === 'function'))
+				throw new Error('Invalid operation node')
 			return [
 				key,
 				node.children === undefined

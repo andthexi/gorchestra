@@ -1,8 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 
-import type { DispatchAttemptController } from './fence'
 import type { CoreTransaction } from '../utils/transactions'
 import type { Result } from '../utils/types'
+import type { DispatchAttemptController } from './fence'
 
 interface DispatchAttemptContext {
 	attempt: DispatchAttemptController
@@ -10,7 +10,10 @@ interface DispatchAttemptContext {
 }
 
 const dispatchAttemptContext = new AsyncLocalStorage<DispatchAttemptContext>()
-const terminalFinalizers = new WeakMap<DispatchAttemptController, Array<(tx: CoreTransaction) => Promise<Result<void, unknown>>>>()
+const terminalFinalizers = new WeakMap<
+	DispatchAttemptController,
+	Array<(tx: CoreTransaction) => Promise<Result<void, unknown>>>
+>()
 
 export function runWithDispatchAttempt<T>(attempt: DispatchAttemptController, operation: () => Promise<T>): Promise<T> {
 	return dispatchAttemptContext.run({ attempt, insideFencedWrite: false }, operation)
@@ -23,7 +26,9 @@ export function runInsideDispatchFencedWrite<T>(operation: () => Promise<T>): Pr
 		: dispatchAttemptContext.run({ attempt: current.attempt, insideFencedWrite: true }, operation)
 }
 
-export function registerDispatchTerminalFinalizer(finalizer: (tx: CoreTransaction) => Promise<Result<void, unknown>>): boolean {
+export function registerDispatchTerminalFinalizer(
+	finalizer: (tx: CoreTransaction) => Promise<Result<void, unknown>>,
+): boolean {
 	const current = dispatchAttemptContext.getStore()
 	if (current === undefined) return false
 	const registered = terminalFinalizers.get(current.attempt) ?? []

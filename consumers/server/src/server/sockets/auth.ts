@@ -59,7 +59,9 @@ class SelectedPortfolioSocketAuthMethod extends BaseRequestAuthMethod<SelectedPo
 	}
 }
 
-export function createSelectedPortfolioSocketAuthMethod(context: SelectedPortfolioSocketAuthContext): BaseRequestAuthMethod<AuthUser> {
+export function createSelectedPortfolioSocketAuthMethod(
+	context: SelectedPortfolioSocketAuthContext,
+): BaseRequestAuthMethod<AuthUser> {
 	return new SelectedPortfolioSocketAuthMethod(context)
 }
 
@@ -77,7 +79,8 @@ if (import.meta.vitest) {
 	const now = new Date('2026-07-21T22:45:00.000Z')
 	const sessionSigningKey = 'socket-auth-session-key'
 	const selectionSigningKey = 'socket-auth-selection-key'
-	const { cleanupTempServerStorage, createTempServerDataDir } = createTempServerStorageTestHarness('gorchestra-socket-auth-')
+	const { cleanupTempServerStorage, createTempServerDataDir } =
+		createTempServerStorageTestHarness('gorchestra-socket-auth-')
 
 	afterEach(cleanupTempServerStorage)
 
@@ -105,9 +108,9 @@ if (import.meta.vitest) {
 			try {
 				const method = createSelectedPortfolioSocketAuthMethod(fixture.context)
 
-				await expect(method.parse({ cookie: `${sessionCookieName}=${fixture.session.token}` })).rejects.toBeInstanceOf(
-					NotAuthenticatedError,
-				)
+				await expect(
+					method.parse({ cookie: `${sessionCookieName}=${fixture.session.token}` }),
+				).rejects.toBeInstanceOf(NotAuthenticatedError)
 			} finally {
 				await fixture.serverStorage.close()
 			}
@@ -118,7 +121,12 @@ if (import.meta.vitest) {
 		const serverStorage = await openServerStorage({ dataDir: await createTempServerDataDir() })
 		const serverCache = createTestServerCache()
 		const user = await createUser({ serverStorage, now })
-		const workspace = await createWorkspaceForUser({ serverStorage, userId: user.id, displayName: 'Workspace', now })
+		const workspace = await createWorkspaceForUser({
+			serverStorage,
+			userId: user.id,
+			displayName: 'Workspace',
+			now,
+		})
 		const portfolio = await createPortfolioRegistryEntry({
 			serverStorage,
 			workspaceId: workspace.workspace.id,

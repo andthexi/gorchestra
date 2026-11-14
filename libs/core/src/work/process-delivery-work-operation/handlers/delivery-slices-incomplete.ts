@@ -1,11 +1,12 @@
-import { noEligibleWork } from './result'
-import { handleSliceWorkState } from './slice'
-import { handleSliceNeedsArtifactCreation } from './slice-needs-artifact-creation'
-import { handleSliceNeedsReviewSurface } from './slice-needs-review-surface'
 import type { Id } from '../../../domain/commons'
 import type { Slice, SliceWorkState } from '../../../domain/slice'
 import type { InvalidInputError } from '../../../errors'
-import { buildDeliveryContext, getDeliveryState, getSliceState, resolveDeliveryWork } from '../../../utils/delivery-context'
+import {
+	buildDeliveryContext,
+	getDeliveryState,
+	getSliceState,
+	resolveDeliveryWork,
+} from '../../../utils/delivery-context'
 import type { CoreRuntime } from '../../../utils/runtime'
 import type { Result as CoreResult } from '../../../utils/types'
 import type {
@@ -15,6 +16,10 @@ import type {
 	Result,
 	DeliveryWorkHandlerResult,
 } from '../../delivery-work/types'
+import { noEligibleWork } from './result'
+import { handleSliceWorkState } from './slice'
+import { handleSliceNeedsArtifactCreation } from './slice-needs-artifact-creation'
+import { handleSliceNeedsReviewSurface } from './slice-needs-review-surface'
 
 interface SliceStateCandidate {
 	slice: Slice
@@ -32,7 +37,14 @@ interface SliceWorkSelection {
 
 export type ActionableSliceWorkState = Extract<
 	SliceWorkState,
-	{ type: 'needs-delivery-validation' | 'needs-artifact-validation' | 'needs-review-surface' | 'needs-artifact-creation' | 'executable' }
+	{
+		type:
+			| 'needs-delivery-validation'
+			| 'needs-artifact-validation'
+			| 'needs-review-surface'
+			| 'needs-artifact-creation'
+			| 'executable'
+	}
 >
 
 type SliceActionPriority = 0 | 1 | 2 | 3 | 4
@@ -118,10 +130,14 @@ function actionableSliceCandidates(
 
 		const actionableState = state.value as ActionableSliceWorkState
 		const key = sliceOperationKey(deliverySlice.slice.id, actionableState)
-		if (!claimedKeys.has(key)) candidates.push({ slice: deliverySlice.slice, state: actionableState, order, priority, key })
+		if (!claimedKeys.has(key))
+			candidates.push({ slice: deliverySlice.slice, state: actionableState, order, priority, key })
 	}
 
-	return { ok: true, value: candidates.sort((left, right) => left.priority - right.priority || left.order - right.order) }
+	return {
+		ok: true,
+		value: candidates.sort((left, right) => left.priority - right.priority || left.order - right.order),
+	}
 }
 
 function sliceActionPriority(state: SliceWorkState): SliceActionPriority | null {
@@ -172,7 +188,10 @@ function sliceOperationKey(sliceId: Id, state: ActionableSliceWorkState): string
 	return `${sliceId}:${state.type}:${detail}`
 }
 
-async function processSliceSelection(pool: SliceWorkerPool, selection: SliceWorkSelection): Promise<DeliveryWorkHandlerResult> {
+async function processSliceSelection(
+	pool: SliceWorkerPool,
+	selection: SliceWorkSelection,
+): Promise<DeliveryWorkHandlerResult> {
 	const context = {
 		deliveryContext: selection.deliveryContext,
 		workResolution: pool.workResolution,
@@ -208,7 +227,9 @@ function combineSliceWorkerResults(results: DeliveryWorkHandlerResult[]): Delive
 	const successful = results.flatMap((result) => (result.ok ? [result.value] : []))
 	const processedCount = successful.reduce((total, result) => total + result.processedCount, 0)
 	const failures = successful.flatMap((result) => result.failures)
-	return processedCount === 0 && failures.length === 0 ? noEligibleWork() : { ok: true, value: { processedCount, failures } }
+	return processedCount === 0 && failures.length === 0
+		? noEligibleWork()
+		: { ok: true, value: { processedCount, failures } }
 }
 
 if (import.meta.vitest) {
@@ -239,7 +260,10 @@ if (import.meta.vitest) {
 			seedSliceArtifact(options.tx, '01k00000000000000000000043')
 			seedSliceArtifact(options.tx, '01k00000000000000000000044')
 
-			const result = await handleDeliverySlicesIncomplete(createTestCoreRuntime(options), await handlerContext(options))
+			const result = await handleDeliverySlicesIncomplete(
+				createTestCoreRuntime(options),
+				await handlerContext(options),
+			)
 
 			expect(result).toEqual({ ok: true, value: { processedCount: 3, failures: [] } })
 			expect([...options.tx.agentRuns.records.values()].map((run) => run.purpose)).toEqual([
@@ -276,7 +300,9 @@ if (import.meta.vitest) {
 			seedPromotion(options.tx, '01k00000000000000000101001')
 			seedCompletedSliceExecution(options.tx, '01k00000000000000000101002')
 
-			expect(await handleDeliverySlicesIncomplete(createArtifactRuntime(options), await handlerContext(options))).toEqual({
+			expect(
+				await handleDeliverySlicesIncomplete(createArtifactRuntime(options), await handlerContext(options)),
+			).toEqual({
 				ok: true,
 				value: { processedCount: 6, failures: [] },
 			})
@@ -286,13 +312,17 @@ if (import.meta.vitest) {
 					.filter((type) => type !== 'promote-slice-artifact')
 					.slice(0, 3),
 			).toEqual(['validate-slice-delivery-artifact', 'validate-slice-artifact', 'create-slice-artifact'])
-			expect([...options.tx.agentRuns.records.values()].map(executionSliceId)).toContain('01k00000000000000000100044')
+			expect([...options.tx.agentRuns.records.values()].map(executionSliceId)).toContain(
+				'01k00000000000000000100044',
+			)
 		})
 
 		it('returns no-eligible-work when no Slice is actionable', async () => {
 			const options = executableDeliveryFixture()
 
-			expect(await handleDeliverySlicesIncomplete(createTestCoreRuntime(options), await handlerContext(options))).toEqual({
+			expect(
+				await handleDeliverySlicesIncomplete(createTestCoreRuntime(options), await handlerContext(options)),
+			).toEqual({
 				ok: true,
 				value: { processedCount: 0, failures: [] },
 			})
@@ -300,7 +330,8 @@ if (import.meta.vitest) {
 	})
 
 	function executionSliceId(run: { purpose: { type: string; sliceId?: string } }) {
-		if (run.purpose.type !== 'execution' || run.purpose.sliceId === undefined) throw new Error('Expected execution Agent Run.')
+		if (run.purpose.type !== 'execution' || run.purpose.sliceId === undefined)
+			throw new Error('Expected execution Agent Run.')
 		return run.purpose.sliceId
 	}
 
@@ -311,11 +342,14 @@ if (import.meta.vitest) {
 		return createTestCoreRuntime(options, { providers })
 	}
 
-	async function handlerContext(options: ReturnType<typeof executableDeliveryFixture>): Promise<ResolvedDeliveryHandlerContext> {
+	async function handlerContext(
+		options: ReturnType<typeof executableDeliveryFixture>,
+	): Promise<ResolvedDeliveryHandlerContext> {
 		const deliveryContext = await buildDeliveryContext(options.tx, '01k00000000000000000000008')
 		if (!deliveryContext.ok) throw new Error('Expected Delivery Context.')
 		const workResolution = await resolveDeliveryWork(options.tx, deliveryContext.value)
-		if (!workResolution.ok || workResolution.value.type !== 'passed') throw new Error('Expected Delivery Work Resolution.')
+		if (!workResolution.ok || workResolution.value.type !== 'passed')
+			throw new Error('Expected Delivery Work Resolution.')
 
 		return {
 			services: options,
@@ -393,7 +427,12 @@ if (import.meta.vitest) {
 		tx.agentRuns.records.set(id, {
 			id,
 			agent: { type: 'model' },
-			purpose: { type: 'execution', deliveryId: '01k00000000000000000000008', sliceId, mode: { type: 'initial' } },
+			purpose: {
+				type: 'execution',
+				deliveryId: '01k00000000000000000000008',
+				sliceId,
+				mode: { type: 'initial' },
+			},
 			profile: {
 				agentRunProfileId: '01k00000000000000000000006',
 				name: 'Agent Run Profile',

@@ -60,8 +60,16 @@ const defaultModelCapabilities: ModelCapabilities = {
 	thinking: null,
 }
 
-export class ModelCreationFormDraft extends FormDraft<ModelCreationFormModel, ModelCreationFormModel, ModelCreationFormFields> {
-	protected readonly rules = { name: modelNamePipe, providerModelId: providerModelIdPipe, providerOptionsText: providerOptionsTextPipe }
+export class ModelCreationFormDraft extends FormDraft<
+	ModelCreationFormModel,
+	ModelCreationFormModel,
+	ModelCreationFormFields
+> {
+	protected readonly rules = {
+		name: modelNamePipe,
+		providerModelId: providerModelIdPipe,
+		providerOptionsText: providerOptionsTextPipe,
+	}
 
 	constructor() {
 		super({ name: '', providerModelId: '', providerOptionsText: '' })
@@ -106,7 +114,9 @@ export class ModelThinkingFormDraft extends FormDraft<
 	}
 
 	protected model = (): ModelThinkingCapability | null => {
-		const supportedLevels = positiveThinkingLevels.filter((level) => this.#configurableLevels.has(level) && this[level])
+		const supportedLevels = positiveThinkingLevels.filter(
+			(level) => this.#configurableLevels.has(level) && this[level],
+		)
 		return supportedLevels.length === 0 ? null : { supportedLevels }
 	}
 
@@ -118,7 +128,11 @@ export class ModelThinkingFormDraft extends FormDraft<
 	}
 }
 
-export class ModelCapabilitiesFormDraft extends FormDraft<ModelCapabilities, ModelCapabilities, ModelCapabilitiesFormFields> {
+export class ModelCapabilitiesFormDraft extends FormDraft<
+	ModelCapabilities,
+	ModelCapabilities,
+	ModelCapabilitiesFormFields
+> {
 	protected readonly rules = {
 		inputs: modelInputsPipe,
 		contextWindowTokens: positiveIntegerPipe,
@@ -149,7 +163,11 @@ export class ModelCapabilitiesFormDraft extends FormDraft<ModelCapabilities, Mod
 	}
 }
 
-export class ModelPricingFormDraft extends FormDraft<ModelTokenPricing | null, ModelTokenPricing | null, ModelPricingFormFields> {
+export class ModelPricingFormDraft extends FormDraft<
+	ModelTokenPricing | null,
+	ModelTokenPricing | null,
+	ModelPricingFormFields
+> {
 	protected readonly rules = {
 		enabled: v.boolean(),
 		inputUsdPerMillion: nonNegativeNumberPipe,
@@ -201,7 +219,12 @@ export class ModelUpdateFormDraft extends FormDraft<ModelUpdateFormModel, ModelU
 	}
 
 	constructor() {
-		super({ name: '', providerOptionsText: '', capabilities: new ModelCapabilitiesFormDraft(), pricing: new ModelPricingFormDraft() })
+		super({
+			name: '',
+			providerOptionsText: '',
+			capabilities: new ModelCapabilitiesFormDraft(),
+			pricing: new ModelPricingFormDraft(),
+		})
 	}
 
 	setConfigurableThinkingLevels(levels: PositiveModelThinkingLevel[]): void {

@@ -1,13 +1,27 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import { idPipe, nonEmptyTrimmedStringPipe, nonNegativeIntegerPipe, positiveIntegerPipe, runtimeRecordPipe } from './commons'
+import {
+	idPipe,
+	nonEmptyTrimmedStringPipe,
+	nonNegativeIntegerPipe,
+	positiveIntegerPipe,
+	runtimeRecordPipe,
+} from './commons'
 import { envNamePipe } from './secret'
 
 export const sandboxPathPipe = nonEmptyTrimmedStringPipe
 	.pipe(
-		v.custom<string>((value) => value === '/workspace' || value.startsWith('/workspace/'), 'Expected a sandbox path under /workspace.'),
+		v.custom<string>(
+			(value) => value === '/workspace' || value.startsWith('/workspace/'),
+			'Expected a sandbox path under /workspace.',
+		),
 	)
-	.pipe(v.custom<string>((value) => !value.split('/').includes('..'), 'Sandbox paths must not contain parent traversal.'))
+	.pipe(
+		v.custom<string>(
+			(value) => !value.split('/').includes('..'),
+			'Sandbox paths must not contain parent traversal.',
+		),
+	)
 export type SandboxPath = PipeOutput<typeof sandboxPathPipe>
 
 export const commandSecretEnvPipe = v.record(envNamePipe, idPipe)
@@ -139,7 +153,9 @@ export function runtimeRequirementKey(requirement: AgentRunRuntimeRequirement): 
 	}
 }
 
-export function firstDuplicateRuntimeRequirement(requirements: AgentRunRuntimeRequirement[]): AgentRunRuntimeRequirement | null {
+export function firstDuplicateRuntimeRequirement(
+	requirements: AgentRunRuntimeRequirement[],
+): AgentRunRuntimeRequirement | null {
 	const keys = new Set<string>()
 	for (const requirement of requirements) {
 		const key = runtimeRequirementKey(requirement)
@@ -198,7 +214,11 @@ if (import.meta.vitest) {
 				v.assert(agentRunRuntimeRequirementPipe, {
 					type: 'run-command',
 					label: 'Install dependencies',
-					command: { executable: 'pnpm', args: ['install', '--frozen-lockfile'], cwd: '/workspace/repos/repository-1' },
+					command: {
+						executable: 'pnpm',
+						args: ['install', '--frozen-lockfile'],
+						cwd: '/workspace/repos/repository-1',
+					},
 					root: false,
 					commandSecretEnv: { NPM_TOKEN: '01k00000000000000000000040' },
 				}),
@@ -218,14 +238,24 @@ if (import.meta.vitest) {
 		})
 
 		it('finds exact duplicate requirements without rejecting repeated env names with different Secrets', () => {
-			const first = { type: 'environment-secret' as const, envName: 'NPM_TOKEN', secretId: '01k00000000000000000000040' }
-			const second = { type: 'environment-secret' as const, envName: 'NPM_TOKEN', secretId: '01k00000000000000000000041' }
+			const first = {
+				type: 'environment-secret' as const,
+				envName: 'NPM_TOKEN',
+				secretId: '01k00000000000000000000040',
+			}
+			const second = {
+				type: 'environment-secret' as const,
+				envName: 'NPM_TOKEN',
+				secretId: '01k00000000000000000000041',
+			}
 			expect(firstDuplicateRuntimeRequirement([first, second])).toBeNull()
 			expect(firstDuplicateRuntimeRequirement([first, second, first])).toBe(first)
 		})
 
 		it('accepts sandbox file API preparation failure targets', () => {
-			expect(v.assert(agentRunPreparationFailureTargetPipe, { type: 'sandbox-file-api' })).toEqual({ type: 'sandbox-file-api' })
+			expect(v.assert(agentRunPreparationFailureTargetPipe, { type: 'sandbox-file-api' })).toEqual({
+				type: 'sandbox-file-api',
+			})
 		})
 
 		it('treats root and default-user run commands as distinct requirements', () => {

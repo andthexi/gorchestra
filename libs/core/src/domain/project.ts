@@ -1,9 +1,9 @@
 import { v, type PipeOutput } from 'valleyed'
 
+import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 import { auditStampPipe, idPipe, nonEmptyTrimmedStringPipe } from './commons'
 import { projectConfigRecordPipe, type ProjectConfig, type ProjectConfigRecord } from './config'
 import { repositoryPipe } from './repository'
-import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 
 export const sourceControlProjectSourcePipe = v.object({ type: v.eq('source-control') })
 export type SourceControlProjectSource = PipeOutput<typeof sourceControlProjectSourcePipe>
@@ -22,7 +22,10 @@ export const projectSchema = coreSchema('projects')
 export const projectPipe = schemaToPipe(projectSchema)
 export type Project = PipeOutput<typeof projectPipe>
 
-export const sourceControlProjectListSourcePipe = v.object({ type: v.eq('source-control'), repositories: v.array(repositoryPipe) })
+export const sourceControlProjectListSourcePipe = v.object({
+	type: v.eq('source-control'),
+	repositories: v.array(repositoryPipe),
+})
 export type SourceControlProjectListSource = PipeOutput<typeof sourceControlProjectListSourcePipe>
 
 export const listedProjectPipe = v.object({

@@ -51,10 +51,16 @@ export type AccessibleWorkspace = Workspace & {
 	portfolios: PortfolioRegistryEntry[]
 }
 
-export type WorkspaceOwnerAccessFailureReason = 'user-not-found' | 'workspace-not-found' | 'not-active-member' | 'not-active-owner'
+export type WorkspaceOwnerAccessFailureReason =
+	'user-not-found' | 'workspace-not-found' | 'not-active-member' | 'not-active-owner'
 
 export type WorkspaceOwnerAccessResult =
-	| { authorized: true; workspace: Workspace; workspaceMember: WorkspaceMember; workspaceOwnerRole: WorkspaceOwnerRole }
+	| {
+			authorized: true
+			workspace: Workspace
+			workspaceMember: WorkspaceMember
+			workspaceOwnerRole: WorkspaceOwnerRole
+	  }
 	| { authorized: false; reason: WorkspaceOwnerAccessFailureReason }
 
 export async function createWorkspace(input: CreateWorkspaceInput): Promise<Workspace> {
@@ -79,7 +85,12 @@ export async function createWorkspaceMember(input: CreateWorkspaceMemberInput): 
 }
 
 export async function assignWorkspaceOwnerRole(input: AssignWorkspaceOwnerRoleInput): Promise<WorkspaceOwnerRole> {
-	const workspaceMember = await input.serverStorage.repo.on(workspaceMemberSchema).one().id(input.workspaceMemberId).required().find()
+	const workspaceMember = await input.serverStorage.repo
+		.on(workspaceMemberSchema)
+		.one()
+		.id(input.workspaceMemberId)
+		.required()
+		.find()
 	assertActiveWorkspaceMember(workspaceMember)
 	const existingActiveRole = await findActiveWorkspaceOwnerRole(input.serverStorage, workspaceMember.id)
 	if (existingActiveRole) return existingActiveRole
@@ -94,7 +105,9 @@ export async function assignWorkspaceOwnerRole(input: AssignWorkspaceOwnerRoleIn
 		})
 }
 
-export async function createPortfolioRegistryEntry(input: CreatePortfolioRegistryEntryInput): Promise<PortfolioRegistryEntry> {
+export async function createPortfolioRegistryEntry(
+	input: CreatePortfolioRegistryEntryInput,
+): Promise<PortfolioRegistryEntry> {
 	await assertWorkspaceExists(input.serverStorage, input.workspaceId)
 	return input.serverStorage.repo
 		.on(portfolioRegistryEntrySchema)
@@ -118,7 +131,9 @@ export async function findPortfolioRegistryEntry(input: {
 		.find()
 }
 
-export async function listPortfolioRegistryEntries(input: { serverStorage: ServerStorage }): Promise<PortfolioRegistryEntry[]> {
+export async function listPortfolioRegistryEntries(input: {
+	serverStorage: ServerStorage
+}): Promise<PortfolioRegistryEntry[]> {
 	return input.serverStorage.repo.on(portfolioRegistryEntrySchema).all().orderBy('id', 'asc').find()
 }
 
@@ -180,7 +195,11 @@ async function hydrateAccessibleWorkspaces(
 	)
 
 	return workspaces.map((workspace) => {
-		const member = getRequiredMapValue(workspaceMembersByWorkspaceId, workspace.id, 'Accessible Workspace Member is missing')
+		const member = getRequiredMapValue(
+			workspaceMembersByWorkspaceId,
+			workspace.id,
+			'Accessible Workspace Member is missing',
+		)
 		return {
 			...workspace,
 			member,
@@ -191,11 +210,21 @@ async function hydrateAccessibleWorkspaces(
 }
 
 async function assertUserExists(serverStorage: ServerStorage, userId: string): Promise<ServerUser> {
-	return serverStorage.repo.on(userSchema).one().id(requireIdentifier(userId, 'User id is required')).required().find()
+	return serverStorage.repo
+		.on(userSchema)
+		.one()
+		.id(requireIdentifier(userId, 'User id is required'))
+		.required()
+		.find()
 }
 
 async function assertWorkspaceExists(serverStorage: ServerStorage, workspaceId: string): Promise<Workspace> {
-	return serverStorage.repo.on(workspaceSchema).one().id(requireIdentifier(workspaceId, 'Workspace id is required')).required().find()
+	return serverStorage.repo
+		.on(workspaceSchema)
+		.one()
+		.id(requireIdentifier(workspaceId, 'Workspace id is required'))
+		.required()
+		.find()
 }
 
 async function findUser(serverStorage: ServerStorage, userId: string): Promise<ServerUser | null> {
@@ -203,7 +232,11 @@ async function findUser(serverStorage: ServerStorage, userId: string): Promise<S
 }
 
 async function findWorkspace(serverStorage: ServerStorage, workspaceId: string): Promise<Workspace | null> {
-	return serverStorage.repo.on(workspaceSchema).one().id(requireIdentifier(workspaceId, 'Workspace id is required')).find()
+	return serverStorage.repo
+		.on(workspaceSchema)
+		.one()
+		.id(requireIdentifier(workspaceId, 'Workspace id is required'))
+		.find()
 }
 
 async function findActiveWorkspaceMember(
@@ -216,19 +249,29 @@ async function findActiveWorkspaceMember(
 		.all()
 		.where((query) =>
 			query.and([
-				(clause) => clause.eq(workspaceMemberSchema.fields.userId, requireIdentifier(userId, 'User id is required')),
-				(clause) => clause.eq(workspaceMemberSchema.fields.workspaceId, requireIdentifier(workspaceId, 'Workspace id is required')),
+				(clause) =>
+					clause.eq(workspaceMemberSchema.fields.userId, requireIdentifier(userId, 'User id is required')),
+				(clause) =>
+					clause.eq(
+						workspaceMemberSchema.fields.workspaceId,
+						requireIdentifier(workspaceId, 'Workspace id is required'),
+					),
 			]),
 		)
 		.find()
 	return members.find(isActiveWorkspaceMember) ?? null
 }
 
-async function findActiveWorkspaceMembersForUser(serverStorage: ServerStorage, userId: string): Promise<WorkspaceMember[]> {
+async function findActiveWorkspaceMembersForUser(
+	serverStorage: ServerStorage,
+	userId: string,
+): Promise<WorkspaceMember[]> {
 	const members = await serverStorage.repo
 		.on(workspaceMemberSchema)
 		.all()
-		.where((query) => query.eq(workspaceMemberSchema.fields.userId, requireIdentifier(userId, 'User id is required')))
+		.where((query) =>
+			query.eq(workspaceMemberSchema.fields.userId, requireIdentifier(userId, 'User id is required')),
+		)
 		.find()
 	return members.filter(isActiveWorkspaceMember)
 }
@@ -259,13 +302,17 @@ async function findActiveWorkspaceOwnerRolesByWorkspaceMemberId(
 ): Promise<Map<string, WorkspaceOwnerRole>> {
 	const entries = await Promise.all(
 		workspaceMemberIds.map(
-			async (workspaceMemberId) => [workspaceMemberId, await findActiveWorkspaceOwnerRole(serverStorage, workspaceMemberId)] as const,
+			async (workspaceMemberId) =>
+				[workspaceMemberId, await findActiveWorkspaceOwnerRole(serverStorage, workspaceMemberId)] as const,
 		),
 	)
 	return new Map(entries.filter((entry): entry is readonly [string, WorkspaceOwnerRole] => entry[1] !== null))
 }
 
-async function findActiveWorkspaceOwnerRole(serverStorage: ServerStorage, workspaceMemberId: string): Promise<WorkspaceOwnerRole | null> {
+async function findActiveWorkspaceOwnerRole(
+	serverStorage: ServerStorage,
+	workspaceMemberId: string,
+): Promise<WorkspaceOwnerRole | null> {
 	const roles = await serverStorage.repo
 		.on(workspaceOwnerRoleSchema)
 		.all()
@@ -305,7 +352,9 @@ if (import.meta.vitest) {
 	const { createTempServerStorageTestHarness } = await import('../testing/server-storage')
 	const { createUser } = await import('./identities')
 
-	const { cleanupTempServerStorage, withTempServerStorage } = createTempServerStorageTestHarness('gorchestra-server-workspaces-')
+	const { cleanupTempServerStorage, withTempServerStorage } = createTempServerStorageTestHarness(
+		'gorchestra-server-workspaces-',
+	)
 	const testNow = new Date('2026-06-19T12:00:00.000Z')
 
 	afterEach(cleanupTempServerStorage)
@@ -322,8 +371,17 @@ if (import.meta.vitest) {
 		await withTempServerStorage(async (serverStorage) => {
 			const user = await createTestUser(serverStorage)
 			const workspace = await createWorkspace({ serverStorage, displayName: '  Delivery Ops  ', now: testNow })
-			const member = await createWorkspaceMember({ serverStorage, workspaceId: workspace.id, userId: user.id, now: later(1) })
-			const ownerRole = await assignWorkspaceOwnerRole({ serverStorage, workspaceMemberId: member.id, now: later(2) })
+			const member = await createWorkspaceMember({
+				serverStorage,
+				workspaceId: workspace.id,
+				userId: user.id,
+				now: later(1),
+			})
+			const ownerRole = await assignWorkspaceOwnerRole({
+				serverStorage,
+				workspaceMemberId: member.id,
+				now: later(2),
+			})
 			const portfolio = await createPortfolioRegistryEntry({
 				serverStorage,
 				workspaceId: workspace.id,
@@ -358,10 +416,26 @@ if (import.meta.vitest) {
 		await withTempServerStorage(async (serverStorage) => {
 			const user = await createTestUser(serverStorage)
 			const otherUser = await createUser({ serverStorage, now: later(1) })
-			const firstWorkspace = await createWorkspace({ serverStorage, displayName: 'First Workspace', now: later(2) })
-			const secondWorkspace = await createWorkspace({ serverStorage, displayName: 'Second Workspace', now: later(3) })
-			const emptyWorkspace = await createWorkspace({ serverStorage, displayName: 'Empty Workspace', now: later(4) })
-			const inaccessibleWorkspace = await createWorkspace({ serverStorage, displayName: 'Inaccessible Workspace', now: later(5) })
+			const firstWorkspace = await createWorkspace({
+				serverStorage,
+				displayName: 'First Workspace',
+				now: later(2),
+			})
+			const secondWorkspace = await createWorkspace({
+				serverStorage,
+				displayName: 'Second Workspace',
+				now: later(3),
+			})
+			const emptyWorkspace = await createWorkspace({
+				serverStorage,
+				displayName: 'Empty Workspace',
+				now: later(4),
+			})
+			const inaccessibleWorkspace = await createWorkspace({
+				serverStorage,
+				displayName: 'Inaccessible Workspace',
+				now: later(5),
+			})
 			const firstMember = await createWorkspaceMember({
 				serverStorage,
 				workspaceId: firstWorkspace.id,
@@ -380,8 +454,17 @@ if (import.meta.vitest) {
 				userId: user.id,
 				now: later(8),
 			})
-			await createWorkspaceMember({ serverStorage, workspaceId: inaccessibleWorkspace.id, userId: otherUser.id, now: later(9) })
-			const ownerRole = await assignWorkspaceOwnerRole({ serverStorage, workspaceMemberId: firstMember.id, now: later(10) })
+			await createWorkspaceMember({
+				serverStorage,
+				workspaceId: inaccessibleWorkspace.id,
+				userId: otherUser.id,
+				now: later(9),
+			})
+			const ownerRole = await assignWorkspaceOwnerRole({
+				serverStorage,
+				workspaceMemberId: firstMember.id,
+				now: later(10),
+			})
 			const secondPortfolio = await createPortfolioRegistryEntry({
 				serverStorage,
 				workspaceId: firstWorkspace.id,
@@ -413,9 +496,18 @@ if (import.meta.vitest) {
 
 			const accessible = await listAccessibleWorkspaces({ serverStorage, userId: user.id })
 
-			expect(accessible.map(({ displayName }) => displayName)).toEqual(['Empty Workspace', 'Second Workspace', 'First Workspace'])
+			expect(accessible.map(({ displayName }) => displayName)).toEqual([
+				'Empty Workspace',
+				'Second Workspace',
+				'First Workspace',
+			])
 			expect(accessible.map(({ id }) => id)).toEqual([emptyWorkspace.id, secondWorkspace.id, firstWorkspace.id])
-			expect(accessible[0]).toMatchObject({ ...emptyWorkspace, member: emptyMember, ownerRole: null, portfolios: [] })
+			expect(accessible[0]).toMatchObject({
+				...emptyWorkspace,
+				member: emptyMember,
+				ownerRole: null,
+				portfolios: [],
+			})
 			expect(accessible[1]).toMatchObject({ ...secondWorkspace, member: secondMember, ownerRole: null })
 			expect(accessible[1]?.portfolios).toEqual([thirdPortfolio])
 			expect(accessible[2]).toMatchObject({ ...firstWorkspace, member: firstMember, ownerRole })
@@ -426,9 +518,22 @@ if (import.meta.vitest) {
 	async function testListsEveryPortfolioRegistryEntry(): Promise<void> {
 		await withTempServerStorage(async (serverStorage) => {
 			const user = await createTestUser(serverStorage)
-			const firstWorkspace = await createWorkspace({ serverStorage, displayName: 'First Workspace', now: later(1) })
-			const secondWorkspace = await createWorkspace({ serverStorage, displayName: 'Second Workspace', now: later(2) })
-			await createWorkspaceMember({ serverStorage, workspaceId: firstWorkspace.id, userId: user.id, now: later(3) })
+			const firstWorkspace = await createWorkspace({
+				serverStorage,
+				displayName: 'First Workspace',
+				now: later(1),
+			})
+			const secondWorkspace = await createWorkspace({
+				serverStorage,
+				displayName: 'Second Workspace',
+				now: later(2),
+			})
+			await createWorkspaceMember({
+				serverStorage,
+				workspaceId: firstWorkspace.id,
+				userId: user.id,
+				now: later(3),
+			})
 			const first = await createPortfolioRegistryEntry({
 				serverStorage,
 				workspaceId: firstWorkspace.id,
@@ -452,7 +557,12 @@ if (import.meta.vitest) {
 		await withTempServerStorage(async (serverStorage) => {
 			const user = await createTestUser(serverStorage)
 			const workspace = await createWorkspace({ serverStorage, displayName: 'Empty Workspace', now: testNow })
-			const member = await createWorkspaceMember({ serverStorage, workspaceId: workspace.id, userId: user.id, now: later(1) })
+			const member = await createWorkspaceMember({
+				serverStorage,
+				workspaceId: workspace.id,
+				userId: user.id,
+				now: later(1),
+			})
 
 			const accessible = await listAccessibleWorkspaces({ serverStorage, userId: user.id })
 
@@ -464,7 +574,12 @@ if (import.meta.vitest) {
 		await withTempServerStorage(async (serverStorage) => {
 			const user = await createTestUser(serverStorage)
 			const workspace = await createWorkspace({ serverStorage, displayName: 'Inactive Workspace', now: testNow })
-			const member = await createWorkspaceMember({ serverStorage, workspaceId: workspace.id, userId: user.id, now: later(1) })
+			const member = await createWorkspaceMember({
+				serverStorage,
+				workspaceId: workspace.id,
+				userId: user.id,
+				now: later(1),
+			})
 			await createPortfolioRegistryEntry({
 				serverStorage,
 				workspaceId: workspace.id,
@@ -487,9 +602,18 @@ if (import.meta.vitest) {
 		await withTempServerStorage(async (serverStorage) => {
 			const user = await createTestUser(serverStorage)
 			const workspace = await createWorkspace({ serverStorage, displayName: 'Owner Workspace', now: testNow })
-			const member = await createWorkspaceMember({ serverStorage, workspaceId: workspace.id, userId: user.id, now: later(1) })
+			const member = await createWorkspaceMember({
+				serverStorage,
+				workspaceId: workspace.id,
+				userId: user.id,
+				now: later(1),
+			})
 			const first = await assignWorkspaceOwnerRole({ serverStorage, workspaceMemberId: member.id, now: later(2) })
-			const second = await assignWorkspaceOwnerRole({ serverStorage, workspaceMemberId: member.id, now: later(3) })
+			const second = await assignWorkspaceOwnerRole({
+				serverStorage,
+				workspaceMemberId: member.id,
+				now: later(3),
+			})
 
 			expect(second).toEqual(first)
 		})
@@ -500,11 +624,27 @@ if (import.meta.vitest) {
 			const owner = await createTestUser(serverStorage)
 			const memberUser = await createUser({ serverStorage, now: later(1) })
 			const workspace = await createWorkspace({ serverStorage, displayName: 'Workspace', now: later(2) })
-			const ownerMember = await createWorkspaceMember({ serverStorage, workspaceId: workspace.id, userId: owner.id, now: later(3) })
-			const member = await createWorkspaceMember({ serverStorage, workspaceId: workspace.id, userId: memberUser.id, now: later(4) })
-			const ownerRole = await assignWorkspaceOwnerRole({ serverStorage, workspaceMemberId: ownerMember.id, now: later(5) })
+			const ownerMember = await createWorkspaceMember({
+				serverStorage,
+				workspaceId: workspace.id,
+				userId: owner.id,
+				now: later(3),
+			})
+			const member = await createWorkspaceMember({
+				serverStorage,
+				workspaceId: workspace.id,
+				userId: memberUser.id,
+				now: later(4),
+			})
+			const ownerRole = await assignWorkspaceOwnerRole({
+				serverStorage,
+				workspaceMemberId: ownerMember.id,
+				now: later(5),
+			})
 
-			await expect(validateWorkspaceOwnerAccess({ serverStorage, userId: owner.id, workspaceId: workspace.id })).resolves.toEqual({
+			await expect(
+				validateWorkspaceOwnerAccess({ serverStorage, userId: owner.id, workspaceId: workspace.id }),
+			).resolves.toEqual({
 				authorized: true,
 				workspace,
 				workspaceMember: ownerMember,
@@ -533,9 +673,15 @@ if (import.meta.vitest) {
 		)
 		it('lists accessible Workspaces for an Active Member in Workspace id-desc order', testListsAccessibleWorkspaces)
 		it('lists every Portfolio Registry Entry in deterministic id order', testListsEveryPortfolioRegistryEntry)
-		it('includes Active Member Workspaces without accessible Portfolios', testIncludesEmptyWorkspaceWithoutAccessiblePortfolios)
+		it(
+			'includes Active Member Workspaces without accessible Portfolios',
+			testIncludesEmptyWorkspaceWithoutAccessiblePortfolios,
+		)
 		it('excludes inactive Workspace Members from accessible Workspaces', testExcludesInactiveWorkspaceMembers)
-		it('does not duplicate an active Workspace Owner role assignment', testOwnerRoleAssignmentIsIdempotentWhileActive)
+		it(
+			'does not duplicate an active Workspace Owner role assignment',
+			testOwnerRoleAssignmentIsIdempotentWhileActive,
+		)
 		it('validates target Workspace Owner access', testValidatesWorkspaceOwnerAccess)
 	})
 }

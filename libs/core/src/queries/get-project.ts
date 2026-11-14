@@ -2,19 +2,25 @@ import { v, type PipeOutput } from 'valleyed'
 
 import { idPipe } from '../domain/commons'
 import { listedProjectPipe } from '../domain/project'
-import type { InvalidCoreServiceOutputError, InvalidInputError, ResourceNotFoundError, StorageOperationFailedError } from '../errors'
-import { listedProjectFromProjectAndRepositories } from './list-projects'
+import type {
+	InvalidCoreServiceOutputError,
+	InvalidInputError,
+	ResourceNotFoundError,
+	StorageOperationFailedError,
+} from '../errors'
 import { buildQueryHandler } from '../utils/query-handler'
 import { getRequired, listRecords } from '../utils/storage/helpers'
 import type { CoreTransactions } from '../utils/transactions'
 import type { Result as CoreResult } from '../utils/types'
+import { listedProjectFromProjectAndRepositories } from './list-projects'
 
 export const inputPipe = v.object({ projectId: idPipe })
 export type Input = PipeOutput<typeof inputPipe>
 
 export const resultPipe = listedProjectPipe
 export type Result = PipeOutput<typeof resultPipe>
-export type Error = InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
+export type Error =
+	InvalidInputError | InvalidCoreServiceOutputError | ResourceNotFoundError | StorageOperationFailedError
 export type Operation = (input: Input) => Promise<CoreResult<Result, Error>>
 
 export function createGetProjectQuery(transactions: CoreTransactions): Operation {
@@ -63,7 +69,10 @@ if (import.meta.vitest) {
 				'01k00000000000000000000030',
 				project({ id: '01k00000000000000000000030', title: 'Delivery Ops' }),
 			)
-			options.tx.projects.records.set('01k00000000000000000000031', project({ id: '01k00000000000000000000031', title: 'Other' }))
+			options.tx.projects.records.set(
+				'01k00000000000000000000031',
+				project({ id: '01k00000000000000000000031', title: 'Other' }),
+			)
 			options.tx.repositories.records.set(
 				'01k00000000000000000100026',
 				repository({
@@ -86,7 +95,12 @@ if (import.meta.vitest) {
 			)
 			options.tx.repositories.records.set(
 				'01k00000000000000000100028',
-				repository({ id: '01k00000000000000000100028', projectId: '01k00000000000000000000031', owner: 'Other', name: 'Repo' }),
+				repository({
+					id: '01k00000000000000000100028',
+					projectId: '01k00000000000000000000031',
+					owner: 'Other',
+					name: 'Repo',
+				}),
 			)
 			const query = createGetProjectQuery(options.transactions)
 
@@ -124,7 +138,10 @@ if (import.meta.vitest) {
 
 			const result = await query({ projectId: '01k00000000000000000000030' })
 
-			expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'project', id: '01k00000000000000000000030' } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'project', id: '01k00000000000000000000030' },
+			})
 		})
 	})
 
@@ -147,10 +164,21 @@ if (import.meta.vitest) {
 				},
 				created: { origin: 'imported' as const, at: input.createdAt ?? '2026-06-10T00:00:00.000Z' },
 			}),
-			repository: (input: { id: string; projectId: string; owner: string; name: string; createdAt?: string }) => ({
+			repository: (input: {
+				id: string
+				projectId: string
+				owner: string
+				name: string
+				createdAt?: string
+			}) => ({
 				id: input.id,
 				projectId: input.projectId,
-				config: { provider: 'github' as const, owner: input.owner, name: input.name, secretId: '01k00000000000000000000040' },
+				config: {
+					provider: 'github' as const,
+					owner: input.owner,
+					name: input.name,
+					secretId: '01k00000000000000000000040',
+				},
 				created: { origin: 'imported' as const, at: input.createdAt ?? '2026-06-10T00:00:00.000Z' },
 			}),
 		}

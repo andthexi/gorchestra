@@ -9,7 +9,11 @@ type AgentRunMessageFormFields = {
 
 const messageTextPipe = v.string().pipe(v.custom((value) => value.trim().length > 0, 'Enter a message'))
 
-export class AgentRunMessageFormDraft extends FormDraft<SendAgentRunMessageInput, SendAgentRunMessageInput, AgentRunMessageFormFields> {
+export class AgentRunMessageFormDraft extends FormDraft<
+	SendAgentRunMessageInput,
+	SendAgentRunMessageInput,
+	AgentRunMessageFormFields
+> {
 	protected readonly rules = {
 		text: messageTextPipe,
 	}
@@ -22,7 +26,9 @@ export class AgentRunMessageFormDraft extends FormDraft<SendAgentRunMessageInput
 		this.loadEntity({ parts: [{ type: 'text', text: '', metadata: null }] })
 	}
 
-	protected model = (): SendAgentRunMessageInput => ({ parts: [{ type: 'text', text: this.text.trim(), metadata: null }] })
+	protected model = (): SendAgentRunMessageInput => ({
+		parts: [{ type: 'text', text: this.text.trim(), metadata: null }],
+	})
 
 	protected load = (entity: SendAgentRunMessageInput): void => {
 		this.text = entity.parts.at(0)?.text ?? ''
@@ -38,7 +44,9 @@ if (import.meta.vitest) {
 
 			draft.text = '  Please continue planning.  '
 
-			expect(draft.toModel()).toEqual({ parts: [{ type: 'text', text: 'Please continue planning.', metadata: null }] })
+			expect(draft.toModel()).toEqual({
+				parts: [{ type: 'text', text: 'Please continue planning.', metadata: null }],
+			})
 		})
 
 		it('rejects whitespace-only message text', () => {

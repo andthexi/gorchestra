@@ -92,7 +92,10 @@ if (import.meta.vitest) {
 				GORCHESTRA_CORE_DISPATCH_PROCESSOR_CONFIG: JSON.stringify({ idlePollMaxMs: 12_000 }),
 			})
 
-			expect(config.portfolioCoreSupervision).toMatchObject({ maxConcurrentStarts: 9, retryInitialDelayMs: 1_000 })
+			expect(config.portfolioCoreSupervision).toMatchObject({
+				maxConcurrentStarts: 9,
+				retryInitialDelayMs: 1_000,
+			})
 			expect(config.coreDispatchProcessor).toMatchObject({ idlePollMaxMs: 12_000, heartbeatMs: 10_000 })
 		})
 
@@ -111,11 +114,15 @@ if (import.meta.vitest) {
 			['malformed JSON', { GORCHESTRA_PORTFOLIO_CORE_SUPERVISION_CONFIG: '{' }],
 			['invalid lifecycle values', { GORCHESTRA_CORE_DISPATCH_PROCESSOR_CONFIG: '{"heartbeatMs":0}' }],
 		])('rejects %s overrides', (_name, overrides) => {
-			expect(() => readGorchestraEnv({ ...validEnv, ...overrides })).toThrow('Environment variables are not valid')
+			expect(() => readGorchestraEnv({ ...validEnv, ...overrides })).toThrow(
+				'Environment variables are not valid',
+			)
 		})
 
 		it('rejects missing required values', () => {
-			expect(() => readGorchestraEnv({ ...validEnv, GORCHESTRA_DATA_DIR: undefined })).toThrow('Environment variables are not valid')
+			expect(() => readGorchestraEnv({ ...validEnv, GORCHESTRA_DATA_DIR: undefined })).toThrow(
+				'Environment variables are not valid',
+			)
 		})
 	})
 }

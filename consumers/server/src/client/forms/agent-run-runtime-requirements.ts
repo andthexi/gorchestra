@@ -52,7 +52,11 @@ export class CommandArgFormDraft extends FormDraft<string, string, CommandArgFor
 	}
 }
 
-export class CommandSecretEnvFormDraft extends FormDraft<CommandSecretEnvModel, CommandSecretEnvModel, CommandSecretEnvFormFields> {
+export class CommandSecretEnvFormDraft extends FormDraft<
+	CommandSecretEnvModel,
+	CommandSecretEnvModel,
+	CommandSecretEnvFormFields
+> {
 	protected readonly rules = {
 		envName: envNamePipe,
 		secretId: nestedFormDraftPipe<FormDraftSelect<string>>(),
@@ -87,19 +91,35 @@ export class RuntimeRequirementFormDraft extends FormDraft<
 	RuntimeRequirementFormFields
 > {
 	protected override readonly onSet = {
-		type: () => this.revalidate('envName', 'secretId', 'label', 'executable', 'args', 'cwdText', 'root', 'commandSecretEnv'),
+		type: () =>
+			this.revalidate(
+				'envName',
+				'secretId',
+				'label',
+				'executable',
+				'args',
+				'cwdText',
+				'root',
+				'commandSecretEnv',
+			),
 	}
 
 	protected readonly rules = {
 		type: runtimeRequirementTypePipe,
 		envName: v.conditional(envNamePipe, () => this.type === 'environment-secret'),
-		secretId: v.conditional(nestedFormDraftPipe<FormDraftSelect<string>>(), () => this.type === 'environment-secret'),
+		secretId: v.conditional(
+			nestedFormDraftPipe<FormDraftSelect<string>>(),
+			() => this.type === 'environment-secret',
+		),
 		label: v.conditional(commandLabelPipe, () => this.type === 'run-command'),
 		executable: v.conditional(executablePipe, () => this.type === 'run-command'),
 		args: v.conditional(v.array(nestedFormDraftPipe<CommandArgFormDraft>()), () => this.type === 'run-command'),
 		cwdText: v.conditional(cwdTextPipe, () => this.type === 'run-command'),
 		root: v.conditional(v.boolean(), () => this.type === 'run-command'),
-		commandSecretEnv: v.conditional(v.array(nestedFormDraftPipe<CommandSecretEnvFormDraft>()), () => this.type === 'run-command'),
+		commandSecretEnv: v.conditional(
+			v.array(nestedFormDraftPipe<CommandSecretEnvFormDraft>()),
+			() => this.type === 'run-command',
+		),
 	}
 
 	constructor(type: RuntimeRequirementType = 'environment-secret') {
@@ -135,7 +155,11 @@ export class RuntimeRequirementFormDraft extends FormDraft<
 				return {
 					type: 'run-command',
 					label: this.label.trim(),
-					command: { executable: this.executable.trim(), args: this.args.toModel(), cwd: cwdFromText(this.cwdText) },
+					command: {
+						executable: this.executable.trim(),
+						args: this.args.toModel(),
+						cwd: cwdFromText(this.cwdText),
+					},
 					root: this.root,
 					commandSecretEnv: commandSecretEnvFromRows(this.commandSecretEnv.toModel()),
 				}
@@ -198,7 +222,10 @@ function isEnvName(value: string): boolean {
 
 function isCwdText(value: string): boolean {
 	const trimmed = value.trim()
-	return trimmed.length === 0 || ((trimmed === '/workspace' || trimmed.startsWith('/workspace/')) && !trimmed.split('/').includes('..'))
+	return (
+		trimmed.length === 0 ||
+		((trimmed === '/workspace' || trimmed.startsWith('/workspace/')) && !trimmed.split('/').includes('..'))
+	)
 }
 
 if (import.meta.vitest) {
@@ -226,7 +253,11 @@ if (import.meta.vitest) {
 			expect(command.toModel()).toEqual({
 				type: 'run-command',
 				label: 'Install packages',
-				command: { executable: 'pnpm', args: ['install', '', '--frozen-lockfile'], cwd: '/workspace/repos/repository-1' },
+				command: {
+					executable: 'pnpm',
+					args: ['install', '', '--frozen-lockfile'],
+					cwd: '/workspace/repos/repository-1',
+				},
 				root: false,
 				commandSecretEnv: { NPM_TOKEN: 'secret-1' },
 			})

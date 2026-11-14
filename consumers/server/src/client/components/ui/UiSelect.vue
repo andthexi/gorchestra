@@ -14,7 +14,8 @@
 			class="flex w-full cursor-pointer items-center gap-2 border bg-input px-2.5 py-2 text-left text-input-contrast outline-none disabled:cursor-not-allowed disabled:bg-secondary disabled:text-dim"
 			:class="invalid ? 'border-error focus:border-error' : 'border-dimmer focus:border-primary'"
 			@click="toggleOptions"
-			@keydown="handleTriggerKeydown">
+			@keydown="handleTriggerKeydown"
+		>
 			<span class="min-w-0 flex-1 truncate" :class="selectedSummary ? '' : 'text-dim'">
 				{{ selectedSummary || placeholder }}
 			</span>
@@ -34,12 +35,19 @@
 				:aria-label="searchPlaceholder"
 				:placeholder="searchPlaceholder"
 				class="w-full border-0 border-b border-dimmer bg-input px-2.5 py-2 text-input-contrast outline-none placeholder:text-dim focus:border-primary"
-				@keydown="handleSearchKeydown" />
-			<div :id="listboxId" role="listbox" :aria-multiselectable="multiple || undefined" class="max-h-64 overflow-y-auto py-1">
+				@keydown="handleSearchKeydown"
+			/>
+			<div
+				:id="listboxId"
+				role="listbox"
+				:aria-multiselectable="multiple || undefined"
+				class="max-h-64 overflow-y-auto py-1"
+			>
 				<template v-for="(row, index) in filteredRows" :key="row.key">
 					<div
 						v-if="row.type === 'group'"
-						class="px-2.5 pt-2 pb-1 text-sz-micro font-semibold tracking-[0.06em] text-primary uppercase">
+						class="px-2.5 pt-2 pb-1 text-sz-micro font-semibold tracking-[0.06em] text-primary uppercase"
+					>
 						{{ row.label }}
 					</div>
 					<button
@@ -54,7 +62,8 @@
 						:class="optionClass(row.option, index)"
 						@mousedown.prevent
 						@mouseenter="setActiveOptionIndex(row, index)"
-						@click="selectOption(row.option)">
+						@click="selectOption(row.option)"
+					>
 						<span class="min-w-0 flex-1 truncate">{{ optionLabel(row.option) }}</span>
 						<span v-if="isSelected(row.option.value)" aria-hidden="true" class="text-primary">✓</span>
 					</button>
@@ -122,7 +131,9 @@ const isExpanded = computed(() => (props.alwaysOpen || isOpen.value) && !props.d
 const rows = computed(() => groupedRows(props.options))
 const optionRows = computed(() => rows.value.filter(isOptionRow))
 const selectedOptions = computed(() =>
-	optionRows.value.map((row) => row.option).filter((option) => selectedValues.value.some((value) => sameValue(value, option.value))),
+	optionRows.value
+		.map((row) => row.option)
+		.filter((option) => selectedValues.value.some((value) => sameValue(value, option.value))),
 )
 const selectedSummary = computed(() => selectedOptions.value.map(optionLabel).join(', '))
 const selectedValues = computed<TValue[]>(() => (props.multiple ? multipleSelectedValues() : singleSelectedValue()))
@@ -242,11 +253,17 @@ function moveActiveOption(direction: 1 | -1): void {
 
 function nextEnabledOptionIndex(startIndex: number, direction: 1 | -1, rowCount: number): number {
 	if (rowCount === 0) return -1
-	return candidateOptionIndexes(normalizedActiveStart(startIndex, direction), direction, rowCount).find(isEnabledFilteredOption) ?? -1
+	return (
+		candidateOptionIndexes(normalizedActiveStart(startIndex, direction), direction, rowCount).find(
+			isEnabledFilteredOption,
+		) ?? -1
+	)
 }
 
 function candidateOptionIndexes(startIndex: number, direction: 1 | -1, optionCount: number): number[] {
-	return Array.from({ length: optionCount }, (_, index) => positiveModulo(startIndex + direction * (index + 1), optionCount))
+	return Array.from({ length: optionCount }, (_, index) =>
+		positiveModulo(startIndex + direction * (index + 1), optionCount),
+	)
 }
 
 function normalizedActiveStart(startIndex: number, direction: 1 | -1): number {
@@ -320,21 +337,37 @@ function optionClass(option: UiSelectOption<TValue>, index: number): string {
 }
 
 function groupedRows(options: readonly UiSelectOptionInput<TValue>[]): UiSelectRow<TValue>[] {
-	return options.flatMap((entry, index) => (isOptionGroup(entry) ? groupRows(entry, index) : [optionRow(entry, null, `option:${index}`)]))
+	return options.flatMap((entry, index) =>
+		isOptionGroup(entry) ? groupRows(entry, index) : [optionRow(entry, null, `option:${index}`)],
+	)
 }
 
-function filteredGroupedRows(options: readonly UiSelectOptionInput<TValue>[], searchValue: string): UiSelectRow<TValue>[] {
+function filteredGroupedRows(
+	options: readonly UiSelectOptionInput<TValue>[],
+	searchValue: string,
+): UiSelectRow<TValue>[] {
 	return options.flatMap((entry, index) => filteredEntryRows(entry, index, searchValue))
 }
 
-function filteredEntryRows(entry: UiSelectOptionInput<TValue>, index: number, searchValue: string): UiSelectRow<TValue>[] {
-	if (!isOptionGroup(entry)) return optionMatchesSearch(entry, searchValue) ? [optionRow(entry, null, `option:${index}`)] : []
+function filteredEntryRows(
+	entry: UiSelectOptionInput<TValue>,
+	index: number,
+	searchValue: string,
+): UiSelectRow<TValue>[] {
+	if (!isOptionGroup(entry))
+		return optionMatchesSearch(entry, searchValue) ? [optionRow(entry, null, `option:${index}`)] : []
 	return filteredGroupRows(entry, index, searchValue)
 }
 
-function filteredGroupRows(group: UiSelectOptionGroup<TValue>, index: number, searchValue: string): UiSelectRow<TValue>[] {
+function filteredGroupRows(
+	group: UiSelectOptionGroup<TValue>,
+	index: number,
+	searchValue: string,
+): UiSelectRow<TValue>[] {
 	const groupMatches = group.label.toLowerCase().includes(searchValue)
-	const options = groupMatches ? group.options : group.options.filter((option) => optionMatchesSearch(option, searchValue))
+	const options = groupMatches
+		? group.options
+		: group.options.filter((option) => optionMatchesSearch(option, searchValue))
 	return options.length === 0 ? [] : groupRows({ ...group, options }, index)
 }
 

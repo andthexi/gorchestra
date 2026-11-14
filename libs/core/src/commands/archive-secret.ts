@@ -1,6 +1,5 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { idPipe } from '../domain/commons'
 import { type Secret } from '../domain/secret'
 import type {
@@ -15,6 +14,7 @@ import { buildCommandHandler } from '../utils/command-handler'
 import { archiveStoredRecordWithAudit } from '../utils/command-storage'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const archiveSecretInputPipe = v.object({ secretId: idPipe })
 export type Input = PipeOutput<typeof archiveSecretInputPipe>
@@ -39,7 +39,8 @@ export function createArchiveSecretCommand(runtime: CoreRuntime): Operation {
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { context, createTestCoreRuntime, createTestCoreServices, localStamp, seedSecret } = await import('../utils/test-helpers')
+	const { context, createTestCoreRuntime, createTestCoreServices, localStamp, seedSecret } =
+		await import('../utils/test-helpers')
 
 	describe('archiveSecret command', () => {
 		it('archives Secrets while preserving Archive Period history', async () => {
@@ -49,7 +50,10 @@ if (import.meta.vitest) {
 
 			const result = await command({ secretId: '01k00000000000000000000040' }, context)
 
-			expect(result).toMatchObject({ ok: true, value: { archivePeriods: [{ archived: localStamp(), unarchived: null }] } })
+			expect(result).toMatchObject({
+				ok: true,
+				value: { archivePeriods: [{ archived: localStamp(), unarchived: null }] },
+			})
 		})
 	})
 }

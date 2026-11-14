@@ -35,7 +35,7 @@ export async function startServerStorage(input: OpenServerStorageInput): Promise
 	return activeServerStorageStartup
 }
 
-export function getServerStorage(): ServerStorage {
+function getServerStorage(): ServerStorage {
 	if (!activeServerStorage) throw new Error('Server storage has not been started')
 	return activeServerStorage
 }
@@ -67,7 +67,9 @@ export async function migrateServerStorage(storage: ServerStorage): Promise<void
 	const migrator = Migrator.from(storage.repo).withoutLock().migrations(serverStorageMigrations).build()
 	// Preserve the optional native-lock contract. A failed lock never retries unlocked.
 	if (storage.adapter.acquireMigrationLock)
-		await storage.adapter.acquireMigrationLock(storage.repo.resolveConfig('_equipped_migrations'), () => migrator.up())
+		await storage.adapter.acquireMigrationLock(storage.repo.resolveConfig('_equipped_migrations'), () =>
+			migrator.up(),
+		)
 	else await migrator.up()
 }
 
@@ -93,7 +95,7 @@ if (import.meta.vitest) {
 	const { afterEach, describe, expect, it } = import.meta.vitest
 	const { mkdtemp, rm } = await import('node:fs/promises')
 	const { tmpdir } = await import('node:os')
-	const { join } = await import('node:path')
+	const path = await import('node:path')
 
 	let tempDataDirs: string[] = []
 
@@ -104,7 +106,7 @@ if (import.meta.vitest) {
 	})
 
 	async function createTempDataDir(): Promise<string> {
-		const dataDir = await mkdtemp(join(tmpdir(), 'gorchestra-server-storage-'))
+		const dataDir = await mkdtemp(path.join(tmpdir(), 'gorchestra-server-storage-'))
 		tempDataDirs.push(dataDir)
 		return dataDir
 	}

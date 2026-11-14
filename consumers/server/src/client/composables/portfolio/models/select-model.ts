@@ -1,6 +1,5 @@
 import { computed, watch, type Ref } from 'vue'
 
-import { useModelProvidersList } from './providers'
 import type { UiSelectOption, UiSelectOptionInput } from '../../../components/ui/select-options'
 import type { ModelUseFormDraft } from '../../../forms/model-use'
 import {
@@ -10,6 +9,7 @@ import {
 	thinkingLevelOptionsForModel,
 } from '../../../utils/model-provider-options'
 import type { ModelThinkingLevel, ServerApi } from '../../core/server-api'
+import { useModelProvidersList } from './providers'
 
 type ListedModelProvider = Awaited<ReturnType<ServerApi['listModelProviders']>>['items'][number]
 
@@ -36,10 +36,14 @@ export function useSelectModel(modelUseDraft: ModelUseFormDraft, options: UseSel
 	const selectedModelId = computed(() => modelUseDraft.modelId.value)
 	const selectedModelIsUnavailable = computed(() =>
 		Boolean(
-			providerState.hasLoadedProviders.value && selectedModelId.value !== null && !activeModelIds.value.has(selectedModelId.value),
+			providerState.hasLoadedProviders.value &&
+			selectedModelId.value !== null &&
+			!activeModelIds.value.has(selectedModelId.value),
 		),
 	)
-	const unavailableModelOption = computed(() => unavailableModelOptionFor(selectedModelId.value, selectedModelIsUnavailable.value))
+	const unavailableModelOption = computed(() =>
+		unavailableModelOptionFor(selectedModelId.value, selectedModelIsUnavailable.value),
+	)
 	const modelOptions = computed((): UiSelectOptionInput<string>[] => [
 		...optionalOption(unavailableModelOption.value),
 		...activeModelOptionGroups.value,
@@ -50,13 +54,17 @@ export function useSelectModel(modelUseDraft: ModelUseFormDraft, options: UseSel
 		...activeModelOptionGroups.value,
 	])
 	const hasActiveModels = computed(() => activeModelIds.value.size > 0)
-	const activeThinkingLevelOptions = computed(() => thinkingLevelOptionsForModel(providerState.providers.value, selectedModelId.value))
+	const activeThinkingLevelOptions = computed(() =>
+		thinkingLevelOptionsForModel(providerState.providers.value, selectedModelId.value),
+	)
 	const thinkingLevelOptions = computed(() =>
 		selectedModelIsUnavailable.value
 			? [unavailableThinkingLevelOption(modelUseDraft.thinkingLevel.value)]
 			: activeThinkingLevelOptions.value,
 	)
-	const thinkingLevelDisabled = computed(() => selectedModelId.value === null || thinkingLevelOptions.value.length === 0)
+	const thinkingLevelDisabled = computed(
+		() => selectedModelId.value === null || thinkingLevelOptions.value.length === 0,
+	)
 
 	watch(
 		() => [
@@ -66,7 +74,12 @@ export function useSelectModel(modelUseDraft: ModelUseFormDraft, options: UseSel
 			modelUseDraft.thinkingLevel.value,
 		],
 		() =>
-			syncSelectOptions(modelUseDraft, providerState.hasLoadedProviders.value, activeModelIdValues.value, thinkingLevelOptions.value),
+			syncSelectOptions(
+				modelUseDraft,
+				providerState.hasLoadedProviders.value,
+				activeModelIdValues.value,
+				thinkingLevelOptions.value,
+			),
 		{ immediate: true },
 	)
 
@@ -112,7 +125,10 @@ function syncSelectOptions(
 	syncThinkingLevel(modelUseDraft, thinkingOptions)
 }
 
-function syncThinkingLevel(modelUseDraft: ModelUseFormDraft, options: readonly UiSelectOption<ModelThinkingLevel>[]): void {
+function syncThinkingLevel(
+	modelUseDraft: ModelUseFormDraft,
+	options: readonly UiSelectOption<ModelThinkingLevel>[],
+): void {
 	if (modelUseDraft.modelId.value === null) {
 		modelUseDraft.thinkingLevel.clearOptions()
 		return
@@ -121,11 +137,14 @@ function syncThinkingLevel(modelUseDraft: ModelUseFormDraft, options: readonly U
 	const supportedLevels = options.map((option) => option.value)
 	modelUseDraft.thinkingLevel.setOptions(supportedLevels)
 	const fallback = supportedLevels[0]
-	if (fallback !== undefined && !supportedLevels.includes(modelUseDraft.thinkingLevel.value)) modelUseDraft.thinkingLevel.value = fallback
+	if (fallback !== undefined && !supportedLevels.includes(modelUseDraft.thinkingLevel.value))
+		modelUseDraft.thinkingLevel.value = fallback
 }
 
 function unavailableModelOptionFor(modelId: string | null, unavailable: boolean): UiSelectOption<string> | null {
-	return unavailable && modelId !== null ? { value: modelId, label: `Unavailable Model (${modelId})`, disabled: true } : null
+	return unavailable && modelId !== null
+		? { value: modelId, label: `Unavailable Model (${modelId})`, disabled: true }
+		: null
 }
 
 function unavailableThinkingLevelOption(level: ModelThinkingLevel): UiSelectOption<ModelThinkingLevel> {

@@ -1,4 +1,9 @@
-import type { RawSandbox, RawSandboxRunCommandInput, SandboxListDirectoryOutput, SandboxReadFileOutput } from '../services'
+import type {
+	RawSandbox,
+	RawSandboxRunCommandInput,
+	SandboxListDirectoryOutput,
+	SandboxReadFileOutput,
+} from '../services'
 
 export function noopRawSandboxInstance(): RawSandbox {
 	return {
@@ -30,7 +35,9 @@ export function listTestSandboxDirectory(files: Map<string, string>, path: strin
 		const [name, ...rest] = relativePath.split('/')
 		if (name !== undefined && name.length > 0) entries.set(name, rest.length === 0 ? 'file' : 'directory')
 	}
-	return entries.size === 0 ? null : { type: 'directory', entries: [...entries].map(([name, type]) => ({ name, type })) }
+	return entries.size === 0
+		? null
+		: { type: 'directory', entries: [...entries].map(([name, type]) => ({ name, type })) }
 }
 
 export function deleteTestSandboxPath(files: Map<string, string>, path: string): void {
@@ -54,11 +61,14 @@ export function testRawSandbox(
 		runCommand: (command) => {
 			;(commands as unknown[] | undefined)?.push(command)
 			return (
-				input.runCommand?.(command) ?? Promise.resolve({ exitCode: 0, summary: 'Command completed.', stdout: null, stderr: null })
+				input.runCommand?.(command) ??
+				Promise.resolve({ exitCode: 0, summary: 'Command completed.', stdout: null, stderr: null })
 			)
 		},
 		readFile: (path) => Promise.resolve(readTestSandboxFile(files, path)),
-		writeFile: input.writeFile ?? ((path, contentsBase64) => Promise.resolve(writeTestSandboxFile(files, path, contentsBase64))),
+		writeFile:
+			input.writeFile ??
+			((path, contentsBase64) => Promise.resolve(writeTestSandboxFile(files, path, contentsBase64))),
 		listDirectory: (path) => Promise.resolve(listTestSandboxDirectory(files, path)),
 		deletePath: (path) => Promise.resolve(deleteTestSandboxPath(files, path)),
 		release: input.release ?? (() => Promise.resolve({ summary: 'released' })),

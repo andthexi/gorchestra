@@ -1,6 +1,5 @@
 import { v, type PipeInput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { idPipe, jsonObjectPipe, nonEmptyTrimmedStringPipe } from '../domain/commons'
 import { defaultModelCapabilities, modelCapabilitiesPipe, modelTokenPricingPipe, type Model } from '../domain/model'
 import { modelProviderProtocolForSource } from '../domain/model-provider'
@@ -17,6 +16,7 @@ import { auditStamp, getRequired, updateRecordValue } from '../utils/command-sto
 import { validateModelThinkingCapabilityForProtocol } from '../utils/providers/model-provider-protocol/thinking'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const updateModelInputPipe = v.object({
 	modelId: idPipe,
@@ -44,27 +44,29 @@ export function createUpdateModelCommand(runtime: CoreRuntime): Operation {
 		const stamp = auditStamp(runtime.values, context)
 		if (!stamp.ok) return stamp
 
-		return runtime.transactions.run(async ({ storage }): Promise<CoreResult<Model, Exclude<Error, InvalidInputError>>> => {
-			const existing = await getRequired('model', storage, input.modelId)
-			if (!existing.ok) return existing
+		return runtime.transactions.run(
+			async ({ storage }): Promise<CoreResult<Model, Exclude<Error, InvalidInputError>>> => {
+				const existing = await getRequired('model', storage, input.modelId)
+				if (!existing.ok) return existing
 
-			const provider = await getRequired('model-provider', storage, existing.value.providerId)
-			if (!provider.ok) return provider
+				const provider = await getRequired('model-provider', storage, existing.value.providerId)
+				if (!provider.ok) return provider
 
-			const updated = {
-				...existing.value,
-				name: input.name,
-				providerOptions: input.providerOptions,
-				capabilities: input.capabilities,
-				pricing: input.pricing,
-				updated: stamp.value,
-			}
-			const protocol = modelProviderProtocolForSource(provider.value.source)
-			const capabilityValidation = validateModelThinkingCapabilityForProtocol(updated, protocol)
-			if (!capabilityValidation.ok) return capabilityValidation
+				const updated = {
+					...existing.value,
+					name: input.name,
+					providerOptions: input.providerOptions,
+					capabilities: input.capabilities,
+					pricing: input.pricing,
+					updated: stamp.value,
+				}
+				const protocol = modelProviderProtocolForSource(provider.value.source)
+				const capabilityValidation = validateModelThinkingCapabilityForProtocol(updated, protocol)
+				if (!capabilityValidation.ok) return capabilityValidation
 
-			return updateRecordValue('model', storage, input.modelId, updated)
-		})
+				return updateRecordValue('model', storage, input.modelId, updated)
+			},
+		)
 	})
 }
 
@@ -79,7 +81,13 @@ if (import.meta.vitest) {
 			seedSelectableModel(options.tx, '01k00000000000000000000024')
 			const command = createUpdateModelCommand(createTestCoreRuntime(options))
 			const capabilities = { ...defaultModelCapabilities, maxOutputTokens: 8192 }
-			const pricing = { unit: 'micro-usd-per-million-tokens' as const, input: 1, output: 2, cacheRead: 0, cacheWrite: 0 }
+			const pricing = {
+				unit: 'micro-usd-per-million-tokens' as const,
+				input: 1,
+				output: 2,
+				cacheRead: 0,
+				cacheWrite: 0,
+			}
 
 			const result = await command(
 				{

@@ -13,7 +13,9 @@ export type PaginatedFetchEnvelope<TItem> = {
 
 type PaginatedItem = { id: string }
 type PaginatedFetchState<TItem extends PaginatedItem> = { items: TItem[]; hasNext: boolean }
-type PaginatedFetcher<TItem extends PaginatedItem> = (input: PaginatedFetchInput) => Promise<PaginatedFetchEnvelope<TItem>>
+type PaginatedFetcher<TItem extends PaginatedItem> = (
+	input: PaginatedFetchInput,
+) => Promise<PaginatedFetchEnvelope<TItem>>
 
 type PaginatedFetchActionOptions = {
 	queryKey: QueryKeyInput

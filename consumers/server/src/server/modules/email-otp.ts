@@ -15,7 +15,8 @@ type EmailOtpChallenge = {
 	expiresAt: number
 }
 
-type ActiveEmailOtpChallengeLookup = { found: true; challenge: EmailOtpChallenge } | { found: false; result: VerifyEmailOtpChallengeResult }
+type ActiveEmailOtpChallengeLookup =
+	{ found: true; challenge: EmailOtpChallenge } | { found: false; result: VerifyEmailOtpChallengeResult }
 
 export type EmailOtpMailMessage = {
 	to: string
@@ -52,7 +53,9 @@ export type VerifyEmailOtpChallengeResult =
 
 export const consoleMailService: EmailOtpMailService = {
 	sendEmailOtp(message) {
-		process.stdout.write(`[gorchestra] Email OTP for ${message.to}: ${message.code} (expires at ${message.expiresAt.toISOString()})\n`)
+		process.stdout.write(
+			`[gorchestra] Email OTP for ${message.to}: ${message.code} (expires at ${message.expiresAt.toISOString()})\n`,
+		)
 		return Promise.resolve()
 	},
 }
@@ -61,14 +64,18 @@ export function normalizeEmailAddress(email: string): string {
 	return email.trim().toLowerCase()
 }
 
-export async function createEmailOtpChallenge(input: CreateEmailOtpChallengeInput): Promise<CreateEmailOtpChallengeResult> {
+export async function createEmailOtpChallenge(
+	input: CreateEmailOtpChallengeInput,
+): Promise<CreateEmailOtpChallengeResult> {
 	const challenge = buildEmailOtpChallenge(input)
 	await storeEmailOtpChallenge(input.serverCache, challenge)
 	await sendEmailOtpChallenge(input.mailService ?? consoleMailService, challenge)
 	return { requested: true }
 }
 
-export async function verifyEmailOtpChallenge(input: VerifyEmailOtpChallengeInput): Promise<VerifyEmailOtpChallengeResult> {
+export async function verifyEmailOtpChallenge(
+	input: VerifyEmailOtpChallengeInput,
+): Promise<VerifyEmailOtpChallengeResult> {
 	const context = getVerifyEmailOtpContext(input)
 	const lookup = await findActiveEmailOtpChallenge(input.serverCache, context.cacheKey, context.now)
 	if (!lookup.found) return lookup.result
@@ -94,7 +101,11 @@ function getEmailOtpCode(generateCode?: () => string): string {
 }
 
 async function storeEmailOtpChallenge(serverCache: ServerCache, challenge: EmailOtpChallenge): Promise<void> {
-	await serverCache.setJson(getEmailOtpChallengeCacheKey(challenge.normalizedEmail), challenge, emailOtpChallengeTtlSeconds)
+	await serverCache.setJson(
+		getEmailOtpChallengeCacheKey(challenge.normalizedEmail),
+		challenge,
+		emailOtpChallengeTtlSeconds,
+	)
 }
 
 async function sendEmailOtpChallenge(mailService: EmailOtpMailService, challenge: EmailOtpChallenge): Promise<void> {
@@ -114,7 +125,11 @@ function getVerifyEmailOtpContext(input: VerifyEmailOtpChallengeInput) {
 	}
 }
 
-async function findActiveEmailOtpChallenge(serverCache: ServerCache, cacheKey: string, now: Date): Promise<ActiveEmailOtpChallengeLookup> {
+async function findActiveEmailOtpChallenge(
+	serverCache: ServerCache,
+	cacheKey: string,
+	now: Date,
+): Promise<ActiveEmailOtpChallengeLookup> {
 	const challenge = await serverCache.getJson<EmailOtpChallenge>(cacheKey)
 	if (!challenge) return { found: false, result: { verified: false, reason: 'not-found' } }
 	if (challenge.expiresAt > now.getTime()) return { found: true, challenge }
@@ -127,7 +142,8 @@ async function verifyActiveEmailOtpChallenge(
 	context: ReturnType<typeof getVerifyEmailOtpContext>,
 	challenge: EmailOtpChallenge,
 ): Promise<VerifyEmailOtpChallengeResult> {
-	if (context.code === challenge.code) return consumeVerifiedEmailOtpChallenge(serverCache, context.cacheKey, challenge)
+	if (context.code === challenge.code)
+		return consumeVerifiedEmailOtpChallenge(serverCache, context.cacheKey, challenge)
 	return recordFailedEmailOtpAttempt(serverCache, context.cacheKey, challenge, context.now)
 }
 
@@ -148,11 +164,18 @@ async function recordFailedEmailOtpAttempt(
 ): Promise<VerifyEmailOtpChallengeResult> {
 	const failedAttempts = challenge.failedAttempts + 1
 	if (failedAttempts >= maxFailedAttempts) return invalidateEmailOtpChallenge(serverCache, cacheKey)
-	await serverCache.setJson(cacheKey, { ...challenge, failedAttempts }, getRemainingTtlSeconds(challenge.expiresAt, now))
+	await serverCache.setJson(
+		cacheKey,
+		{ ...challenge, failedAttempts },
+		getRemainingTtlSeconds(challenge.expiresAt, now),
+	)
 	return { verified: false, reason: 'invalid-code' }
 }
 
-async function invalidateEmailOtpChallenge(serverCache: ServerCache, cacheKey: string): Promise<VerifyEmailOtpChallengeResult> {
+async function invalidateEmailOtpChallenge(
+	serverCache: ServerCache,
+	cacheKey: string,
+): Promise<VerifyEmailOtpChallengeResult> {
 	await serverCache.deleteValue(cacheKey)
 	return { verified: false, reason: 'too-many-failed-attempts' }
 }
@@ -299,7 +322,10 @@ if (import.meta.vitest) {
 
 	describe('Email OTP Sign-in', () => {
 		it('normalizes email addresses by trimming and lowercasing the full address', testNormalizeEmailAddress)
-		it('creates a latest-only Email OTP Challenge and sends the latest code to the normalized email', testLatestOnlyEmailOtpChallenge)
+		it(
+			'creates a latest-only Email OTP Challenge and sends the latest code to the normalized email',
+			testLatestOnlyEmailOtpChallenge,
+		)
 		it('makes a verified Email OTP Challenge single-use', testSingleUseEmailOtpChallenge)
 		it('expires Email OTP Challenges after ten minutes', testExpiredEmailOtpChallenge)
 		it('invalidates an Email OTP Challenge after five failed attempts', testFailedAttemptsEmailOtpChallenge)

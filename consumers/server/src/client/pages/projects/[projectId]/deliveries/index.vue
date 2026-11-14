@@ -1,5 +1,5 @@
 <template>
-	<NuxtLayout name="project" :project-id="projectId">
+	<NuxtLayout name="project" :projectId="projectId">
 		<section>
 			<div class="flex min-h-11 items-center justify-between gap-3 border-b border-dimmer px-3 py-2">
 				<span class="text-sz-helper text-dim"
@@ -10,12 +10,14 @@
 			<div v-if="isLoadingDeliveries && !hasLoadedDeliveries" class="border-b border-dimmer px-3 py-4 text-dim">
 				Loading Deliveries…
 			</div>
-			<div v-else-if="deliveriesError" class="border-b border-dimmer px-3 py-4 text-error">{{ deliveriesError }}</div>
+			<div v-else-if="deliveriesError" class="border-b border-dimmer px-3 py-4 text-error">
+				{{ deliveriesError }}
+			</div>
 			<div v-else-if="deliveries.length === 0" class="m-3 border border-dashed border-dimmer p-5">
 				<h2 class="m-0 text-sz-subsection font-semibold">No Deliveries yet.</h2>
 				<p class="m-0 mt-1 max-w-[680px] text-sz-helper leading-5 text-dim">
-					Deliveries are created when an accepted Plan Output materializes executable work for this Project. Plan Output
-					generation is not available in this slice.
+					Deliveries are created when an accepted Plan Output materializes executable work for this Project.
+					Plan Output generation is not available in this slice.
 				</p>
 			</div>
 			<div v-else>
@@ -23,7 +25,8 @@
 					v-for="delivery in deliveries"
 					:key="delivery.id"
 					:to="`/projects/${projectId}/deliveries/${delivery.id}`"
-					class="grid min-h-[62px] grid-cols-[24px_minmax(0,1fr)_110px] items-center gap-2 border-b border-dimmer px-3 py-2 text-body hover:bg-card focus-visible:bg-secondary">
+					class="grid min-h-[62px] grid-cols-[24px_minmax(0,1fr)_110px] items-center gap-2 border-b border-dimmer px-3 py-2 text-body hover:bg-card focus-visible:bg-secondary"
+				>
 					<span class="grid size-5 place-items-center border border-dimmer text-sz-micro text-dim">D</span>
 					<span class="min-w-0">
 						<strong class="block truncate font-semibold">{{ delivery.title }}</strong>
@@ -39,7 +42,9 @@
 					</span>
 				</NuxtLink>
 			</div>
-			<p v-if="isRefreshingDeliveries" class="m-0 border-b border-dimmer px-3 py-2 text-sz-helper text-dim">Refreshing Deliveries…</p>
+			<p v-if="isRefreshingDeliveries" class="m-0 border-b border-dimmer px-3 py-2 text-sz-helper text-dim">
+				Refreshing Deliveries…
+			</p>
 		</section>
 	</NuxtLayout>
 </template>
@@ -48,13 +53,14 @@
 import { computed } from 'vue'
 
 import { useDeliveriesList, type ListedDelivery } from '../../../../composables/portfolio/project/deliveries'
-import { deliveryStateForDisplay, type DeliveryState } from './display'
+import { deliveryStateForDisplay } from './display'
 
 definePageMeta({ middleware: ['has-selection'] })
 
 const route = useRoute()
 const projectId = computed(() => route.params.projectId as string)
-const { deliveries, isLoadingDeliveries, deliveriesError, hasLoadedDeliveries, isRefreshingDeliveries } = useDeliveriesList(projectId)
+const { deliveries, isLoadingDeliveries, deliveriesError, hasLoadedDeliveries, isRefreshingDeliveries } =
+	useDeliveriesList(projectId)
 
 function repositoryLabel(delivery: ListedDelivery): string {
 	return `${delivery.target.repository.config.owner}/${delivery.target.repository.config.name}`
@@ -72,7 +78,8 @@ const deliveryStateDisplay = {
 	},
 	abandoned: {
 		label: 'abandoned',
-		className: 'inline-flex items-center gap-1 border px-2 py-0.5 text-sz-micro font-semibold border-dimmer bg-secondary text-dim',
+		className:
+			'inline-flex items-center gap-1 border px-2 py-0.5 text-sz-micro font-semibold border-dimmer bg-secondary text-dim',
 	},
 	queued: {
 		label: 'queued',

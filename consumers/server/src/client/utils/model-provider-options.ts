@@ -21,7 +21,9 @@ export function thinkingLevelLabel(level: ModelThinkingLevel): string {
 	return thinkingLevelOptions.find((option) => option.value === level)?.label ?? level
 }
 
-export function activeModelOptionGroupsFromProviders(providers: readonly ListedModelProvider[]): ModelSelectOptionGroup[] {
+export function activeModelOptionGroupsFromProviders(
+	providers: readonly ListedModelProvider[],
+): ModelSelectOptionGroup[] {
 	return providers.map(activeModelOptionGroup).filter(hasModelOptions)
 }
 
@@ -33,9 +35,14 @@ export function modelOptionLabel(groups: readonly ModelSelectOptionGroup[], mode
 	return groups.flatMap((group) => group.options).find((option) => option.value === modelId)?.label ?? modelId
 }
 
-export function thinkingLevelOptionsForModel(providers: readonly ListedModelProvider[], modelId: string | null): ThinkingLevelOption[] {
+export function thinkingLevelOptionsForModel(
+	providers: readonly ListedModelProvider[],
+	modelId: string | null,
+): ThinkingLevelOption[] {
 	const model = activeModelFromProviders(providers, modelId)
-	return model === null ? [] : thinkingLevelOptions.filter((option) => model.availableThinkingLevels.includes(option.value))
+	return model === null
+		? []
+		: thinkingLevelOptions.filter((option) => model.availableThinkingLevels.includes(option.value))
 }
 
 export function modelHasThinkingLevel(
@@ -53,7 +60,10 @@ function activeModelOptionGroup(provider: ListedModelProvider): ModelSelectOptio
 	}
 }
 
-function activeModelFromProviders(providers: readonly ListedModelProvider[], modelId: string | null): ListedModel | null {
+function activeModelFromProviders(
+	providers: readonly ListedModelProvider[],
+	modelId: string | null,
+): ListedModel | null {
 	if (modelId === null) return null
 
 	return (
@@ -102,7 +112,11 @@ if (import.meta.vitest) {
 		})
 	})
 
-	function provider(input: { id: string; archived?: boolean; models: ListedModelProvider['models'] }): ListedModelProvider {
+	function provider(input: {
+		id: string
+		archived?: boolean
+		models: ListedModelProvider['models']
+	}): ListedModelProvider {
 		return {
 			id: input.id,
 			name: input.id,

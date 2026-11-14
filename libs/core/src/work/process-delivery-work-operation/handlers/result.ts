@@ -3,8 +3,11 @@ import type { Id } from '../../../domain/commons'
 import type { ExternalOperation, ExternalOperationEvidence } from '../../../domain/evidence'
 import { nextId, runtimeRecord } from '../../../utils/runtime-values'
 import type { Result as CoreResult } from '../../../utils/types'
-import type { DeliveryWorkNoObservedChangeTarget } from '../../delivery-work/types'
-import type { DeliveryHandlerContext, DeliveryWorkHandlerResult } from '../../delivery-work/types'
+import type {
+	DeliveryWorkNoObservedChangeTarget,
+	DeliveryHandlerContext,
+	DeliveryWorkHandlerResult,
+} from '../../delivery-work/types'
 
 export function noEligibleWork(): DeliveryWorkHandlerResult {
 	return completed()

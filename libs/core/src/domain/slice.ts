@@ -1,9 +1,9 @@
 import type { PipeOutput } from 'valleyed'
 
+import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 import { auditStampPipe, idPipe, nonEmptyTrimmedStringPipe, nonNegativeIntegerPipe, type Id } from './commons'
 import type { DeliveryWorkOperation } from './delivery-work-operation'
 import { instructionSourcePipe } from './plan'
-import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 
 export const sliceSchema = coreSchema('slices')
 	.field('deliveryId', idPipe)

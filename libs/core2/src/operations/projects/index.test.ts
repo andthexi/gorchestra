@@ -13,7 +13,9 @@ describe('projects', () => {
 		const release = Promise.withResolvers<void>()
 		const submitted = Promise.withResolvers<void>()
 		await withReadyPortfolio(async (portfolio) => {
-			const baseline = requireSuccess(await portfolio.projects.create({ title: 'Existing', spec: { type: 'source-control' } }))
+			const baseline = requireSuccess(
+				await portfolio.projects.create({ title: 'Existing', spec: { type: 'source-control' } }),
+			)
 			const missing = '01k00000000000000000000001'
 			let held = false
 			let attempts = 0
@@ -35,17 +37,22 @@ describe('projects', () => {
 			const pending: Promise<unknown>[] = [lookup]
 			try {
 				await entered.promise
-				const creation = portfolio.projects.create({ title: 'Independent', spec: { type: 'source-control' } }).then((result) => {
-					createdBeforeRelease = true
-					return result
-				})
+				const creation = portfolio.projects
+					.create({ title: 'Independent', spec: { type: 'source-control' } })
+					.then((result) => {
+						createdBeforeRelease = true
+						return result
+					})
 				pending.push(creation)
 				await submitted.promise
 				// Drain promise-only native work without awaiting a queued transaction.
 				await new Promise<void>((resolve) => setImmediate(resolve))
 				const settledWhileHeld = createdBeforeRelease
 				release.resolve()
-				expect(await lookup).toEqual({ ok: false, error: { type: 'not-found', resource: 'project', id: missing } })
+				expect(await lookup).toEqual({
+					ok: false,
+					error: { type: 'not-found', resource: 'project', id: missing },
+				})
 				const created = requireSuccess(await creation)
 				expect(await portfolio.projects.find({ projectId: created.id })).toEqual({ ok: true, value: created })
 				expect(await portfolio.projects.find({ projectId: baseline.id })).toEqual({ ok: true, value: baseline })
@@ -67,8 +74,11 @@ describe('projects', () => {
 		const original = adapter.createMany.bind(adapter)
 		await withReadyPortfolio(async (portfolio) => {
 			try {
-				adapter.createMany = async (...args) => (await original(...args)).map((row) => ({ ...row, title: null }))
-				expect(await portfolio.projects.create({ title: 'Uncommitted', spec: { type: 'source-control' } })).toEqual({
+				adapter.createMany = async (...args) =>
+					(await original(...args)).map((row) => ({ ...row, title: null }))
+				expect(
+					await portfolio.projects.create({ title: 'Uncommitted', spec: { type: 'source-control' } }),
+				).toEqual({
 					ok: false,
 					error: { type: 'invalid-output' },
 				})
@@ -120,7 +130,8 @@ describe('projects', () => {
 			expect(project.spec).toEqual({ type: 'source-control' })
 			expect(input.title).toBe('  Example  ')
 			expect(input.spec.ignored).toBe(true)
-			for (const table of ['assets', 'secrets', 'memories', 'memory_revisions']) expect(adapter.stores.get(table)?.size ?? 0).toBe(0)
+			for (const table of ['assets', 'secrets', 'memories', 'memory_revisions'])
+				expect(adapter.stores.get(table)?.size ?? 0).toBe(0)
 			expect(requireSuccess(await portfolio.projects.list())).toEqual([project])
 		} finally {
 			if (descriptor) Object.defineProperty(adapter, 'createMany', descriptor)
@@ -139,7 +150,11 @@ describe('projects', () => {
 			adapter.session = () => {
 				throw new Error('Invalid input must not enter a session')
 			}
-			for (const projectId of ['01K00000000000000000000001', ' 01k00000000000000000000001', '8zzzzzzzzzzzzzzzzzzzzzzzzz'])
+			for (const projectId of [
+				'01K00000000000000000000001',
+				' 01k00000000000000000000001',
+				'8zzzzzzzzzzzzzzzzzzzzzzzzz',
+			])
 				expect(await portfolio.projects.find({ projectId })).toEqual({
 					ok: false,
 					error: { type: 'invalid-input', issues: [{ path: 'projectId', message: 'Expected a Core id.' }] },
@@ -159,11 +174,16 @@ describe('projects', () => {
 		try {
 			if (opened.state !== 'uninitialized') throw new Error('Expected fresh storage')
 			const portfolio = requireSuccess(requireSuccess(await opened.setup()).as({ by: '' }))
-			const project = requireSuccess(await portfolio.projects.create({ title: 'Template', spec: { type: 'source-control' } }))
+			const project = requireSuccess(
+				await portfolio.projects.create({ title: 'Template', spec: { type: 'source-control' } }),
+			)
 			const rows = dependencies.storage.adapter.stores.get('projects')
 			if (!rows) throw new Error('Expected stored Projects')
 			rows.clear()
-			const expected = Array.from({ length: 125 }, (_, index) => ({ ...project, id: `01k${index.toString().padStart(23, '0')}` }))
+			const expected = Array.from({ length: 125 }, (_, index) => ({
+				...project,
+				id: `01k${index.toString().padStart(23, '0')}`,
+			}))
 			for (const row of [...expected].reverse()) rows.set(row.id, row)
 			expect(requireSuccess(await portfolio.projects.list())).toEqual(expected)
 		} finally {
@@ -201,7 +221,9 @@ describe('projects', () => {
 					await original.apply(adapter, args)
 					throw new Error('synthetic-PROTECTED-write')
 				}
-				expect(await portfolio.projects.create({ title: 'Lost write', spec: { type: 'source-control' } })).toEqual({
+				expect(
+					await portfolio.projects.create({ title: 'Lost write', spec: { type: 'source-control' } }),
+				).toEqual({
 					ok: false,
 					error: { type: 'storage-operation-failed' },
 				})
@@ -218,8 +240,12 @@ describe('projects', () => {
 			if (opened.state !== 'uninitialized') throw new Error('Expected fresh storage')
 			const client = requireSuccess(await opened.setup())
 			const portfolio = requireSuccess(client.as({ by: '' }))
-			const project = requireSuccess(await portfolio.projects.create({ title: 'Corrupt', spec: { type: 'source-control' } }))
-			requireSuccess(await portfolio.projects.create({ title: 'Valid sibling', spec: { type: 'source-control' } }))
+			const project = requireSuccess(
+				await portfolio.projects.create({ title: 'Corrupt', spec: { type: 'source-control' } }),
+			)
+			requireSuccess(
+				await portfolio.projects.create({ title: 'Valid sibling', spec: { type: 'source-control' } }),
+			)
 			const rows = dependencies.storage.adapter.stores.get('projects')
 			if (!rows) throw new Error('Expected stored Projects')
 			rows.set(project.id, { ...project, created: { src: 'local', by: '', at: project.created.at } })
@@ -244,7 +270,9 @@ describe('projects', () => {
 	})
 	it('creates and reads the trimmed Project', async () => {
 		await withReadyPortfolio(async (portfolio) => {
-			const project = requireSuccess(await portfolio.projects.create({ title: '  Example  ', spec: { type: 'source-control' } }))
+			const project = requireSuccess(
+				await portfolio.projects.create({ title: '  Example  ', spec: { type: 'source-control' } }),
+			)
 			expect(project.title).toBe('Example')
 			expect(project.spec).toEqual({ type: 'source-control' })
 			expect(project.created).toMatchObject({ src: 'local', by: 'test-author', cid: 'test-call' })

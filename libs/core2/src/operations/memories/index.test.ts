@@ -37,12 +37,27 @@ describe('memories', () => {
 		await withInputRefusal(async ({ revisions }) => {
 			const boxed: unknown = Object(1)
 			const input = { memoryId: '01k00000000000000000000001', expectedVersion: 1, title: 'Title', body: '' }
-			for (const expectedVersion of [undefined, null, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, NaN, Infinity, -Infinity, '1', boxed])
+			for (const expectedVersion of [
+				undefined,
+				null,
+				0,
+				-1,
+				1.5,
+				Number.MAX_SAFE_INTEGER + 1,
+				NaN,
+				Infinity,
+				-Infinity,
+				'1',
+				boxed,
+			])
 				await expectInvalid(revisions.create, { ...input, expectedVersion }, 'expectedVersion')
 			for (const title of ['', ' \t\r\n'])
 				expect(await revisions.create({ ...input, title })).toEqual({
 					ok: false,
-					error: { type: 'invalid-input', issues: [{ path: 'title', message: 'Expected a nonblank title.' }] },
+					error: {
+						type: 'invalid-input',
+						issues: [{ path: 'title', message: 'Expected a nonblank title.' }],
+					},
 				})
 			expect(
 				await revisions.create({
@@ -71,11 +86,19 @@ describe('memories', () => {
 				revision: { id: 'caller-revision', version: 42 },
 				ignored: true,
 			}
-			adapter.createMany = async (...args) => (await createMany(...args)).map((row) => ({ ...row, ignored: 'synthetic-PROTECTED' }))
+			adapter.createMany = async (...args) =>
+				(await createMany(...args)).map((row) => ({ ...row, ignored: 'synthetic-PROTECTED' }))
 			try {
 				const pair = requireSuccess(await portfolio.memories.create(input))
 				expect(Object.keys(pair.memory).sort()).toEqual(['created', 'id', 'parentId', 'revision'])
-				expect(Object.keys(pair.revision).sort()).toEqual(['body', 'created', 'id', 'memoryId', 'title', 'version'])
+				expect(Object.keys(pair.revision).sort()).toEqual([
+					'body',
+					'created',
+					'id',
+					'memoryId',
+					'title',
+					'version',
+				])
 				expect(pair.memory.id).not.toBe(input.id)
 				expect(pair.memory.revision).toEqual({ id: pair.revision.id, version: 1, title: 'Notes' })
 				expect(pair.revision.body).toBe('')
@@ -90,7 +113,9 @@ describe('memories', () => {
 					ignored: true,
 				})
 				expect(requireSuccess(await portfolio.memories.find({ memoryId: pair.memory.id }))).toEqual(pair.memory)
-				expect(requireSuccess(await portfolio.memories.revisions.find({ revisionId: pair.revision.id }))).toEqual(pair.revision)
+				expect(
+					requireSuccess(await portfolio.memories.revisions.find({ revisionId: pair.revision.id })),
+				).toEqual(pair.revision)
 			} finally {
 				adapter.createMany = createMany
 			}
@@ -138,7 +163,13 @@ describe('memories', () => {
 					await expectInvalid(create, { parentId: null, title: 'Title', body: '', [field]: invalid }, field)
 					await expectInvalid(
 						revisions.create,
-						{ memoryId: '01k00000000000000000000001', expectedVersion: 1, title: 'Title', body: '', [field]: invalid },
+						{
+							memoryId: '01k00000000000000000000001',
+							expectedVersion: 1,
+							title: 'Title',
+							body: '',
+							[field]: invalid,
+						},
 						field,
 					)
 				}
@@ -146,7 +177,10 @@ describe('memories', () => {
 			for (const title of ['', ' 	\r\n'])
 				expect(await create({ parentId: null, title, body: '' })).toEqual({
 					ok: false,
-					error: { type: 'invalid-input', issues: [{ path: 'title', message: 'Expected a nonblank title.' }] },
+					error: {
+						type: 'invalid-input',
+						issues: [{ path: 'title', message: 'Expected a nonblank title.' }],
+					},
 				})
 			for (const operation of [create, find, list, revisions.find, revisions.list, revisions.create]) {
 				for (const input of [undefined, null, {}, [], 1]) await expectInvalid(operation, input)
@@ -182,13 +216,70 @@ describe('memories', () => {
 				await portfolio.memories.list({ parentId: foreign.memory.id }),
 				await portfolio.memories.revisions.list({ memoryId: foreign.memory.id }),
 			])
-				expect(result).toEqual({ ok: false, error: { type: 'not-found', resource: 'memory', id: foreign.memory.id } })
+				expect(result).toEqual({
+					ok: false,
+					error: { type: 'not-found', resource: 'memory', id: foreign.memory.id },
+				})
 			expect(await portfolio.memories.revisions.find({ revisionId: foreign.revision.id })).toEqual({
 				ok: false,
 				error: { type: 'not-found', resource: 'memory-revision', id: foreign.revision.id },
 			})
 			expect(requireSuccess(await portfolio.memories.list({ parentId: null }))).toEqual([])
 		})
+	})
+	it('looks up only nonnull parents before child reads or initial-pair writes', async () => {
+		const { dependencies, codecCalls } = createCountedSecretDependencies()
+		const adapter = dependencies.storage.adapter
+		await withReadyPortfolio(async (portfolio) => {
+			const findDescriptor = Object.getOwnPropertyDescriptor(adapter, 'findMany')
+			const createDescriptor = Object.getOwnPropertyDescriptor(adapter, 'createMany')
+			const findMany = adapter.findMany.bind(adapter)
+			const createMany = adapter.createMany.bind(adapter)
+			const calls: string[] = []
+			adapter.findMany = (...args) => {
+				calls.push(`read:${args[0].name}`)
+				return findMany(...args)
+			}
+			adapter.createMany = (...args) => {
+				calls.push(`create:${args[0].name}`)
+				return createMany(...args)
+			}
+			try {
+				const root = requireSuccess(
+					await portfolio.memories.create({ parentId: null, title: 'Root', body: '' }),
+				)
+				expect(calls.splice(0)).toEqual(['create:memories', 'create:memory_revisions'])
+				expect(requireSuccess(await portfolio.memories.list({ parentId: null }))).toEqual([root.memory])
+				expect(calls.splice(0)).toEqual(['read:memories'])
+				const missing = '01k00000000000000000000001'
+				expect(await portfolio.memories.create({ parentId: missing, title: 'Child', body: '' })).toEqual({
+					ok: false,
+					error: { type: 'not-found', resource: 'memory', id: missing },
+				})
+				expect(calls.splice(0)).toEqual(['read:memories'])
+				expect(await portfolio.memories.list({ parentId: missing })).toEqual({
+					ok: false,
+					error: { type: 'not-found', resource: 'memory', id: missing },
+				})
+				expect(calls.splice(0)).toEqual(['read:memories'])
+				expect(requireSuccess(await portfolio.memories.list({ parentId: root.memory.id }))).toEqual([])
+				expect(calls.splice(0)).toEqual(['read:memories', 'read:memories'])
+				const child = requireSuccess(
+					await portfolio.memories.create({ parentId: root.memory.id, title: 'Child', body: '' }),
+				)
+				expect(calls.splice(0)).toEqual(['read:memories', 'create:memories', 'create:memory_revisions'])
+				expect(requireSuccess(await portfolio.memories.list({ parentId: root.memory.id }))).toEqual([
+					child.memory,
+				])
+				expect(calls.splice(0)).toEqual(['read:memories', 'read:memories'])
+				expect(codecCalls).toEqual({ encodes: 0, decodes: 0 })
+			} finally {
+				if (findDescriptor) Object.defineProperty(adapter, 'findMany', findDescriptor)
+				else Reflect.deleteProperty(adapter, 'findMany')
+				if (createDescriptor) Object.defineProperty(adapter, 'createMany', createDescriptor)
+				else Reflect.deleteProperty(adapter, 'createMany')
+			}
+		}, dependencies)
 	})
 	it('validates every stored Memory field before parent decisions or compact reads', async () => {
 		const { dependencies, codecCalls } = createCountedSecretDependencies()
@@ -206,20 +297,31 @@ describe('memories', () => {
 				for (const corruption of [
 					{ id: 'invalid' },
 					{ parentId: 'invalid' },
-					...[{ id: 'invalid' }, { version: '1' }, { version: 9007199254740992 }, { title: 1 }].map((revision) => ({
-						revision: { ...parent.memory.revision, ...revision },
-					})),
+					...[{ id: 'invalid' }, { version: '1' }, { version: 9007199254740992 }, { title: 1 }].map(
+						(revision) => ({
+							revision: { ...parent.memory.revision, ...revision },
+						}),
+					),
 					{ created: { ...parent.memory.created, cid: undefined } },
 				]) {
 					// Malformed IDs must reach the selected-row boundary, not be excluded by native filtering.
+					const reads: string[] = []
 					adapter.findMany = async (...args) => {
+						reads.push(args[0].name)
 						const rows = await findMany(...args)
 						return args[0].name === 'memories' ? rows.map((row) => ({ ...row, ...corruption })) : rows
 					}
-					for (const result of [
+					expect(
 						await portfolio.memories.create({ parentId: parent.memory.id, title: 'Child', body: '' }),
+					).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
+					expect(reads.splice(0)).toEqual(['memories'])
+					expect(await portfolio.memories.list({ parentId: parent.memory.id })).toEqual({
+						ok: false,
+						error: { type: 'invalid-storage-output' },
+					})
+					expect(reads.splice(0)).toEqual(['memories'])
+					for (const result of [
 						await portfolio.memories.find({ memoryId: parent.memory.id }),
-						await portfolio.memories.list({ parentId: parent.memory.id }),
 						await portfolio.memories.list({ parentId: null }),
 						await portfolio.memories.revisions.list({ memoryId: parent.memory.id }),
 					])
@@ -246,14 +348,23 @@ describe('memories', () => {
 				writes++
 				return createMany(...args)
 			}
-			adapter.findMany = () => {
+			const reads: string[] = []
+			adapter.findMany = (...args) => {
+				reads.push(args[0].name)
 				throw new Error('synthetic-PROTECTED')
 			}
 			try {
-				for (const result of [
+				expect(
 					await portfolio.memories.create({ parentId: parent.memory.id, title: 'Child', body: '' }),
+				).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+				expect(reads.splice(0)).toEqual(['memories'])
+				expect(await portfolio.memories.list({ parentId: parent.memory.id })).toEqual({
+					ok: false,
+					error: { type: 'storage-operation-failed' },
+				})
+				expect(reads.splice(0)).toEqual(['memories'])
+				for (const result of [
 					await portfolio.memories.find({ memoryId: parent.memory.id }),
-					await portfolio.memories.list({ parentId: parent.memory.id }),
 					await portfolio.memories.list({ parentId: null }),
 					await portfolio.memories.revisions.find({ revisionId: parent.revision.id }),
 					await portfolio.memories.revisions.list({ memoryId: parent.memory.id }),
@@ -272,8 +383,12 @@ describe('memories', () => {
 				adapter.findMany = findMany
 				adapter.createMany = createMany
 			}
-			expect(requireSuccess(await portfolio.memories.list({ parentId: parent.memory.id }))).toEqual([child.memory])
-			expect(requireSuccess(await portfolio.memories.revisions.find({ revisionId: parent.revision.id }))).toEqual(parent.revision)
+			expect(requireSuccess(await portfolio.memories.list({ parentId: parent.memory.id }))).toEqual([
+				child.memory,
+			])
+			expect(requireSuccess(await portfolio.memories.revisions.find({ revisionId: parent.revision.id }))).toEqual(
+				parent.revision,
+			)
 			expect(codecCalls).toEqual({ encodes: 0, decodes: 0 })
 		}, dependencies)
 	})
@@ -293,10 +408,12 @@ describe('memories', () => {
 					adapter.createMany = async (...args) => {
 						const table = args[0].name
 						attempts.push({ table, rows: structuredClone(args[2]) })
-						if (table === 'memory_revisions' && stage === 'before-revision') throw new Error('synthetic-PROTECTED')
+						if (table === 'memory_revisions' && stage === 'before-revision')
+							throw new Error('synthetic-PROTECTED')
 						const rows = await createMany(...args)
 						inserted += rows.length
-						if (table === 'memory_revisions' && stage === 'after-revision') throw new Error('synthetic-PROTECTED')
+						if (table === 'memory_revisions' && stage === 'after-revision')
+							throw new Error('synthetic-PROTECTED')
 						if (table === 'memories' && stage === 'memory-output')
 							return rows.map((row) => ({ ...row, id: 'invalid', revision: null }))
 						if (table === 'memory_revisions' && stage === 'revision-output')
@@ -312,7 +429,9 @@ describe('memories', () => {
 						})
 					}
 					try {
-						expect(await portfolio.memories.create({ parentId, title: 'Failed', body: 'never committed' })).toEqual({
+						expect(
+							await portfolio.memories.create({ parentId, title: 'Failed', body: 'never committed' }),
+						).toEqual({
 							ok: false,
 							error: {
 								type:
@@ -330,7 +449,8 @@ describe('memories', () => {
 					expect(attempts.map(({ table }) => table)).toEqual(['memories', 'memory_revisions'])
 					const memoryId = attempts[0]!.rows[0]!.id
 					const revisionId = attempts[1]!.rows[0]!.id
-					if (typeof memoryId !== 'string' || typeof revisionId !== 'string') throw new Error('Expected both attempted IDs')
+					if (typeof memoryId !== 'string' || typeof revisionId !== 'string')
+						throw new Error('Expected both attempted IDs')
 					expect(memoryId).not.toBe(revisionId)
 					expect(attempts[1]!.rows[0]!.memoryId).toBe(memoryId)
 					expect(attempts[0]!.rows[0]!.revision).toEqual({ id: revisionId, version: 1, title: 'Failed' })
@@ -343,15 +463,19 @@ describe('memories', () => {
 						error: { type: 'not-found', resource: 'memory-revision', id: revisionId },
 					})
 					expect(requireSuccess(await portfolio.memories.list({ parentId: null }))).toEqual([parent.memory])
-					expect(requireSuccess(await portfolio.memories.list({ parentId: parent.memory.id }))).toEqual([child.memory])
+					expect(requireSuccess(await portfolio.memories.list({ parentId: parent.memory.id }))).toEqual([
+						child.memory,
+					])
 					for (const pair of [parent, child]) {
-						expect(requireSuccess(await portfolio.memories.find({ memoryId: pair.memory.id }))).toEqual(pair.memory)
-						expect(requireSuccess(await portfolio.memories.revisions.find({ revisionId: pair.revision.id }))).toEqual(
-							pair.revision,
+						expect(requireSuccess(await portfolio.memories.find({ memoryId: pair.memory.id }))).toEqual(
+							pair.memory,
 						)
-						expect(requireSuccess(await portfolio.memories.revisions.list({ memoryId: pair.memory.id }))).toEqual([
-							pair.revision,
-						])
+						expect(
+							requireSuccess(await portfolio.memories.revisions.find({ revisionId: pair.revision.id })),
+						).toEqual(pair.revision)
+						expect(
+							requireSuccess(await portfolio.memories.revisions.list({ memoryId: pair.memory.id })),
+						).toEqual([pair.revision])
 					}
 					// Rollback replaces nested maps: reacquire rather than inspecting a stale map.
 					expect(adapter.stores.get('memories')!.size).toBe(2)
@@ -375,7 +499,9 @@ describe('memories', () => {
 				roots.push(requireSuccess(await create({ parentId: null, title: 'Root', body: '' })).memory)
 			const children = []
 			for (let index = 0; index < 125; index++)
-				children.push(requireSuccess(await create({ parentId: parent.memory.id, title: 'Sibling', body: '' })).memory)
+				children.push(
+					requireSuccess(await create({ parentId: parent.memory.id, title: 'Sibling', body: '' })).memory,
+				)
 			const first = children[0]!
 			const grandchild = requireSuccess(await create({ parentId: first.id, title: 'Grandchild', body: '' }))
 			const rows = [...adapter.stores.get('memories')!.entries()].reverse()
@@ -391,15 +517,28 @@ describe('memories', () => {
 			returnedRoots[0]!.created.by = 'mutated'
 			returnedRoots.reverse()
 			expect(requireSuccess(await list({ parentId: null }))).toEqual(roots)
-			expect(requireSuccess(await list({ parentId: parent.memory.id }))).toEqual(children.sort((a, b) => (a.id < b.id ? -1 : 1)))
+			expect(requireSuccess(await list({ parentId: parent.memory.id }))).toEqual(
+				children.sort((a, b) => (a.id < b.id ? -1 : 1)),
+			)
 			expect(requireSuccess(await list({ parentId: first.id }))).toEqual([grandchild.memory])
 			expect(requireSuccess(await list({ parentId: other.memory.id }))).toEqual([])
 			adapter.stores.get('memories')!.delete(missing)
-			expect(await list({ parentId: missing })).toEqual({ ok: false, error: { type: 'not-found', resource: 'memory', id: missing } })
+			expect(await list({ parentId: missing })).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'memory', id: missing },
+			})
 			adapter.stores.get('memories')!.set(first.id, { ...first, revision: { ...first.revision, version: 0 } })
-			expect(await list({ parentId: parent.memory.id })).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
-			adapter.stores.get('memories')!.set(other.memory.id, { ...other.memory, created: { ...other.memory.created, cid: undefined } })
-			expect(await list({ parentId: other.memory.id })).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
+			expect(await list({ parentId: parent.memory.id })).toEqual({
+				ok: false,
+				error: { type: 'invalid-storage-output' },
+			})
+			adapter.stores
+				.get('memories')!
+				.set(other.memory.id, { ...other.memory, created: { ...other.memory.created, cid: undefined } })
+			expect(await list({ parentId: other.memory.id })).toEqual({
+				ok: false,
+				error: { type: 'invalid-storage-output' },
+			})
 			expect(await list({ parentId: null })).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
 			expect(codecCalls).toEqual({ encodes: 0, decodes: 0 })
 		}, dependencies)
@@ -408,9 +547,15 @@ describe('memories', () => {
 		const { dependencies, codecCalls } = createCountedSecretDependencies()
 		const adapter = dependencies.storage.adapter
 		await withReadyPortfolio(async (portfolio) => {
-			const pair = requireSuccess(await portfolio.memories.create({ parentId: null, title: 'Notes', body: 'full body' }))
+			const pair = requireSuccess(
+				await portfolio.memories.create({ parentId: null, title: 'Notes', body: 'full body' }),
+			)
 			const { find } = portfolio.memories
-			const stored = { ...pair.memory, body: 'ignored', revision: { ...pair.memory.revision, title: '  Notes  ', body: 'ignored' } }
+			const stored = {
+				...pair.memory,
+				body: 'ignored',
+				revision: { ...pair.memory.revision, title: '  Notes  ', body: 'ignored' },
+			}
 			adapter.stores.get('memories')!.set(pair.memory.id, stored)
 			expect(requireSuccess(await find({ memoryId: pair.memory.id }))).toEqual(pair.memory)
 			expect(adapter.stores.get('memories')!.get(pair.memory.id)).toEqual(stored)
@@ -419,9 +564,17 @@ describe('memories', () => {
 			found.created.by = 'mutated'
 			expect(requireSuccess(await find({ memoryId: pair.memory.id }))).toEqual(pair.memory)
 			const missing = '01k00000000000000000000001'
-			expect(await find({ memoryId: missing })).toEqual({ ok: false, error: { type: 'not-found', resource: 'memory', id: missing } })
-			adapter.stores.get('memories')!.set(pair.memory.id, { ...pair.memory, created: { ...pair.memory.created, cid: undefined } })
-			expect(await find({ memoryId: pair.memory.id })).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
+			expect(await find({ memoryId: missing })).toEqual({
+				ok: false,
+				error: { type: 'not-found', resource: 'memory', id: missing },
+			})
+			adapter.stores
+				.get('memories')!
+				.set(pair.memory.id, { ...pair.memory, created: { ...pair.memory.created, cid: undefined } })
+			expect(await find({ memoryId: pair.memory.id })).toEqual({
+				ok: false,
+				error: { type: 'invalid-storage-output' },
+			})
 			expect(codecCalls).toEqual({ encodes: 0, decodes: 0 })
 		}, dependencies)
 	})
@@ -430,7 +583,9 @@ describe('memories', () => {
 		const adapter = dependencies.storage.adapter
 		const createMany = adapter.createMany.bind(adapter)
 		await withReadyPortfolio(async (portfolio) => {
-			const parent = requireSuccess(await portfolio.memories.create({ parentId: null, title: 'Parent', body: 'parent body' }))
+			const parent = requireSuccess(
+				await portfolio.memories.create({ parentId: null, title: 'Parent', body: 'parent body' }),
+			)
 			const missing = '01k00000000000000000000001'
 			let writes = 0
 			adapter.createMany = (...args) => {
@@ -449,7 +604,9 @@ describe('memories', () => {
 					{ created: { ...parent.memory.created, cid: undefined } },
 				]) {
 					adapter.stores.get('memories')!.set(parent.memory.id, { ...parent.memory, ...corruption })
-					expect(await portfolio.memories.create({ parentId: parent.memory.id, title: 'Child', body: '' })).toEqual({
+					expect(
+						await portfolio.memories.create({ parentId: parent.memory.id, title: 'Child', body: '' }),
+					).toEqual({
 						ok: false,
 						error: { type: 'invalid-storage-output' },
 					})
@@ -492,10 +649,19 @@ describe('memories', () => {
 			try {
 				const before = Date.now()
 				const { create } = portfolio.memories
-				const pair = requireSuccess(await create({ parentId: null, title: '  Notes É\n  inner  ', body: '  exact body\n' }))
+				const pair = requireSuccess(
+					await create({ parentId: null, title: '  Notes É\n  inner  ', body: '  exact body\n' }),
+				)
 				expect(Object.keys(pair).sort()).toEqual(['memory', 'revision'])
 				expect(Object.keys(pair.memory).sort()).toEqual(['created', 'id', 'parentId', 'revision'])
-				expect(Object.keys(pair.revision).sort()).toEqual(['body', 'created', 'id', 'memoryId', 'title', 'version'])
+				expect(Object.keys(pair.revision).sort()).toEqual([
+					'body',
+					'created',
+					'id',
+					'memoryId',
+					'title',
+					'version',
+				])
 				expect(pair.memory.parentId).toBeNull()
 				expect(pair.memory.revision).toEqual({ id: pair.revision.id, version: 1, title: 'Notes É\n  inner' })
 				expect(pair.revision).toMatchObject({
@@ -517,14 +683,22 @@ describe('memories', () => {
 				expect({ sessions, ...codecCalls }).toEqual({ sessions: 1, encodes: 0, decodes: 0 })
 				const original = structuredClone(pair)
 				expect(requireSuccess(await portfolio.memories.find({ memoryId: pair.memory.id }))).toEqual(pair.memory)
-				expect(requireSuccess(await portfolio.memories.revisions.find({ revisionId: pair.revision.id }))).toEqual(pair.revision)
-				expect(requireSuccess(await portfolio.memories.revisions.list({ memoryId: pair.memory.id }))).toEqual([pair.revision])
+				expect(
+					requireSuccess(await portfolio.memories.revisions.find({ revisionId: pair.revision.id })),
+				).toEqual(pair.revision)
+				expect(requireSuccess(await portfolio.memories.revisions.list({ memoryId: pair.memory.id }))).toEqual([
+					pair.revision,
+				])
 				pair.memory.revision.title = 'mutated'
 				pair.memory.created.by = 'mutated'
 				pair.revision.body = 'mutated'
 				pair.revision.created.by = 'mutated'
-				expect(requireSuccess(await portfolio.memories.find({ memoryId: pair.memory.id }))).toEqual(original.memory)
-				expect(requireSuccess(await portfolio.memories.revisions.find({ revisionId: pair.revision.id }))).toEqual(original.revision)
+				expect(requireSuccess(await portfolio.memories.find({ memoryId: pair.memory.id }))).toEqual(
+					original.memory,
+				)
+				expect(
+					requireSuccess(await portfolio.memories.revisions.find({ revisionId: pair.revision.id })),
+				).toEqual(original.revision)
 			} finally {
 				adapter.session = session
 				adapter.createMany = createMany

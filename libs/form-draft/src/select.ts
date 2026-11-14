@@ -103,12 +103,15 @@ abstract class BaseSelectFormDraft<TOptionValue, TSelectedValue> extends FormDra
 	protected abstract selectedOptionsAvailable(value: TSelectedValue): boolean
 
 	private valuePipe(): Pipe<unknown, TSelectedValue> {
-		return this.options.pipe.pipe(v.custom((value) => this.selectedOptionsAvailable(value), this.unavailableMessage))
+		return this.options.pipe.pipe(
+			v.custom((value) => this.selectedOptionsAvailable(value), this.unavailableMessage),
+		)
 	}
 
 	private immediateOptionError(): string {
 		if (!this.#membership.known) return ''
-		if (!this.selectedOptionsAvailable(this.value) && this.callerPipeAcceptsCurrentValue()) return this.unavailableMessage
+		if (!this.selectedOptionsAvailable(this.value) && this.callerPipeAcceptsCurrentValue())
+			return this.unavailableMessage
 		return ''
 	}
 

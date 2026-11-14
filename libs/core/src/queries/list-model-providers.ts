@@ -3,11 +3,11 @@ import { type PipeInput, type PipeOutput } from 'valleyed'
 import { paginatedQueryEnvelopePipe, paginatedQueryInputPipe } from '../domain/commons'
 import { listedModelProviderPipe } from '../domain/model-provider'
 import type { InvalidCoreServiceOutputError, InvalidInputError, StorageOperationFailedError } from '../errors'
-import { listedModelProviders } from './model-provider-read-model'
 import { buildQueryHandler } from '../utils/query-handler'
 import { listRecords, listRecordsPaginated } from '../utils/storage/helpers'
 import type { CoreTransactions } from '../utils/transactions'
 import type { Result as CoreResult, UndefinedToOptional } from '../utils/types'
+import { listedModelProviders } from './model-provider-read-model'
 
 export const inputPipe = paginatedQueryInputPipe
 export type Input = UndefinedToOptional<PipeInput<typeof inputPipe>>
@@ -32,7 +32,10 @@ export function createListModelProvidersQuery(transactions: CoreTransactions): O
 							orderBy: [{ field: 'id', direction: 'desc' }],
 						})
 			return models.ok
-				? { ok: true, value: { ...providers.value, items: listedModelProviders(providers.value.items, models.value) } }
+				? {
+						ok: true,
+						value: { ...providers.value, items: listedModelProviders(providers.value.items, models.value) },
+					}
 				: models
 		}),
 	) as Operation
@@ -40,7 +43,8 @@ export function createListModelProvidersQuery(transactions: CoreTransactions): O
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
-	const { createTestCoreServices, seedModelProvider, seedSelectableModel, stamp } = await import('../utils/test-helpers')
+	const { createTestCoreServices, seedModelProvider, seedSelectableModel, stamp } =
+		await import('../utils/test-helpers')
 
 	describe('listModelProviders query', () => {
 		it('validates input before reading storage', async () => {
@@ -111,14 +115,27 @@ if (import.meta.vitest) {
 				ok: true,
 				value: {
 					items: [
-						expect.objectContaining({ id: '01k00000000000000000100053', name: 'Provider B', archived: false, models: [] }),
+						expect.objectContaining({
+							id: '01k00000000000000000100053',
+							name: 'Provider B',
+							archived: false,
+							models: [],
+						}),
 						expect.objectContaining({
 							id: '01k00000000000000000100052',
 							name: 'Provider A',
 							archived: true,
 							models: [
-								expect.objectContaining({ id: '01k00000000000000000100046', name: 'Model B', archived: true }),
-								expect.objectContaining({ id: '01k00000000000000000100045', name: 'Model A', archived: false }),
+								expect.objectContaining({
+									id: '01k00000000000000000100046',
+									name: 'Model B',
+									archived: true,
+								}),
+								expect.objectContaining({
+									id: '01k00000000000000000100045',
+									name: 'Model A',
+									archived: false,
+								}),
 							],
 						}),
 					],

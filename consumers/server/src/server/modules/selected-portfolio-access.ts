@@ -1,7 +1,11 @@
 import type { ServerCache } from '../cache'
-import { resolveSelectionAccess, type SelectionAccessFailureReason, type SelectionAccessResult } from './selection-access'
-import { verifySessionToken, type ServerSession, type VerifySessionTokenResult } from './sessions'
 import type { ServerStorage } from '../storage/repo'
+import {
+	resolveSelectionAccess,
+	type SelectionAccessFailureReason,
+	type SelectionAccessResult,
+} from './selection-access'
+import { verifySessionToken, type ServerSession, type VerifySessionTokenResult } from './sessions'
 
 type ResolveSelectedPortfolioAccessInput = {
 	serverStorage: ServerStorage
@@ -161,7 +165,12 @@ if (import.meta.vitest) {
 		const serverStorage = await openServerStorage({ dataDir: await createTempServerDataDir() })
 		const serverCache = createTestServerCache()
 		const user = await createUser({ serverStorage, now })
-		const workspace = await createWorkspaceForUser({ serverStorage, userId: user.id, displayName: 'Workspace', now })
+		const workspace = await createWorkspaceForUser({
+			serverStorage,
+			userId: user.id,
+			displayName: 'Workspace',
+			now,
+		})
 		const portfolio = await createPortfolioRegistryEntry({
 			serverStorage,
 			workspaceId: workspace.workspace.id,

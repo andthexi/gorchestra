@@ -1,8 +1,8 @@
 import { Schema } from 'equipped/orm'
 import { v, type PipeOutput } from 'valleyed'
 
-import { auditStampPipe, idPipe, protectedStringPipe, titlePipe } from './commons'
 import { requireExplicitId, schemaPipe } from '../storage/schema'
+import { auditStampPipe, idPipe, protectedStringPipe, titlePipe } from './commons'
 
 export const secretSchema = Schema.from('secrets')
 	.pk('id', idPipe, requireExplicitId)

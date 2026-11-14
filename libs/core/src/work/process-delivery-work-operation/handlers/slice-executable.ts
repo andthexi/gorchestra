@@ -4,7 +4,11 @@ import { appendAgentRunEvent, createModelAgentRunAndRequestPreparation } from '.
 import { nextId, runtimeRecord } from '../../../utils/runtime-values'
 import { getRecord } from '../../../utils/storage/helpers'
 import type { CoreTransaction } from '../../../utils/transactions'
-import type { DeliveryHandlerContext, DeliveryWorkHandlerResult, DeliveryWorkResolution } from '../../delivery-work/types'
+import type {
+	DeliveryHandlerContext,
+	DeliveryWorkHandlerResult,
+	DeliveryWorkResolution,
+} from '../../delivery-work/types'
 
 export async function handleSliceExecutable(
 	context: DeliveryHandlerContext,
@@ -69,16 +73,27 @@ export async function handleSliceExecutable(
 	)
 	if (!input.ok) return input
 
-	const modelTurnRequested = await requestAgentRunModelTurn(transaction.dispatch, created.value.agentRun.id, input.value.id)
+	const modelTurnRequested = await requestAgentRunModelTurn(
+		transaction.dispatch,
+		created.value.agentRun.id,
+		input.value.id,
+	)
 	return modelTurnRequested.ok ? { ok: true, value: { processedCount: 1, failures: [] } } : modelTurnRequested
 }
 
 if (import.meta.vitest) {
 	const { describe, expect, it } = import.meta.vitest
 	const { buildDeliveryContext } = await import('../../../utils/delivery-context')
-	const { createTestCoreServices, defaultAgentRunSandboxConfig, seedDelivery, seedSlice, seedSelectableModel, testId } =
-		await import('../../../utils/test-helpers')
-	const { ensureGitRequirement, globalRuntimeRequirements } = await import('../../../utils/agent-run-runtime-requirements')
+	const {
+		createTestCoreServices,
+		defaultAgentRunSandboxConfig,
+		seedDelivery,
+		seedSlice,
+		seedSelectableModel,
+		testId,
+	} = await import('../../../utils/test-helpers')
+	const { ensureGitRequirement, globalRuntimeRequirements } =
+		await import('../../../utils/agent-run-runtime-requirements')
 
 	describe('handleSliceExecutable', () => {
 		it('claims initial executable Slice work with an instructed Agent Run and Slice instruction input event', async () => {

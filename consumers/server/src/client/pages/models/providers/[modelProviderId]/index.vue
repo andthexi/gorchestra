@@ -1,9 +1,15 @@
 <template>
 	<NuxtLayout name="portfolio">
 		<header class="border-b border-dimmer px-3 py-3">
-			<NuxtLink class="text-sz-helper font-semibold text-primary hover:brightness-110" to="/models/providers">← Models</NuxtLink>
-			<h1 class="m-0 mt-2 text-sz-section font-semibold tracking-[-0.01em]">{{ provider?.name ?? 'Loading Model Provider…' }}</h1>
-			<p class="m-0 mt-1 text-sz-helper text-dim">Manage provider metadata, lifecycle, and Models under this provider.</p>
+			<NuxtLink class="text-sz-helper font-semibold text-primary hover:brightness-110" to="/models/providers"
+				>← Models</NuxtLink
+			>
+			<h1 class="m-0 mt-2 text-sz-section font-semibold tracking-[-0.01em]">
+				{{ provider?.name ?? 'Loading Model Provider…' }}
+			</h1>
+			<p class="m-0 mt-1 text-sz-helper text-dim">
+				Manage provider metadata, lifecycle, and Models under this provider.
+			</p>
 		</header>
 
 		<section>
@@ -25,14 +31,16 @@
 							}}</span>
 						</div>
 						<div class="flex justify-between gap-3 border-b border-dimmer py-2">
-							<span class="text-dim">Source</span><span>{{ modelProviderSourceLabel(provider.source) }}</span>
+							<span class="text-dim">Source</span
+							><span>{{ modelProviderSourceLabel(provider.source) }}</span>
 						</div>
 						<div class="flex justify-between gap-3 border-b border-dimmer py-2">
 							<span class="text-dim">Protocol</span><span class="font-mono">{{ provider.protocol }}</span>
 						</div>
 						<div
 							v-if="provider.source.type === 'custom-hosted'"
-							class="flex justify-between gap-3 border-b border-dimmer py-2 sm:col-span-2">
+							class="flex justify-between gap-3 border-b border-dimmer py-2 sm:col-span-2"
+						>
 							<span class="text-dim">Base URL</span
 							><span class="min-w-0 truncate font-mono">{{ provider.source.baseUrl }}</span>
 						</div>
@@ -69,14 +77,19 @@
 							:key="model.id"
 							:to="`/models/providers/${provider.id}/models/${model.id}`"
 							class="grid min-h-[54px] grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-dimmer px-3 py-3 text-body hover:bg-card focus-visible:bg-secondary"
-							:class="model.archived ? 'opacity-50' : ''">
+							:class="model.archived ? 'opacity-50' : ''"
+						>
 							<div class="min-w-0">
 								<strong class="block truncate font-semibold">{{ model.name }}</strong>
-								<span class="mt-1 block truncate text-sz-helper text-dim font-mono">{{ model.providerModelId }}</span>
+								<span class="mt-1 block truncate text-sz-helper text-dim font-mono">{{
+									model.providerModelId
+								}}</span>
 							</div>
-							<span class="self-center text-sz-helper" :class="model.archived ? 'text-dim' : 'text-success'">{{
-								model.archived ? 'Archived' : 'Active'
-							}}</span>
+							<span
+								class="self-center text-sz-helper"
+								:class="model.archived ? 'text-dim' : 'text-success'"
+								>{{ model.archived ? 'Archived' : 'Active' }}</span
+							>
 						</NuxtLink>
 					</nav>
 				</section>
@@ -89,29 +102,41 @@
 					<div>
 						<h2 class="m-0 text-sz-subsection font-semibold">Provider actions</h2>
 						<p class="m-0 mt-1 text-sz-helper leading-5 text-dim">
-							Edit metadata, Secret references, and provider options without changing the immutable source.
+							Edit metadata, Secret references, and provider options without changing the immutable
+							source.
 						</p>
 					</div>
 					<UiForm class="mt-3 grid gap-3" @submit.prevent="saveProvider()">
-						<UiFormGroup label="Provider name" for-id="provider-name" :error="providerForm.errors.name">
-							<UiInput id="provider-name" v-model="providerForm.name" :invalid="!!providerForm.errors.name" />
+						<UiFormGroup label="Provider name" forId="provider-name" :error="providerForm.errors.name">
+							<UiInput
+								id="provider-name"
+								v-model="providerForm.name"
+								:invalid="!!providerForm.errors.name"
+							/>
 						</UiFormGroup>
-						<UiFormGroup label="API key Secret" for-id="provider-auth-secret" :error="providerForm.errors.authSecretId">
+						<UiFormGroup
+							label="API key Secret"
+							forId="provider-auth-secret"
+							:error="providerForm.errors.authSecretId"
+						>
 							<UiSelect
 								id="provider-auth-secret"
 								v-model="providerForm.authSecretId"
 								:options="authSecretOptions"
-								placeholder="No auth Secret" />
+								placeholder="No auth Secret"
+							/>
 						</UiFormGroup>
 						<UiFormGroup
 							label="Provider options JSON"
-							for-id="provider-options"
-							:error="providerForm.errors.providerOptionsText">
+							forId="provider-options"
+							:error="providerForm.errors.providerOptionsText"
+						>
 							<UiTextarea
 								id="provider-options"
 								v-model="providerForm.providerOptionsText"
 								placeholder='{ "serviceTier": "flex" }'
-								:invalid="!!providerForm.errors.providerOptionsText" />
+								:invalid="!!providerForm.errors.providerOptionsText"
+							/>
 						</UiFormGroup>
 						<div class="flex flex-wrap items-center gap-2">
 							<UiButton
@@ -157,29 +182,37 @@
 						</p>
 					</div>
 					<UiForm class="mt-3 grid gap-3" @submit.prevent="createModel()">
-						<UiFormGroup label="New Model name" for-id="model-name" :error="modelCreationForm.errors.name">
+						<UiFormGroup label="New Model name" forId="model-name" :error="modelCreationForm.errors.name">
 							<UiInput
 								id="model-name"
 								v-model="modelCreationForm.name"
 								placeholder="GPT 4.1"
-								:invalid="!!modelCreationForm.errors.name" />
+								:invalid="!!modelCreationForm.errors.name"
+							/>
 						</UiFormGroup>
-						<UiFormGroup label="Provider model id" for-id="provider-model-id" :error="modelCreationForm.errors.providerModelId">
+						<UiFormGroup
+							label="Provider model id"
+							forId="provider-model-id"
+							:error="modelCreationForm.errors.providerModelId"
+						>
 							<UiInput
 								id="provider-model-id"
 								v-model="modelCreationForm.providerModelId"
 								placeholder="gpt-4.1"
-								:invalid="!!modelCreationForm.errors.providerModelId" />
+								:invalid="!!modelCreationForm.errors.providerModelId"
+							/>
 						</UiFormGroup>
 						<UiFormGroup
 							label="Model provider options JSON"
-							for-id="model-provider-options"
-							:error="modelCreationForm.errors.providerOptionsText">
+							forId="model-provider-options"
+							:error="modelCreationForm.errors.providerOptionsText"
+						>
 							<UiTextarea
 								id="model-provider-options"
 								v-model="modelCreationForm.providerOptionsText"
 								placeholder='{ "reasoningEffort": "high" }'
-								:invalid="!!modelCreationForm.errors.providerOptionsText" />
+								:invalid="!!modelCreationForm.errors.providerOptionsText"
+							/>
 						</UiFormGroup>
 						<UiButton
 							type="submit"
@@ -206,8 +239,8 @@ import UiInput from '../../../../components/ui/UiInput.vue'
 import UiSelect from '../../../../components/ui/UiSelect.vue'
 import UiText from '../../../../components/ui/UiText.vue'
 import UiTextarea from '../../../../components/ui/UiTextarea.vue'
-import type { ModelProviderSource } from '../../../../composables/core/server-api'
 import { useOverlay } from '../../../../composables/core/overlay'
+import type { ModelProviderSource } from '../../../../composables/core/server-api'
 import {
 	useModelCreate,
 	useModelProviderDetail,
@@ -224,10 +257,15 @@ const router = useRouter()
 const modelProviderId = computed(() => route.params.modelProviderId as string)
 const { confirm } = useOverlay()
 
-const { provider, isLoadingProvider, providerError, hasLoadedProvider, isRefreshingProvider } = useModelProviderDetail(modelProviderId)
-const { providerForm, isSavingProvider, saveProviderError, saveProvider } = useModelProviderUpdate(modelProviderId, provider)
+const { provider, isLoadingProvider, providerError, hasLoadedProvider, isRefreshingProvider } =
+	useModelProviderDetail(modelProviderId)
+const { providerForm, isSavingProvider, saveProviderError, saveProvider } = useModelProviderUpdate(
+	modelProviderId,
+	provider,
+)
 const { activeSecretOptions: secretOptions } = useActiveSecretSelectOptions()
-const { isChangingProviderLifecycle, providerLifecycleError, runProviderLifecycle } = useModelProviderLifecycle(modelProviderId)
+const { isChangingProviderLifecycle, providerLifecycleError, runProviderLifecycle } =
+	useModelProviderLifecycle(modelProviderId)
 const { modelCreationForm, isCreatingModel, createModelError, createModel } = useModelCreate(modelProviderId, {
 	onSuccess: async (model) => {
 		await router.push(`/models/providers/${modelProviderId.value}/models/${model.id}`)

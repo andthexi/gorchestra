@@ -1,6 +1,5 @@
 import type { ModelMessage } from 'ai'
 
-import type { CoreAgentRunToolDefinition } from './tools'
 import type { AgentRun } from '../../../domain/agent-run'
 import type { AgentRunEvent, AgentRunToolOutput } from '../../../domain/agent-run-event'
 import type { Id } from '../../../domain/commons'
@@ -20,6 +19,7 @@ import type { CoreProviders } from '../../providers'
 import type { CoreRuntimeValues } from '../../runtime-values'
 import type { CoreTransactions } from '../../transactions'
 import type { ManagedSandbox } from '../sandboxes/managed'
+import type { CoreAgentRunToolDefinition } from './tools'
 
 export interface AgentRunModelContext {
 	messages: ModelMessage[]
@@ -46,7 +46,10 @@ export interface CoreAgentRunToolContext {
 	toolCallId: string
 	onUpdate(update: ToolCallUpdate): Promise<void>
 	signal: AbortSignal
-	recordProposal(body: { type: 'proposed-plan-output' | 'proposed-revision-output'; output: unknown }): Promise<AgentRunToolOutput>
+	recordProposal(body: {
+		type: 'proposed-plan-output' | 'proposed-revision-output'
+		output: unknown
+	}): Promise<AgentRunToolOutput>
 	sandbox: ManagedSandbox
 }
 

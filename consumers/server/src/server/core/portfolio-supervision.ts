@@ -1,6 +1,5 @@
 import type { GorchestraCore, Result } from '@gorchestra/core'
 
-import { openPortfolioCoreRuntime, type PortfolioCoreRuntime } from './portfolio-runtime'
 import type {
 	PortfolioCoreSupervisionConfig,
 	ServerConsumerCoreDispatchProcessorConfig,
@@ -10,13 +9,17 @@ import type { SecretEncryptionKey } from '../modules/secret-protection'
 import { findPortfolioRegistryEntry, listPortfolioRegistryEntries } from '../modules/workspaces'
 import type { ServerStorage } from '../storage/repo'
 import type { PortfolioRegistryEntry } from '../storage/schemas'
+import { openPortfolioCoreRuntime, type PortfolioCoreRuntime } from './portfolio-runtime'
 
 export type PortfolioCoreBorrowError = { type: 'portfolio-core-unavailable' }
 
 export interface PortfolioCoreSupervision {
 	start: () => Promise<void>
 	portfolioRegistered: (portfolioId: string) => void
-	borrow: <T>(portfolioId: string, run: (core: GorchestraCore) => Promise<T>) => Promise<Result<T, PortfolioCoreBorrowError>>
+	borrow: <T>(
+		portfolioId: string,
+		run: (core: GorchestraCore) => Promise<T>,
+	) => Promise<Result<T, PortfolioCoreBorrowError>>
 	close: () => Promise<void>
 }
 
@@ -102,7 +105,10 @@ function createPortfolioCoreSupervisionWith(
 	}
 
 	function retryDelay(attempt: number): number {
-		const baseDelay = Math.min(input.config.retryMaxDelayMs, input.config.retryInitialDelayMs * input.config.retryMultiplier ** attempt)
+		const baseDelay = Math.min(
+			input.config.retryMaxDelayMs,
+			input.config.retryInitialDelayMs * input.config.retryMultiplier ** attempt,
+		)
 		const jitter = (dependencies.random() * 2 - 1) * input.config.retryJitterRatio
 		return Math.round(baseDelay * (1 + jitter))
 	}
@@ -117,17 +123,29 @@ function createPortfolioCoreSupervisionWith(
 		}, delay)
 	}
 
-	function monitorProcessor(state: RuntimeState, runtime: PortfolioCoreRuntime, processor: PortfolioCoreRuntime['processor']): void {
+	function monitorProcessor(
+		state: RuntimeState,
+		runtime: PortfolioCoreRuntime,
+		processor: PortfolioCoreRuntime['processor'],
+	): void {
 		state.processorGeneration += 1
 		const processorGeneration = state.processorGeneration
 		void processor.completed
 			.then((result) => ({ status: result.ok ? 'stopped' : 'failed' }))
 			.catch(() => ({ status: 'failed' as const }))
 			.then(({ status }) => {
-				if (closed || state.phase !== 'ready' || state.runtime !== runtime || state.processorGeneration !== processorGeneration) {
+				if (
+					closed ||
+					state.phase !== 'ready' ||
+					state.runtime !== runtime ||
+					state.processorGeneration !== processorGeneration
+				) {
 					return
 				}
-				log.warn('Portfolio Core Dispatch Processor stopped; scheduling restart.', { portfolioId: state.portfolio.id, status })
+				log.warn('Portfolio Core Dispatch Processor stopped; scheduling restart.', {
+					portfolioId: state.portfolio.id,
+					status,
+				})
 				scheduleProcessorRetry(state)
 			})
 	}
@@ -159,7 +177,9 @@ function createPortfolioCoreSupervisionWith(
 	): Promise<{ ready: true } | { ready: false; reason: string }> {
 		let readinessTimeout: ReturnType<typeof setTimeout> | undefined
 		const readiness = await Promise.race([
-			processor.ready.then((result) => ({ type: 'completed' as const, result })).catch(() => ({ type: 'failed' as const })),
+			processor.ready
+				.then((result) => ({ type: 'completed' as const, result }))
+				.catch(() => ({ type: 'failed' as const })),
 			new Promise<{ type: 'timed-out' }>((resolve) => {
 				readinessTimeout = setTimeout(() => resolve({ type: 'timed-out' }), input.config.runtimeStartTimeoutMs)
 			}),
@@ -267,18 +287,25 @@ function createPortfolioCoreSupervisionWith(
 				if (state.generation === generation) state.phase = 'degraded'
 				log.warn('Portfolio Core Runtime start timed out.', { portfolioId: portfolio.id })
 				void openedPromise.then(async (lateOutcome) => {
-					if (lateOutcome.type === 'completed' && lateOutcome.result.ok) await disposeRuntime(lateOutcome.result.value)
+					if (lateOutcome.type === 'completed' && lateOutcome.result.ok)
+						await disposeRuntime(lateOutcome.result.value)
 				})
 				return
 			}
 			if (outcome.type === 'failed') {
 				if (state.generation === generation) state.phase = 'degraded'
-				log.warn('Portfolio Core Runtime start failed.', { portfolioId: portfolio.id, reason: 'unexpected-failure' })
+				log.warn('Portfolio Core Runtime start failed.', {
+					portfolioId: portfolio.id,
+					reason: 'unexpected-failure',
+				})
 				return
 			}
 			if (!outcome.result.ok) {
 				if (state.generation === generation) state.phase = 'degraded'
-				log.warn('Portfolio Core Runtime start failed.', { portfolioId: portfolio.id, reason: outcome.result.error.reason })
+				log.warn('Portfolio Core Runtime start failed.', {
+					portfolioId: portfolio.id,
+					reason: outcome.result.error.reason,
+				})
 				return
 			}
 			if (state.generation !== generation) {
@@ -323,7 +350,8 @@ function createPortfolioCoreSupervisionWith(
 					state.runtime.stopProcessor().catch(() => {}),
 					waitForBorrowDrain(state),
 				)
-				if (state.processorCandidate !== undefined) draining.push(state.processorCandidate.stop().catch(() => {}))
+				if (state.processorCandidate !== undefined)
+					draining.push(state.processorCandidate.stop().catch(() => {}))
 			}
 
 			let shutdownDeadline: ReturnType<typeof setTimeout> | undefined
@@ -374,7 +402,10 @@ function createPortfolioCoreSupervisionWith(
 					const portfolio = await dependencies.findPortfolio(input.serverStorage, portfolioId)
 					if (!closed && portfolio !== null && !states.has(portfolio.id)) await startRuntime(portfolio)
 				} catch {
-					log.warn('Portfolio registration signal could not be resolved.', { portfolioId, reason: 'registry-read-failed' })
+					log.warn('Portfolio registration signal could not be resolved.', {
+						portfolioId,
+						reason: 'registry-read-failed',
+					})
 				} finally {
 					pendingRegistrationSignals.delete(portfolioId)
 				}
@@ -444,7 +475,10 @@ if (import.meta.vitest) {
 				openedPortfolioIds.push(portfolio.id)
 				return Promise.resolve(
 					portfolio.id === first.id
-						? { ok: false, error: { type: 'portfolio-core-runtime-start-failed', reason: 'core-preflight-failed' } }
+						? {
+								ok: false,
+								error: { type: 'portfolio-core-runtime-start-failed', reason: 'core-preflight-failed' },
+							}
 						: { ok: true, value: testRuntime(second) },
 				)
 			})
@@ -507,7 +541,10 @@ if (import.meta.vitest) {
 				attempts += 1
 				return Promise.resolve(
 					attempts < 4
-						? { ok: false, error: { type: 'portfolio-core-runtime-start-failed', reason: 'storage-open-failed' } }
+						? {
+								ok: false,
+								error: { type: 'portfolio-core-runtime-start-failed', reason: 'storage-open-failed' },
+							}
 						: { ok: true, value: runtime },
 				)
 			})
@@ -581,9 +618,10 @@ if (import.meta.vitest) {
 		it('applies jitter and a maximum delay to indefinite runtime retries', async () => {
 			vi.useFakeTimers()
 			const portfolio = testPortfolio('01k00000000000000000000001', 'portfolios/jitter')
-			const openRuntime = vi
-				.fn()
-				.mockResolvedValue({ ok: false, error: { type: 'portfolio-core-runtime-start-failed', reason: 'storage-open-failed' } })
+			const openRuntime = vi.fn().mockResolvedValue({
+				ok: false,
+				error: { type: 'portfolio-core-runtime-start-failed', reason: 'storage-open-failed' },
+			})
 			const random = vi.fn().mockReturnValueOnce(0).mockReturnValueOnce(1).mockReturnValue(0.5)
 			const supervision = createPortfolioCoreSupervisionWith(
 				{
@@ -798,7 +836,13 @@ if (import.meta.vitest) {
 					Promise.resolve(
 						portfolio.id === readyPortfolio.id
 							? { ok: true, value: runtime }
-							: { ok: false, error: { type: 'portfolio-core-runtime-start-failed', reason: 'storage-open-failed' } },
+							: {
+									ok: false,
+									error: {
+										type: 'portfolio-core-runtime-start-failed',
+										reason: 'storage-open-failed',
+									},
+								},
 					),
 				),
 				random: () => 0.5,

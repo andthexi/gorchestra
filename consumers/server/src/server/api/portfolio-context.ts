@@ -1,13 +1,21 @@
 import type { GorchestraCore } from '@gorchestra/core'
 import { PreconditionRequiredError } from 'equipped/errors'
 
-import type { ServerApiContext } from './context'
-import { throwNotAuthorized, throwPortfolioCoreUnavailable, throwSelectionRequired, throwSessionAuthenticationError } from './errors'
-import { getSessionToken } from './session'
-import { resolveSelectedPortfolioAccess, type ResolveSelectedPortfolioAccessResult } from '../modules/selected-portfolio-access'
+import {
+	resolveSelectedPortfolioAccess,
+	type ResolveSelectedPortfolioAccessResult,
+} from '../modules/selected-portfolio-access'
 import { selectionCookieName, type SelectedPortfolio } from '../modules/selection-cookie'
 import type { ServerSession } from '../modules/sessions'
 import type { PortfolioRegistryEntry, Workspace, WorkspaceMember, WorkspaceOwnerRole } from '../storage/schemas'
+import type { ServerApiContext } from './context'
+import {
+	throwNotAuthorized,
+	throwPortfolioCoreUnavailable,
+	throwSelectionRequired,
+	throwSessionAuthenticationError,
+} from './errors'
+import { getSessionToken } from './session'
 
 export type SelectedPortfolioCoreContext = {
 	session: ServerSession
@@ -43,7 +51,9 @@ export async function withSelectedPortfolioOwnerCore<T>(
 	cookies: Record<string, string | undefined>,
 	run: (selectedContext: SelectedPortfolioOwnerCoreContext) => Promise<T>,
 ): Promise<T> {
-	return withSelectedPortfolioCore(context, cookies, async (selectedContext) => run(requireSelectedPortfolioOwner(selectedContext)))
+	return withSelectedPortfolioCore(context, cookies, async (selectedContext) =>
+		run(requireSelectedPortfolioOwner(selectedContext)),
+	)
 }
 
 async function resolveSelectedPortfolioRequest(
@@ -70,7 +80,10 @@ async function resolveSelectedPortfolioRequest(
 	}
 }
 
-function selectedPortfolioCoreContext(resolved: ResolvedSelectedPortfolioRequest, core: GorchestraCore): SelectedPortfolioCoreContext {
+function selectedPortfolioCoreContext(
+	resolved: ResolvedSelectedPortfolioRequest,
+	core: GorchestraCore,
+): SelectedPortfolioCoreContext {
 	return {
 		session: resolved.session,
 		selection: resolved.access.selection,
@@ -82,8 +95,11 @@ function selectedPortfolioCoreContext(resolved: ResolvedSelectedPortfolioRequest
 	}
 }
 
-function requireSelectedPortfolioOwner(selectedContext: SelectedPortfolioCoreContext): SelectedPortfolioOwnerCoreContext {
-	if (selectedContext.activeWorkspaceOwnerRole === null) throwNotAuthorized('Workspace Owner role is required to change Portfolio state')
+function requireSelectedPortfolioOwner(
+	selectedContext: SelectedPortfolioCoreContext,
+): SelectedPortfolioOwnerCoreContext {
+	if (selectedContext.activeWorkspaceOwnerRole === null)
+		throwNotAuthorized('Workspace Owner role is required to change Portfolio state')
 	return selectedContext as SelectedPortfolioOwnerCoreContext
 }
 
@@ -102,7 +118,9 @@ if (import.meta.vitest) {
 	const { createWorkspaceForUser } = await import('../modules/workspace-creation')
 	const { createServerApiContext } = await import('./context')
 
-	const { cleanupTempServerStorage, createTempServerDataDir } = createTempServerStorageTestHarness('gorchestra-server-portfolio-context-')
+	const { cleanupTempServerStorage, createTempServerDataDir } = createTempServerStorageTestHarness(
+		'gorchestra-server-portfolio-context-',
+	)
 	const now = new Date('2026-06-21T00:00:00.000Z')
 	const fixtureUserId = '01k00000000000000000000031'
 	const fixtureSessionId = '01k00000000000000000000032'
@@ -144,7 +162,9 @@ if (import.meta.vitest) {
 			await withPortfolioContextFixture(async ({ apiContext, cookies, portfolioCores }) => {
 				await portfolioCores.close()
 
-				await expect(withSelectedPortfolioCore(apiContext, cookies, () => Promise.resolve(null))).rejects.toMatchObject({
+				await expect(
+					withSelectedPortfolioCore(apiContext, cookies, () => Promise.resolve(null)),
+				).rejects.toMatchObject({
 					statusCode: 503,
 					message: 'Selected Portfolio is temporarily unavailable',
 				})
@@ -166,16 +186,18 @@ if (import.meta.vitest) {
 		it('requires Active Workspace Owner authority for owner-scoped Portfolio context', () => {
 			const ownerRole = workspaceOwnerRole()
 
-			expect(requireSelectedPortfolioOwner(selectedPortfolioCoreContextFixture(ownerRole)).activeWorkspaceOwnerRole).toEqual(
-				ownerRole,
-			)
+			expect(
+				requireSelectedPortfolioOwner(selectedPortfolioCoreContextFixture(ownerRole)).activeWorkspaceOwnerRole,
+			).toEqual(ownerRole)
 			expect(() => requireSelectedPortfolioOwner(selectedPortfolioCoreContextFixture(null))).toThrow(
 				'Workspace Owner role is required to change Portfolio state',
 			)
 		})
 	})
 
-	function selectedPortfolioCoreContextFixture(activeWorkspaceOwnerRole: WorkspaceOwnerRole | null): SelectedPortfolioCoreContext {
+	function selectedPortfolioCoreContextFixture(
+		activeWorkspaceOwnerRole: WorkspaceOwnerRole | null,
+	): SelectedPortfolioCoreContext {
 		return {
 			session: {
 				userId: fixtureUserId,
@@ -246,7 +268,12 @@ if (import.meta.vitest) {
 			signingKey: sessionSigningKey,
 			generateSessionId: () => fixtureSessionId,
 		})
-		const createdWorkspace = await createWorkspaceForUser({ serverStorage, userId: user.id, displayName: 'Workspace', now })
+		const createdWorkspace = await createWorkspaceForUser({
+			serverStorage,
+			userId: user.id,
+			displayName: 'Workspace',
+			now,
+		})
 		const portfolio = await createPortfolioForWorkspace({
 			serverStorage,
 			workspaceId: createdWorkspace.workspace.id,

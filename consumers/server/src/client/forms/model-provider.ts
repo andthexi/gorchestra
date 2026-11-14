@@ -30,13 +30,22 @@ type ModelProviderFormFields = {
 
 const modelProviderNamePipe = v.string().pipe(v.min<string>(1, 'Enter a Model Provider name'))
 const modelProviderSourceTypePipe = v.in(['openai-responses', 'anthropic', 'google', 'groq', 'custom-hosted'])
-const modelProviderProtocolPipe = v.in(['openai-responses', 'openai-chat-completions', 'anthropic-messages', 'google-generative-ai'])
+const modelProviderProtocolPipe = v.in([
+	'openai-responses',
+	'openai-chat-completions',
+	'anthropic-messages',
+	'google-generative-ai',
+])
 const modelProviderAuthSecretIdPipe = v.nullable(v.string().pipe(v.min<string>(1, 'Select an auth Secret')))
 const modelProviderHeaderNamePipe = v.string().pipe(v.min<string>(1, 'Enter a header name'))
 const modelProviderHeaderSecretIdPipe = v.string().pipe(v.min<string>(1, 'Select a header Secret'))
 const providerOptionsTextPipe = v.string().pipe(v.custom(isJsonObjectText, 'Enter a JSON object or leave empty'))
 
-export class ModelProviderHeaderFormDraft extends FormDraft<ModelProviderHeader, ModelProviderHeader, ModelProviderHeaderFormFields> {
+export class ModelProviderHeaderFormDraft extends FormDraft<
+	ModelProviderHeader,
+	ModelProviderHeader,
+	ModelProviderHeaderFormFields
+> {
 	protected readonly rules = {
 		name: modelProviderHeaderNamePipe,
 		valueSecretId: modelProviderHeaderSecretIdPipe,
@@ -46,7 +55,10 @@ export class ModelProviderHeaderFormDraft extends FormDraft<ModelProviderHeader,
 		super({ name: '', valueSecretId: '' })
 	}
 
-	protected model = (): ModelProviderHeader => ({ name: this.name, value: { type: 'secret', secretId: this.valueSecretId } })
+	protected model = (): ModelProviderHeader => ({
+		name: this.name,
+		value: { type: 'secret', secretId: this.valueSecretId },
+	})
 
 	protected load = (entity: ModelProviderHeader): void => {
 		this.name = entity.name
@@ -54,7 +66,11 @@ export class ModelProviderHeaderFormDraft extends FormDraft<ModelProviderHeader,
 	}
 }
 
-export class ModelProviderFormDraft extends FormDraft<ModelProviderFormModel, ModelProviderFormModel, ModelProviderFormFields> {
+export class ModelProviderFormDraft extends FormDraft<
+	ModelProviderFormModel,
+	ModelProviderFormModel,
+	ModelProviderFormFields
+> {
 	protected override readonly onSet = {
 		sourceType: () => this.set('customBaseUrl', this.customBaseUrl),
 	}
@@ -65,7 +81,12 @@ export class ModelProviderFormDraft extends FormDraft<ModelProviderFormModel, Mo
 		customProtocol: modelProviderProtocolPipe,
 		customBaseUrl: v
 			.string()
-			.pipe(v.custom<string>((value) => this.sourceType !== 'custom-hosted' || value.trim().length > 0, 'Enter a base URL')),
+			.pipe(
+				v.custom<string>(
+					(value) => this.sourceType !== 'custom-hosted' || value.trim().length > 0,
+					'Enter a base URL',
+				),
+			),
 		authSecretId: modelProviderAuthSecretIdPipe,
 		headers: v.array(nestedFormDraftPipe<ModelProviderHeaderFormDraft>()),
 		providerOptionsText: providerOptionsTextPipe,
@@ -166,7 +187,11 @@ if (import.meta.vitest) {
 
 			expect(factory.valid).toBe(true)
 			expect(factory.toModel()).toMatchObject({
-				source: { type: 'custom-hosted', protocol: 'openai-chat-completions', baseUrl: 'https://api.example.com/v1' },
+				source: {
+					type: 'custom-hosted',
+					protocol: 'openai-chat-completions',
+					baseUrl: 'https://api.example.com/v1',
+				},
 			})
 		})
 

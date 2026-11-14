@@ -1,30 +1,44 @@
 <template>
 	<NuxtLayout name="portfolio">
 		<header class="border-b border-dimmer px-3 py-3">
-			<h1 class="m-0 text-sz-section font-semibold tracking-[-0.01em]">{{ secret?.name ?? 'Loading Secret…' }}</h1>
-			<p class="m-0 mt-1 text-sz-helper text-dim">Manage Secret Metadata, value replacement, and direct references.</p>
+			<h1 class="m-0 text-sz-section font-semibold tracking-[-0.01em]">
+				{{ secret?.name ?? 'Loading Secret…' }}
+			</h1>
+			<p class="m-0 mt-1 text-sz-helper text-dim">
+				Manage Secret Metadata, value replacement, and direct references.
+			</p>
 		</header>
 
 		<section>
-			<div v-if="isLoadingSecret && !hasLoadedSecret" class="border-b border-dimmer px-3 py-4 text-dim">Loading Secret…</div>
-			<p v-if="isRefreshingSecret" class="m-0 border-b border-dimmer px-3 py-2 text-sz-helper text-dim">Refreshing Secret…</p>
+			<div v-if="isLoadingSecret && !hasLoadedSecret" class="border-b border-dimmer px-3 py-4 text-dim">
+				Loading Secret…
+			</div>
+			<p v-if="isRefreshingSecret" class="m-0 border-b border-dimmer px-3 py-2 text-sz-helper text-dim">
+				Refreshing Secret…
+			</p>
 			<div v-else-if="secretError" class="border-b border-dimmer px-3 py-4 text-error">{{ secretError }}</div>
 			<div v-else-if="secret" class="grid gap-0">
 				<section class="border-b border-dimmer px-3 py-3">
 					<h2 class="m-0 text-sz-subsection font-semibold">Secret metadata</h2>
 					<p class="m-0 mt-1 text-sz-helper leading-5 text-dim">
-						Update non-sensitive Secret Metadata. Secret values are managed separately and cannot be viewed here.
+						Update non-sensitive Secret Metadata. Secret values are managed separately and cannot be viewed
+						here.
 					</p>
 					<UiForm class="mt-3 grid gap-3" @submit.prevent="updateSecretMetadata()">
-						<UiFormGroup label="Secret name" for-id="secret-name" :error="secretMetadataForm.errors.name">
-							<UiInput id="secret-name" v-model="secretMetadataForm.name" :invalid="!!secretMetadataForm.errors.name" />
+						<UiFormGroup label="Secret name" forId="secret-name" :error="secretMetadataForm.errors.name">
+							<UiInput
+								id="secret-name"
+								v-model="secretMetadataForm.name"
+								:invalid="!!secretMetadataForm.errors.name"
+							/>
 						</UiFormGroup>
 						<div class="flex flex-wrap items-center gap-2">
 							<UiButton
 								type="submit"
 								variant="secondary"
 								:loading="isUpdatingSecretMetadata"
-								:disabled="!secretMetadataForm.valid || !secretMetadataForm.dirty">
+								:disabled="!secretMetadataForm.valid || !secretMetadataForm.dirty"
+							>
 								Save Metadata
 							</UiButton>
 						</div>
@@ -35,39 +49,48 @@
 				<section class="border-b border-dimmer px-3 py-3">
 					<h2 class="m-0 text-sz-subsection font-semibold">Secret value</h2>
 					<p class="m-0 mt-1 text-sz-helper leading-5 text-dim">
-						The plaintext value cannot be viewed after creation. Replacing it keeps this Secret identity and updates future
-						Secret resolutions.
+						The plaintext value cannot be viewed after creation. Replacing it keeps this Secret identity and
+						updates future Secret resolutions.
 					</p>
 					<div v-if="!showValueReplacementForm" class="mt-3">
-						<UiButton type="button" variant="secondary" @click="showValueReplacementForm = true">Replace Secret Value</UiButton>
+						<UiButton type="button" variant="secondary" @click="showValueReplacementForm = true"
+							>Replace Secret Value</UiButton
+						>
 					</div>
 					<UiForm v-else class="mt-3 grid gap-3" @submit.prevent="replaceSecretValue()">
 						<UiText tone="muted" size="helper">
-							Existing references will use the new value the next time Core resolves this Secret. Prepared Agent Runs or
-							operations already in flight are not changed.
+							Existing references will use the new value the next time Core resolves this Secret. Prepared
+							Agent Runs or operations already in flight are not changed.
 						</UiText>
-						<UiFormGroup label="New Secret value" for-id="secret-value" :error="secretValueReplacementForm.errors.value">
+						<UiFormGroup
+							label="New Secret value"
+							forId="secret-value"
+							:error="secretValueReplacementForm.errors.value"
+						>
 							<UiInput
 								id="secret-value"
 								v-model="secretValueReplacementForm.value"
 								type="password"
 								autocomplete="off"
 								placeholder="Paste the new Secret value"
-								:invalid="!!secretValueReplacementForm.errors.value" />
+								:invalid="!!secretValueReplacementForm.errors.value"
+							/>
 						</UiFormGroup>
 						<div class="flex flex-wrap items-center gap-2">
 							<UiButton
 								type="submit"
 								variant="secondary"
 								:loading="isReplacingSecretValue"
-								:disabled="!secretValueReplacementForm.valid">
+								:disabled="!secretValueReplacementForm.valid"
+							>
 								Save New Value
 							</UiButton>
 							<UiButton
 								type="button"
 								variant="ghost"
 								:disabled="isReplacingSecretValue"
-								@click="cancelSecretValueReplacement()">
+								@click="cancelSecretValueReplacement()"
+							>
 								Cancel
 							</UiButton>
 						</div>
@@ -116,10 +139,17 @@
 							type="button"
 							variant="secondary"
 							:loading="isChangingSecretLifecycle"
-							@click="runSecretLifecycle('unarchive')">
+							@click="runSecretLifecycle('unarchive')"
+						>
 							Unarchive Secret
 						</UiButton>
-						<UiButton v-else type="button" variant="ghost" :loading="isChangingSecretLifecycle" @click="requestSecretArchive()">
+						<UiButton
+							v-else
+							type="button"
+							variant="ghost"
+							:loading="isChangingSecretLifecycle"
+							@click="requestSecretArchive()"
+						>
 							Archive Secret
 						</UiButton>
 						<UiText v-if="secretLifecycleError" tone="error">{{ secretLifecycleError }}</UiText>
@@ -129,12 +159,16 @@
 				<section class="border-b border-dimmer px-3 py-3">
 					<h2 class="m-0 text-sz-subsection font-semibold">References</h2>
 					<p class="m-0 mt-1 text-sz-helper leading-5 text-dim">
-						Direct references show stored data models that can use this Secret in future. Plaintext values are never shown here.
+						Direct references show stored data models that can use this Secret in future. Plaintext values
+						are never shown here.
 					</p>
 				</section>
 
 				<section>
-					<div v-if="secret.references.length === 0" class="border-b border-dimmer px-3 py-3 text-sz-helper text-dim">
+					<div
+						v-if="secret.references.length === 0"
+						class="border-b border-dimmer px-3 py-3 text-sz-helper text-dim"
+					>
 						No direct references for this Secret.
 					</div>
 					<div v-else>
@@ -143,9 +177,14 @@
 							:key="referenceKey(reference)"
 							:to="referenceLocation(reference)"
 							class="block border-b border-dimmer px-3 py-2 text-body hover:bg-card focus-visible:bg-secondary"
-							:class="reference.active ? '' : 'opacity-50'">
-							<strong class="block truncate text-sz-helper font-semibold">{{ referenceTitle(reference) }}</strong>
-							<span class="mt-1 block truncate text-sz-micro text-dim">{{ referenceSubtitle(reference) }}</span>
+							:class="reference.active ? '' : 'opacity-50'"
+						>
+							<strong class="block truncate text-sz-helper font-semibold">{{
+								referenceTitle(reference)
+							}}</strong>
+							<span class="mt-1 block truncate text-sz-micro text-dim">{{
+								referenceSubtitle(reference)
+							}}</span>
 						</NuxtLink>
 					</div>
 				</section>
@@ -183,13 +222,19 @@ const { confirm } = useOverlay()
 const secretId = computed(() => route.params.secretId as string)
 const showValueReplacementForm = ref(false)
 const { secret, isLoadingSecret, secretError, hasLoadedSecret, isRefreshingSecret } = useSecretDetail(secretId)
-const { secretMetadataForm, isUpdatingSecretMetadata, updateSecretMetadataError, updateSecretMetadata } = useSecretMetadataUpdate(secretId)
-const { secretValueReplacementForm, isReplacingSecretValue, replaceSecretValueError, replaceSecretValue, resetReplaceSecretValue } =
-	useSecretValueReplacement(secretId, {
-		onSuccess: () => {
-			showValueReplacementForm.value = false
-		},
-	})
+const { secretMetadataForm, isUpdatingSecretMetadata, updateSecretMetadataError, updateSecretMetadata } =
+	useSecretMetadataUpdate(secretId)
+const {
+	secretValueReplacementForm,
+	isReplacingSecretValue,
+	replaceSecretValueError,
+	replaceSecretValue,
+	resetReplaceSecretValue,
+} = useSecretValueReplacement(secretId, {
+	onSuccess: () => {
+		showValueReplacementForm.value = false
+	},
+})
 const { isChangingSecretLifecycle, secretLifecycleError, runSecretLifecycle } = useSecretLifecycleActions(secretId)
 const updatedLabel = computed(() =>
 	secret.value?.updated === null || secret.value === null ? 'Never' : formatDate(secret.value.updated.at),

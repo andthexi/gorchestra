@@ -1,12 +1,12 @@
 import { v, type PipeOutput } from 'valleyed'
 
-import type { CommandContext } from './types'
 import { freeFormStringPipe, idPipe } from '../domain/commons'
 import type { Delivery } from '../domain/delivery'
 import type { CommandStubError } from '../errors'
 import { buildStubCommand } from '../utils/command-handler'
 import type { CoreRuntime } from '../utils/runtime'
 import type { Result as CoreResult } from '../utils/types'
+import type { CommandContext } from './types'
 
 const abandonDeliveryInputPipe = v.object({ deliveryId: idPipe, reason: freeFormStringPipe })
 export type Input = PipeOutput<typeof abandonDeliveryInputPipe>
@@ -32,7 +32,10 @@ if (import.meta.vitest) {
 
 			const result = await command({} as never, context)
 
-			expect(result).toMatchObject({ ok: false, error: { type: 'invalid-input', boundary: 'command', operation: 'abandonDelivery' } })
+			expect(result).toMatchObject({
+				ok: false,
+				error: { type: 'invalid-input', boundary: 'command', operation: 'abandonDelivery' },
+			})
 		})
 	})
 }

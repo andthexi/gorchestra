@@ -1,8 +1,8 @@
 import { v, type PipeOutput } from 'valleyed'
 
+import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 import { archivePeriodPipe, auditStampPipe, idPipe, nonEmptyTrimmedStringPipe } from './commons'
 import { modelProviderProtocolPipe } from './model-provider'
-import { coreSchema, schemaToPipe } from '../utils/storage/schema'
 
 export const secretValueRefPipe = nonEmptyTrimmedStringPipe
 export const envNamePipe = nonEmptyTrimmedStringPipe.pipe(
@@ -57,7 +57,9 @@ export const agentRunProfileSandboxCredentialSecretReferencePipe = v.object({
 	name: nonEmptyTrimmedStringPipe,
 	credential: v.in(['vercel-token', 'vercel-team-id', 'vercel-project-id']),
 })
-export type AgentRunProfileSandboxCredentialSecretReference = PipeOutput<typeof agentRunProfileSandboxCredentialSecretReferencePipe>
+export type AgentRunProfileSandboxCredentialSecretReference = PipeOutput<
+	typeof agentRunProfileSandboxCredentialSecretReferencePipe
+>
 
 export const modelProviderAuthSecretReferencePipe = v.object({
 	type: v.eq('model-provider-auth'),

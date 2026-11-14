@@ -13,8 +13,16 @@ export const serverStorageMigrations = [
 		tx: true,
 		changes: [
 			createTable('users', [stringField('createdAt')]),
-			createTable('email_authentication_identities', [stringField('userId'), stringField('email'), stringField('createdAt')]),
-			addUniqueIndex('email_authentication_identities', ['email'], 'email_authentication_identities_email_unique'),
+			createTable('email_authentication_identities', [
+				stringField('userId'),
+				stringField('email'),
+				stringField('createdAt'),
+			]),
+			addUniqueIndex(
+				'email_authentication_identities',
+				['email'],
+				'email_authentication_identities_email_unique',
+			),
 		],
 	},
 	{

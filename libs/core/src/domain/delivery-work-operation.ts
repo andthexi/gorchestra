@@ -2,7 +2,11 @@ import { v, type PipeOutput } from 'valleyed'
 
 import { idPipe } from './commons'
 
-const deliveryWorkOperationDeliveryStatePipe = v.in(['needs-artifact-creation', 'needs-artifact-validation', 'needs-review-surface'])
+const deliveryWorkOperationDeliveryStatePipe = v.in([
+	'needs-artifact-creation',
+	'needs-artifact-validation',
+	'needs-review-surface',
+])
 const deliveryWorkOperationSliceStatePipe = v.in([
 	'needs-delivery-validation',
 	'needs-artifact-validation',

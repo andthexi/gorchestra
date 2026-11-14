@@ -1,7 +1,7 @@
-import { createModelProviderProtocolProviders, type ModelProviderProtocolProviders } from './model-provider-protocol'
-import { createSourceControlProviders, type SourceControlProviders } from './source-control'
 import type { CoreServices } from '../../services'
 import type { CoreTransactions } from '../transactions'
+import { createModelProviderProtocolProviders, type ModelProviderProtocolProviders } from './model-provider-protocol'
+import { createSourceControlProviders, type SourceControlProviders } from './source-control'
 
 export interface CoreProviders {
 	sourceControl: SourceControlProviders

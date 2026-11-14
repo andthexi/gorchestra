@@ -14,7 +14,10 @@ export function resolveProviderOptions(
 	modelProvider: ProviderOptionsOwner,
 	model: ProviderOptionsOwner,
 ): WrappedProviderOptions | undefined {
-	const providerMerged: ModelProviderOptions = differ.merge(defaults ?? {}, modelProvider.providerOptions ?? {}) as ModelProviderOptions
+	const providerMerged: ModelProviderOptions = differ.merge(
+		defaults ?? {},
+		modelProvider.providerOptions ?? {},
+	) as ModelProviderOptions
 	const merged = differ.merge(providerMerged, model.providerOptions ?? {}) as Record<string, JSONValue>
 	return Object.keys(merged).length === 0 ? undefined : { [namespace]: merged }
 }

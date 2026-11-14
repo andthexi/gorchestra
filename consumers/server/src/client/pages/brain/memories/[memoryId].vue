@@ -1,14 +1,22 @@
 <template>
 	<NuxtLayout name="brain" title="Memory Detail" subtitle="Inspect and revise one Portfolio Memory.">
 		<section>
-			<div v-if="isLoadingMemory && !hasLoadedMemory" class="border-b border-dimmer px-3 py-4 text-dim">Loading Memory…</div>
-			<p v-if="isRefreshingMemory" class="m-0 border-b border-dimmer px-3 py-2 text-sz-helper text-dim">Refreshing Memory…</p>
+			<div v-if="isLoadingMemory && !hasLoadedMemory" class="border-b border-dimmer px-3 py-4 text-dim">
+				Loading Memory…
+			</div>
+			<p v-if="isRefreshingMemory" class="m-0 border-b border-dimmer px-3 py-2 text-sz-helper text-dim">
+				Refreshing Memory…
+			</p>
 			<div v-else-if="memoryError" class="border-b border-dimmer px-3 py-4 text-error">{{ memoryError }}</div>
 			<article v-else-if="memory && shownRevision">
 				<header class="border-b border-dimmer px-3 py-3">
 					<nav class="flex flex-wrap gap-2 text-sz-helper" aria-label="Memory hierarchy">
 						<NuxtLink class="text-dim hover:text-primary" to="/brain/memories">Root Memories</NuxtLink>
-						<NuxtLink v-if="memory.parentId" class="text-dim hover:text-primary" :to="`/brain/memories/${memory.parentId}`">
+						<NuxtLink
+							v-if="memory.parentId"
+							class="text-dim hover:text-primary"
+							:to="`/brain/memories/${memory.parentId}`"
+						>
 							/ Parent Memory
 						</NuxtLink>
 					</nav>
@@ -27,29 +35,39 @@
 					</div>
 				</header>
 
-				<div v-if="isViewingHistoricalRevision && !isEditingMemory" class="border-b border-info bg-secondary px-3 py-3">
+				<div
+					v-if="isViewingHistoricalRevision && !isEditingMemory"
+					class="border-b border-info bg-secondary px-3 py-3"
+				>
 					<strong class="block text-sz-helper text-info">Viewing a historical revision</strong>
 					<p class="m-0 mt-1 text-sz-helper leading-5 text-dim">
-						This content was saved {{ formatDate(shownRevision.created.at) }}. Current Memory content may be different.
+						This content was saved {{ formatDate(shownRevision.created.at) }}. Current Memory content may be
+						different.
 					</p>
-					<UiButton class="mt-2" type="button" variant="secondary" @click="backToCurrentRevision">Back to current</UiButton>
+					<UiButton class="mt-2" type="button" variant="secondary" @click="backToCurrentRevision"
+						>Back to current</UiButton
+					>
 				</div>
 
-				<section v-if="isEditingMemory" class="max-w-[860px] border-b border-dimmer bg-body-contrast/60 px-3 py-3">
+				<section
+					v-if="isEditingMemory"
+					class="max-w-[860px] border-b border-dimmer bg-body-contrast/60 px-3 py-3"
+				>
 					<h2 class="m-0 mb-3 text-sz-subsection font-semibold">Edit current Memory</h2>
 					<MemoryForm
 						:draft="revisionForm"
-						title-id="memory-edit-title"
-						body-id="memory-edit-body"
-						submit-label="Save revision"
-						title-placeholder="Memory title"
-						body-placeholder="Revise the Memory body…"
+						titleId="memory-edit-title"
+						bodyId="memory-edit-body"
+						submitLabel="Save revision"
+						titlePlaceholder="Memory title"
+						bodyPlaceholder="Revise the Memory body…"
 						:loading="isSavingRevision"
 						:disabled="isSaveRevisionDisabled"
 						:error="saveRevisionError"
-						show-cancel
+						showCancel
 						@submit="saveRevision()"
-						@cancel="cancelEditing" />
+						@cancel="cancelEditing"
+					/>
 				</section>
 
 				<section v-else class="max-w-[860px] border-b border-dimmer px-3 py-4">
@@ -69,21 +87,30 @@
 					<div v-if="showChildCreationForm" class="border-b border-dimmer bg-body-contrast/60 px-3 py-3">
 						<MemoryForm
 							:draft="childCreationForm"
-							title-id="child-memory-title"
-							body-id="child-memory-body"
-							submit-label="Create child Memory"
-							title-placeholder="Decision details"
-							body-placeholder="Capture child context…"
+							titleId="child-memory-title"
+							bodyId="child-memory-body"
+							submitLabel="Create child Memory"
+							titlePlaceholder="Decision details"
+							bodyPlaceholder="Capture child context…"
 							:loading="isCreatingChildMemory"
 							:error="createChildMemoryError"
-							show-cancel
+							showCancel
 							@submit="createChildMemory()"
-							@cancel="hideChildCreationForm" />
+							@cancel="hideChildCreationForm"
+						/>
 					</div>
-					<div v-if="memory.children.length === 0" class="border-b border-dimmer px-3 py-4 text-sz-helper text-dim">
+					<div
+						v-if="memory.children.length === 0"
+						class="border-b border-dimmer px-3 py-4 text-sz-helper text-dim"
+					>
 						No child Memories.
 					</div>
-					<MemoryRow v-for="child in memory.children" :key="child.id" :memory="child" :to="`/brain/memories/${child.id}`" />
+					<MemoryRow
+						v-for="child in memory.children"
+						:key="child.id"
+						:memory="child"
+						:to="`/brain/memories/${child.id}`"
+					/>
 				</section>
 			</article>
 		</section>
@@ -104,13 +131,16 @@
 				<NuxtLink
 					:to="revisionRoute(revision.id)"
 					class="block border-l-2 pl-2 text-sz-helper font-semibold hover:text-primary"
-					:class="revisionClass(revision.id)">
+					:class="revisionClass(revision.id)"
+				>
 					{{ revision.title }}
 				</NuxtLink>
 				<div class="mt-1 flex flex-wrap gap-1.5 pl-3 text-sz-micro text-dim">
 					<span>{{ formatDate(revision.created.at) }}</span>
 					<span v-if="revision.id === memory.currentRevision.id">Current</span>
-					<span v-if="revision.id === selectedRevisionId && revision.id !== memory.currentRevision.id">Selected</span>
+					<span v-if="revision.id === selectedRevisionId && revision.id !== memory.currentRevision.id"
+						>Selected</span
+					>
 				</div>
 			</div>
 		</template>
@@ -123,7 +153,12 @@ import { computed, ref, watch } from 'vue'
 import MemoryForm from '../../../components/brain/MemoryForm.vue'
 import MemoryRow from '../../../components/brain/MemoryRow.vue'
 import UiButton from '../../../components/ui/UiButton.vue'
-import { useMemoryCreate, useMemoryDetail, useMemoryRevisionCreate, type MemoryDetails } from '../../../composables/portfolio/memories'
+import {
+	useMemoryCreate,
+	useMemoryDetail,
+	useMemoryRevisionCreate,
+	type MemoryDetails,
+} from '../../../composables/portfolio/memories'
 import { formatDate } from '../../../utils/time'
 
 definePageMeta({ middleware: ['has-selection'] })
@@ -166,10 +201,15 @@ const selectedRevision = computed(() => {
 	if (memory.value === null) return null
 	return memory.value.revisions.find((revision) => revision.id === revisionId.value) ?? null
 })
-const shownRevision = computed<MemoryRevisionDisplay | null>(() => selectedRevision.value ?? memory.value?.currentRevision ?? null)
+const shownRevision = computed<MemoryRevisionDisplay | null>(
+	() => selectedRevision.value ?? memory.value?.currentRevision ?? null,
+)
 const selectedRevisionId = computed(() => shownRevision.value?.id ?? null)
 const isViewingHistoricalRevision = computed(
-	() => memory.value !== null && selectedRevision.value !== null && selectedRevision.value.id !== memory.value.currentRevision.id,
+	() =>
+		memory.value !== null &&
+		selectedRevision.value !== null &&
+		selectedRevision.value.id !== memory.value.currentRevision.id,
 )
 const isSaveRevisionDisabled = computed(() => !revisionForm.isDirty('title', 'body'))
 
@@ -207,7 +247,9 @@ function hideChildCreationForm(): void {
 }
 
 function revisionRoute(revisionId: string): { path: string; query?: { revisionId: string } } {
-	return revisionId === memory.value?.currentRevision.id ? { path: route.path } : { path: route.path, query: { revisionId } }
+	return revisionId === memory.value?.currentRevision.id
+		? { path: route.path }
+		: { path: route.path, query: { revisionId } }
 }
 
 function revisionClass(revisionId: string): string {

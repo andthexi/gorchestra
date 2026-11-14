@@ -42,5 +42,7 @@ export function commandToolOutput(output: SandboxCommandOutput) {
 }
 
 export function commandText(output: SandboxCommandOutput): string {
-	return [output.stdout, output.stderr].filter((value): value is string => value !== null && value.length > 0).join('\n')
+	return [output.stdout, output.stderr]
+		.filter((value): value is string => value !== null && value.length > 0)
+		.join('\n')
 }
