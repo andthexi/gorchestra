@@ -5,6 +5,63 @@ import { v, PipeError } from 'valleyed'
 import { expect, it } from 'vitest'
 
 import { PortfolioClient, type CoreDependencies, type PortfolioSetup, type PortfolioMigration, type Result } from '../index'
+import { createTestDependencies, requireSuccess } from '../testing/fixtures'
+
+it.each([false, true])('keeps public Project admission closed throughout shared cleanup (first attempt fails: %s)', async (fail) => {
+	const deps = createTestDependencies()
+	const adapter = deps.storage.adapter
+	const opened = requireSuccess(await PortfolioClient.new(deps))
+	if (opened.state !== 'uninitialized') throw new Error('Expected setup')
+	const client = requireSuccess(await opened.setup())
+	const portfolio = requireSuccess(client.as({ by: 'test' }))
+	const project = requireSuccess(await portfolio.projects.create({ title: 'Before close', spec: { type: 'source-control' } }))
+	const gate = Promise.withResolvers<void>()
+	const entered = Promise.withResolvers<void>()
+	let attempts = 0
+	let reconnects = 0
+	adapter.connect = () => {
+		reconnects++
+		return Promise.resolve()
+	}
+	adapter.disconnect = async () => {
+		attempts++
+		entered.resolve()
+		await gate.promise
+		if (fail && attempts === 1) throw new Error('synthetic-PROTECTED')
+	}
+	try {
+		const first = client.shutdown()
+		const second = opened.shutdown()
+		expect(second).toBe(first)
+		expect(client.as({ by: 'later' })).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+		expect(await portfolio.projects.create({ title: 'After close', spec: { type: 'source-control' } })).toEqual({
+			ok: false,
+			error: { type: 'storage-operation-failed' },
+		})
+		expect(await portfolio.projects.find({ projectId: project.id })).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+		expect(await portfolio.projects.list()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+		await entered.promise
+		expect(attempts).toBe(1)
+		gate.resolve()
+		const expected = fail ? { ok: false, error: { type: 'storage-operation-failed' } } : { ok: true, value: undefined }
+		expect(await first).toEqual(expected)
+		expect(await second).toEqual(expected)
+		expect(await portfolio.projects.list()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+		// A completed failed attempt retries only on this explicit call.
+		expect(attempts).toBe(1)
+		expect(await client.shutdown()).toEqual({ ok: true, value: undefined })
+		expect(await opened.shutdown()).toEqual({ ok: true, value: undefined })
+		expect(attempts).toBe(fail ? 2 : 1)
+		expect(reconnects).toBe(0)
+		expect(client.as({ by: 'still-closed' })).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+		expect(await portfolio.projects.list()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
+	} finally {
+		gate.resolve()
+		await opened.shutdown()
+		delete adapter.connect
+		delete adapter.disconnect
+	}
+})
 
 function dependencies(): CoreDependencies<InMemoryAdapter> {
 	return {

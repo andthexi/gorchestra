@@ -12,11 +12,11 @@ The dependency boundary checks the concrete adapter and its resolver together; C
 
 - `PortfolioSetup`: `state: 'uninitialized'`, `setup()` and `shutdown()`.
 - `PortfolioClient`: `state: 'ready'`, synchronous `as({ by, cid })` and `shutdown()`.
-- `PortfolioMigration`: `state: 'migration'` and `shutdown()`. A proper nonempty prefix needs multiple released migrations; the current catalog has one entry. Upgrade execution is not implemented yet.
+- `PortfolioMigration`: `state: 'migration'`, explicit `migrate()` and `shutdown()`. A proper nonempty prefix needs multiple released migrations; the current catalog has one entry, so upgrade tests use a private test-owned catalog.
 
-`as()` returns a `Result` containing a privately constructed `Portfolio` with bound Project operations. The Portfolio has no lifecycle controls or rebinding method. Secret/Asset/Memory operations and `migrate()` are not implemented yet; no placeholder namespaces or methods are exposed. Secret callbacks are required dependencies but no implemented operation invokes them. Internal definitions, schemas, Repo, migration injection and owner controls are not Consumer APIs.
+`as()` returns a `Result` containing a privately constructed `Portfolio` with bound Project operations. The Portfolio has no lifecycle controls or rebinding method. Secret/Asset/Memory operations are not implemented yet; no placeholder namespaces or methods are exposed. Secret callbacks are required dependencies but no implemented operation invokes them. Internal definitions, schemas, Repo, migration injection and owner controls are not Consumer APIs.
 
-Public types include `CoreDependencies<A>`, `FactoryError`, `SetupError`, `InvalidInputError`, `StorageOperationFailedError`, `Result<T, E>`, `SharedOperationError`, `Id`, `AuditStamp`, and the schema-derived `Project`, `Asset`, `Secret`, `Memory` and `MemoryRevision` records. `Secret` contains only safe metadata, never `valueRef` or raw values. Source owns the exact [dependency signatures](src/dependencies.ts), [lifecycle API](src/portfolio-client/index.ts) and [error unions](src/errors.ts).
+Public types include `CoreDependencies<A>`, `FactoryError`, `SetupError`, `MigrationError`, `InvalidInputError`, `StorageOperationFailedError`, `Result<T, E>`, `SharedOperationError`, `Id`, `AuditStamp`, and the schema-derived `Project`, `Asset`, `Secret`, `Memory` and `MemoryRevision` records. `Secret` contains only safe metadata, never `valueRef` or raw values. Source owns the exact [dependency signatures](src/dependencies.ts), [lifecycle API](src/portfolio-client/index.ts) and [error unions](src/errors.ts).
 
 ## Open, explicitly initialize, and close
 
@@ -50,8 +50,13 @@ try {
 		}
 		case 'ready':
 			break
-		case 'migration':
-			throw new Error('This package does not implement upgrade execution yet.')
+		case 'migration': {
+			// Only do this during the caller's explicit maintenance window.
+			const upgraded = await opened.value.migrate()
+			if (!upgraded.ok) throw new Error(upgraded.error.type)
+			console.log(upgraded.value.state) // ready
+			break
+		}
 		default:
 			throw new Error('Unexpected lifecycle state.')
 	}
@@ -71,7 +76,11 @@ Opening reads and validates the native ledger. Valid empty history requires nati
 
 `setup()` rechecks history and emptiness inside one outer native Repo session, applies the entire catalog, then validates the raw ledger as complete before permitting commit. Only successful commit returns a fresh ready client sharing the original owner. The retained setup view stays uninitialized and refuses another setup with `storage-already-initialized`. Setup failures unwind the transaction; native I/O failures are `storage-operation-failed`, unexpected authoring failures are `internal-error`, and history errors remain type-only. A resolved migration run with an incomplete or invalid ledger is a protocol failure: it aborts the outer transaction and keeps admission closed, while shutdown remains available. An ordinary post-run ledger read failure permits explicit setup retry after successful rollback.
 
-All views share shutdown admission and cleanup. Shutdown closes admission synchronously, drains admitted setup and domain operations, and joins concurrent cleanup calls. Successful repeats do not disconnect again. A failed cleanup keeps admission closed and permits a later explicit shutdown retry without reconnecting or replaying work. Factory failures await cleanup before returning no capability; observable cleanup failure takes precedence. Same-owner callback reentry is unsupported; deployments must arrange non-overlapping maintenance.
+`migrate()` rechecks authoritative history and applies the entire pending suffix in one outer native Repo session. Empty history with no containers returns `storage-not-initialized`; empty history with containers returns `storage-not-empty`; complete history returns `schema-already-current`. Malformed, duplicate, unknown and gapped history precede those refusals. Only a successful complete run and commit returns a fresh ready view; the old migration view keeps its state and later refuses as current. A later migration failure rolls back the whole suffix rather than committing earlier entries, subject to the adapter's actual rollback behavior.
+
+The migration runner retains the same raw-ledger confirmation and invocation-local rollback safeguards as setup. Ordinary I/O failure with successful rollback permits explicit retry; observable protocol/unwind failure closes admission. Native errors from entirely declarative entries are classified as storage failures. Callback-bearing or mixed entries lack precise native failing-change provenance and use a safe `internal-error` fallback; this does not identify the hidden cause. No error-message inspection or automatic retry is performed.
+
+All views share shutdown admission and cleanup. Shutdown closes admission synchronously, drains admitted setup, migration and domain operations, and joins concurrent cleanup calls. Successful repeats do not disconnect again. A failed cleanup keeps admission closed and permits a later explicit shutdown retry without reconnecting or replaying work. Factory failures await cleanup before returning no capability; observable cleanup failure takes precedence. Same-owner callback reentry is unsupported; deployments must arrange non-overlapping maintenance. An already-admitted transition may finish while shutdown drains it, but its returned ready view cannot bind new work after admission closes.
 
 ## Attributed Project operations
 
@@ -114,7 +123,7 @@ The [initial migration](src/storage/migrations/initial-foundation.ts) snapshots 
 
 The internal [history classifier](src/storage/history.ts) validates the entire unknown ledger through the shared ID and safe-millisecond pipes before checking duplicates, unknown IDs and contiguous-prefix membership, in that order. It returns `empty`, `migration` or `ready`, or a type-only `schema-metadata-invalid` / `schema-version-unrecognized` error. Entry order and timestamp order do not determine progression; undeclared fields strip normally without input mutation or repair. Its catalog IDs are trusted internal authoring data, not a public input boundary.
 
-Native InMemory tests exercise factory classification, explicit atomic setup, DDL/ledger rollback, stale setup refusal and shared cleanup. A module-local test catalog covers proper-prefix classification and a later authored failure; it is not a public migration-injection API. Upgrade execution, comprehensive upgrade/isolation and physical-resolver qualification remain later work. Neither legacy conversion nor Equipped #148/#149 qualification is supplied by these setup tests.
+Native InMemory tests exercise factory classification, explicit setup and whole-suffix upgrade, DDL/data/ledger rollback, stale transition refusals and shared cleanup. A module-local test catalog establishes a committed prefix and verifies that later authored/declarative failure preserves the earlier Project, schema and full ledger timestamps while removing pending changes. It is not a public migration-injection API and does not add released migrations. Overlap isolation, persistent backends and physical-resolver qualification remain outside this result; neither legacy conversion nor Equipped #148/#149 qualification is supplied by these tests.
 
 ## Dependencies and verification
 
