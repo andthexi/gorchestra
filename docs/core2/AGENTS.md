@@ -8,7 +8,7 @@ The `docs/core2/` tree documents domain language and architectural decisions for
 
 - `CONTEXT.md` owns domain terms and relationships, following the existing Core and Consumer documentation structure.
 - `adr/` owns individual architectural decisions. Do not add an ADR README, decision inventory or standalone contract specification.
-- Package README/source own implemented usage, schemas and API details. The implementation plan owns pending task requirements; focused testing documentation owns verification procedures.
+- The [package README](../../libs/core2/README.md) and [source instructions](../../libs/core2/AGENTS.md) own implemented usage, schemas and API details. The implementation plan owns pending task requirements; the [testing guide](testing.md) owns verification procedures.
 
 ## Local Contracts
 

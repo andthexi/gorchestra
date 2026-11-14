@@ -5,6 +5,7 @@
 	"references": [
 		{ "path": "./tsconfig.app.json" },
 		{ "path": "./libs/core" },
+		{ "path": "./libs/core2" },
 		{ "path": "./libs/form-draft" },
 		{ "path": "./consumers/server" }
 	]

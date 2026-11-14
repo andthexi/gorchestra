@@ -36,5 +36,5 @@ The `docs/` tree contains canonical domain context, ADRs, and focused documentat
 ## Child DOX Index
 
 - `docs/core/AGENTS.md` — Core domain context and ADR documentation contracts for the existing `libs/core`.
-- `docs/core2/AGENTS.md` — domain language and architectural decisions for the parallel Core design at `libs/core2`. Start at [context](core2/CONTEXT.md) and relevant [ADRs](core2/adr/).
+- `docs/core2/AGENTS.md` — domain language and architectural decisions for the parallel Core design at `libs/core2`. Start at [context](core2/CONTEXT.md) and relevant [ADRs](core2/adr/); the [testing guide](core2/testing.md) owns verification procedures.
 - `docs/consumers/AGENTS.md` — Consumer context and ADR documentation contracts.

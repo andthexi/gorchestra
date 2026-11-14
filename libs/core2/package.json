@@ -1,0 +1,15 @@
+{
+	"name": "@gorchestra/core2",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"test": "vitest run --config vitest.config.ts"
+	},
+	"dependencies": {
+		"equipped": "latest",
+		"valleyed": "latest"
+	}
+}

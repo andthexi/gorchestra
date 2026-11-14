@@ -30,4 +30,5 @@ The `libs/` tree contains workspace packages that implement Gorchestra source su
 ## Child DOX Index
 
 - `libs/core/AGENTS.md` — Core package source and test contracts.
+- `libs/core2/AGENTS.md` — parallel Core foundation package, documented in `docs/core2`; ordinary TypeScript and InMemoryAdapter runtime tests, without Consumer cutover.
 - `libs/form-draft/AGENTS.md` — reusable Vue-backed form draft package contracts.

@@ -5,8 +5,8 @@ settings:
     excludeLinksFromLockfile: false
 
 overrides:
-    equipped: file://~/Desktop/code/packages/equipped
-    valleyed: 4.5.23
+    equipped: 5.3.4
+    valleyed: 4.5.24
 
 importers:
     .:
@@ -15,8 +15,8 @@ importers:
                 specifier: workspace:*
                 version: link:consumers/server
             valleyed:
-                specifier: 4.5.23
-                version: 4.5.23
+                specifier: 4.5.24
+                version: 4.5.24
         devDependencies:
             '@commitlint/cli':
                 specifier: ^21.0.2
@@ -76,8 +76,8 @@ importers:
                 specifier: ^1.18.0
                 version: 1.18.0
             equipped:
-                specifier: file://~/Desktop/code/packages/equipped
-                version: file:../packages/equipped(@types/json-schema@7.0.15)
+                specifier: 5.3.4
+                version: 5.3.4(@types/json-schema@7.0.15)
             h3:
                 specifier: 1.15.11
                 version: 1.15.11
@@ -91,8 +91,8 @@ importers:
                 specifier: ^4.8.3
                 version: 4.8.3
             valleyed:
-                specifier: 4.5.23
-                version: 4.5.23
+                specifier: 4.5.24
+                version: 4.5.24
             vue:
                 specifier: 3.5.38
                 version: 3.5.38(typescript@6.0.3)
@@ -134,17 +134,26 @@ importers:
                 specifier: ^7.0.14
                 version: 7.0.14(zod@4.4.3)
             equipped:
-                specifier: file://~/Desktop/code/packages/equipped
-                version: file:../packages/equipped(@types/json-schema@7.0.15)
+                specifier: 5.3.4
+                version: 5.3.4(@types/json-schema@7.0.15)
             valleyed:
-                specifier: 4.5.23
-                version: 4.5.23
+                specifier: 4.5.24
+                version: 4.5.24
+
+    libs/core2:
+        dependencies:
+            equipped:
+                specifier: 5.3.4
+                version: 5.3.4(@types/json-schema@7.0.15)
+            valleyed:
+                specifier: 4.5.24
+                version: 4.5.24
 
     libs/form-draft:
         devDependencies:
             valleyed:
-                specifier: 4.5.23
-                version: 4.5.23
+                specifier: 4.5.24
+                version: 4.5.24
             vue:
                 specifier: 3.5.38
                 version: 3.5.38(typescript@6.0.3)
@@ -3083,6 +3092,7 @@ packages:
     cron-parser@4.9.0:
         resolution: { integrity: sha512-p0SaNjrHOnQeR8/VnfGbmg9te2kfyYSQ7Sc/j/6DtPL3JQvKxmjO9TSjNFpujqV3vEYYBvNNvXSxzyksBWAx1Q== }
         engines: { node: '>=12.0.0' }
+        deprecated: v4 is no longer maintained, upgrade to v5
 
     croner@10.0.1:
         resolution: { integrity: sha512-ixNtAJndqh173VQ4KodSdJEI6nuioBWI0V1ITNKhZZsO0pEMoDxz539T4FTTbSZ/xIOSuDnzxLVRqBVSvPNE2g== }
@@ -3364,8 +3374,8 @@ packages:
         resolution: { integrity: sha512-xUtoPkMggbz0MPyPiIWr1Kp4aeWJjDZ6SMvURhimjdZgsRuDplF5/s9hcgGhyXMhs+6vpnuoiZ2kFiu3FMnS8Q== }
         engines: { node: '>=18' }
 
-    equipped@file:../packages/equipped:
-        resolution: { directory: ../packages/equipped, type: directory }
+    equipped@5.3.4:
+        resolution: { integrity: sha512-ioaM3/+kZRZkeI51r94C4GXJxrXdmU966FXvQ6IRPZE/tIBXwyqiJxcCG1h46U06/TPhKrMK0ELWkc7X/sV0Nw== }
 
     error-ex@1.3.4:
         resolution: { integrity: sha512-sqQamAnR14VgCr1A618A3sGrygcpK+HEbenA/HiEAkkUwcZIIB/tgWqHFxWgOyDh4nB4JCRimh79dR5Ywc9MDQ== }
@@ -3554,6 +3564,7 @@ packages:
     eslint@9.39.1:
         resolution: { integrity: sha512-BhHmn2yNOFA9H9JmmIVKJmd288g9hrVRDkdoIgRCRuSySRUHH7r/DI6aAXW9T1WwUuY3DFgrcaqB+deURBLR5g== }
         engines: { node: ^18.18.0 || ^20.9.0 || >=21.1.0 }
+        deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
         hasBin: true
         peerDependencies:
             jiti: '*'
@@ -4793,6 +4804,7 @@ packages:
 
     node-abort-controller@3.1.1:
         resolution: { integrity: sha512-AGK2yQKIjRuqnc6VkX2Xj5d+QW8xZ87pa1UK6yA6ouUyuxfHuMP6umE5QK7UmTeOAymo+Zx1Fxiuw9rVx8taHQ== }
+        deprecated: This package is no longer needed on supported Node.js versions. Node.js 16+ includes AbortController and AbortSignal as built-in globals. All Node.js versions requiring this polyfill are end-of-life. Use the built-in globals instead.
 
     node-addon-api@7.1.1:
         resolution: { integrity: sha512-5m3bsyrjFWE1xf7nz7YXdN4udnVtXK6/Yfgn5qnahL6bCkf2yKt4k3nuTKAtT4r3IG8JNR2ncsIMdZuAzJjHQQ== }
@@ -6258,8 +6270,8 @@ packages:
         resolution: { integrity: sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A== }
         hasBin: true
 
-    valleyed@4.5.23:
-        resolution: { integrity: sha512-15JZNOqFadJZQCEw/+esQid8i1yr2yqoVprnaVeG7cmB+Ir3ABxOXAfZgwdJyY9E+jSSDpIeoRVy0F08aAGfVg== }
+    valleyed@4.5.24:
+        resolution: { integrity: sha512-u4K/pg0Li5WNu9i5z/p4+Y4rDZT7r7/ZU7vudlbxfXMYd/BH33rQNYaSHyDUuyEs7X7LjDuSqrFtx4FvpiS6TA== }
 
     vary@1.1.2:
         resolution: { integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg== }
@@ -9757,7 +9769,7 @@ snapshots:
 
     environment@1.1.0: {}
 
-    equipped@file:../packages/equipped(@types/json-schema@7.0.15):
+    equipped@5.3.4(@types/json-schema@7.0.15):
         dependencies:
             '@confluentinc/kafka-javascript': 1.8.0
             '@fastify/cookie': 11.0.2
@@ -9799,7 +9811,7 @@ snapshots:
             socket.io: 4.8.3
             supertest: 7.2.2
             ulid: 3.0.2
-            valleyed: 4.5.23
+            valleyed: 4.5.24
         transitivePeerDependencies:
             - '@aws-sdk/credential-providers'
             - '@mongodb-js/zstd'
@@ -13213,7 +13225,7 @@ snapshots:
 
     uuid@11.1.0: {}
 
-    valleyed@4.5.23:
+    valleyed@4.5.24:
         dependencies:
             '@standard-schema/spec': 1.1.0
             url-regex-safe: 4.0.0
