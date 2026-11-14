@@ -12,7 +12,7 @@ The package entry currently exports these types only:
 - `SharedOperationError` — the shared safe operation-error union.
 - `Project`, `Asset`, `Secret`, `Memory` and `MemoryRevision` — plain records derived from their model schemas. `Secret` contains only safe metadata, never `valueRef` or raw values.
 
-There are no public runtime values yet. The five internal model schemas and explicit-ID transport are implemented; lifecycle capabilities, migrations, Secret callbacks and Portfolio operations are not. Internal schemas and validators are not a supported Consumer API.
+There are no public runtime values yet. The five internal model schemas, explicit-ID transport, native migration catalog and pure history classification are implemented; lifecycle capabilities, Secret callbacks and Portfolio operations are not. Internal schemas and validators are not a supported Consumer API.
 
 ## Implemented validation
 
@@ -23,6 +23,14 @@ The model modules own the implemented shapes: [Project](src/domain/project.ts), 
 [Explicit-ID transport](src/storage/schema.ts) preserves the identity generated with Equipped `Instance.createId()` through native primary-key generation, which runs even when a row already supplies its ID. Native InMemory create/read tests exercise all five models and prove that a missing ID slot fails rather than generating a replacement. This is internal write support, not a public create operation.
 
 [Result and error contracts](src/errors.ts) parse envelopes through Valleyed and preserve its transformations and normal field stripping. Invalid-input issues retain safe schema-owned wording and present paths in order, without copying values or causes. Core-authored validators must use static paths and non-input-echoing messages; issue projection is not a sanitizer for arbitrary custom errors.
+
+## Internal migration support
+
+The [initial migration](src/storage/migrations/initial-foundation.ts) snapshots the five logical tables as native Equipped changes under the permanent ID `01m76d124c6e848k2hfvb4mar2`. It does not import current model schemas, flatten nested objects, or add foreign keys or unique indexes. Released IDs and definitions stay unchanged; new migrations append in ID order to the [catalog](src/storage/migrations/index.ts). Native `Migrator.from(repo, adapter).migrations(...).build()` retains responsibility for definition validation and adapter compatibility; there is no second catalog validator or runner.
+
+The internal [history classifier](src/storage/history.ts) validates the entire unknown ledger through the shared ID and safe-millisecond pipes before checking duplicates, unknown IDs and contiguous-prefix membership, in that order. It returns `empty`, `migration` or `ready`, or a type-only `schema-metadata-invalid` / `schema-version-unrecognized` error. Entry order and timestamp order do not determine progression; undeclared fields strip normally without input mutation or repair. Its catalog IDs are trusted internal authoring data, not a public input boundary.
+
+Native InMemory build/up/introspection/history tests prove this catalog can execute and its raw ledger can be classified. They do **not** implement a Core lifecycle runner, setup/migration capabilities or whole-run atomicity. The package entry remains type-only, and neither legacy conversion nor Equipped #148/#149 qualification is supplied by this support.
 
 ## Dependencies and verification
 

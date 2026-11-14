@@ -20,7 +20,7 @@ export const revisionVersionPipe = v
 	.number('Expected a positive safe integer.')
 	.pipe(v.custom((value) => Number.isSafeInteger(value) && value > 0, 'Expected a positive safe integer.'))
 
-const appliedAtPipe = v
+export const appliedAtPipe = v
 	.number('Expected nonnegative safe milliseconds.')
 	.pipe(v.custom((value) => Number.isSafeInteger(value) && value >= 0, 'Expected nonnegative safe milliseconds.'))
 
