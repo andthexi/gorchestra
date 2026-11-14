@@ -21,22 +21,20 @@ This root AGENTS.md is the project-wide DOX rail: it gives repo-wide instruction
 - Do not rely on memory. Re-read the applicable AGENTS chain in the current session before editing.
 - After meaningful changes, update the closest owning AGENTS.md and any affected parent or child indexes.
 - Keep AGENTS.md files concise, current, operational, and focused on stable contracts rather than diary entries.
+- Keep maintained documentation self-contained: include necessary context, rationale and evidence in its owning document, and cite durable sources rather than temporary planning notes or local archives.
 
 ## Work Guidance
 
 ### Domain map
 
-- **Core** is reusable Portfolio-level orchestration. Core owns Portfolio data and portable Portfolio Snapshots.
+- **Core** is reusable Portfolio-level orchestration, implemented in `libs/core` and documented in `docs/core`.
 - **Consumers** are application layers that consume Core and provide user experience, authentication, authorization, and deployment-specific runtime concerns.
-- **Server Consumer** is the v1 deployed multi-user app with Workspaces, Workspace Members, Workspace Owners, and a registry of Portfolios.
-- **CLI Consumer** is a future local app layer that may infer a local user and Portfolio Owner without exposing Workspace concepts.
+- No Consumer application or root process entrypoint is currently implemented.
 
 ### Context relationships
 
 - **Consumers → Core**: Consumers create, open, authorize, protect, and operate Portfolios through the Core orchestration model.
-- **Server Consumer → Core**: The Server Consumer registers Portfolios inside Workspaces, maps Workspace Owner authority to Portfolio Owner authority for the default Portfolio in v1, and handles server-specific Secret-at-rest protection.
-- **CLI Consumer → Core**: A future CLI Consumer can infer one local user and Portfolio Owner without exposing Workspace concepts.
-- **Core → Consumers**: Core owns Portfolio data and portable Portfolio Snapshots; consumers provide user experience, authentication, authorization, and deployment-specific runtime concerns.
+- **Core → Consumers**: Core owns Portfolio data; consumers provide user experience, authentication, authorization, and deployment-specific runtime concerns.
 
 ### Global modeling preferences
 
@@ -54,24 +52,28 @@ This root AGENTS.md is the project-wide DOX rail: it gives repo-wide instruction
 - For Core-owned provider/runtime behavior and Core Service calls that perform external actions, resolved values should be available at the boundary so service/provider code does not infer, load, or calculate authoritative context itself.
 - Parse and validate external, serialized, or otherwise unknown data through Valleyed pipes rather than hand-written parsing/type guards; use `v.fromJson(v.object(...))` for expected JSON shapes.
 
-### Parallel Core foundation and shared dependencies
+### Core foundation and shared dependencies
 
-- The Core implementation in `libs/core` remains documented by `docs/core/`; the parallel foundation in `libs/core2` is documented by `docs/core2/`. Both implement the Core domain; the numeric suffix is only a package/path disambiguator. Use unnumbered code identifiers such as `CoreDependencies`. Do not migrate Consumers, import the old implementation into the new library, or change old Core contracts as part of this work.
-- Keep Equipped and Valleyed declared as `latest` in package manifests. Set canonical resolved versions only in the global `pnpm-workspace.yaml` overrides: Equipped `5.3.7` and Valleyed `4.5.25`; refresh the lockfile through pnpm. These overrides apply repo-wide, including transitive dependencies; no local-path or package-specific override exceptions. The approved 5.3.7 compatibility work covers affected resolver, migration-lock and ledger API call sites in Core2, existing Core and Server, not a Consumer cutover, broader legacy refactor or data conversion. This prerelease has no client migrations using the old ledger format; backward conversion is out of scope, not a delivery/deployment gate.
-- For `libs/core2`, use ordinary project TypeScript checking and behavior-focused runtime tests with the real Equipped InMemoryAdapter. Do not add separate type-test/negative-compile suites or persistent-backend test matrices. This scoped rule replaces the general focused-type-test requirement for this library only. Schema/history checks remain at construction/setup/migrate, not every ordinary operation; domain ownership/revision validation and lifecycle admission still apply.
-- For the Equipped `5.3.7` compatibility update, the user requires existing Core/Server typechecking and compilation, not their runtime tests. This supersedes the earlier 5.3.6-only legacy-test waiver for this update; do not label unrun suites as passing. Core2 runtime/overlap tests, ordinary TypeScript, lint/format, dependency-resolution checks and demonstrated new failures remain in scope. Run heavy checks sequentially with memory headroom.
+- `libs/core` (`@gorchestra/core`) is the sole implementation package; use unnumbered code identifiers such as `CoreDependencies`. Its current documentation lives in `docs/core/`. Do not restore deleted implementations or application entrypoints without an explicit request.
+- Keep Equipped and Valleyed declared as `latest` in package manifests. Set canonical resolved versions only in the global `pnpm-workspace.yaml` overrides; refresh the lockfile through pnpm. These overrides apply repo-wide, including transitive dependencies; no local-path or package-specific override exceptions. This prerelease has no client migrations using the old ledger format; backward conversion is out of scope, not a delivery/deployment gate.
+- For `libs/core`, use ordinary project TypeScript checking and behavior-focused runtime tests with the real Equipped InMemoryAdapter. Do not add separate type-test/negative-compile suites or persistent-backend test matrices. This scoped rule replaces the general focused-type-test requirement for this library only. Schema/history checks remain at construction/setup/migrate, not every ordinary operation; domain ownership/revision validation and lifecycle admission still apply.
+- Core runtime/overlap tests, ordinary TypeScript, lint/format and Fallow checks run through the root scripts. Use pnpm's workspace overrides and frozen lockfile for dependency consistency rather than a custom dependency-check script. Run heavy checks sequentially with memory headroom.
 
 ## Verification
 
 - Use the closest child AGENTS.md for subtree-specific checks.
+- Keep root quality commands monorepo-wide: ESLint and Prettier cover maintained repository files, TypeScript builds the root project-reference graph, and pnpm recursively runs package tests sequentially. Register new TypeScript packages in the root references. Keep `lint-staged` directory-independent and sequential so ESLint and Prettier cannot race on staged code. Exclude generated caches and `.trowel/` from repository-wide scans.
+- Keep root scripts focused on active quality gates, fix commands and Git-hook setup/checks; do not retain no-op preparation hooks or unused CLI shortcuts.
+- Root `tsconfig.json` owns shared compiler rules and the project-reference index; package configs extend it and declare their own file scope and build settings. Project references are not inherited. Typed ESLint uses each file's nearest `tsconfig.json`; include TypeScript tool configs in their owning project rather than maintaining an ESLint-only project.
 - Keep the package-wide `minimumReleaseAgeExclude` entries for Equipped, Valleyed, and xi-configs: the user authors and trusts all three packages, including future updates. These exceptions do not change explicit version pins or overrides, or the release-age delay for other packages.
 - Keep `verifyDepsBeforeRun: error`: `pnpm run` and `pnpm exec` must stop when installed dependencies are out of sync rather than installing implicitly. Run dependency installation explicitly before retrying; do not bypass this check.
-- Keep `--base main` explicit in both Fallow audit scripts; upstream autodetection can yield an empty changeset on a pushed branch.
-- Keep shared `@types/node` declarations on major 24 to match the project's supported Node version, regardless of the runtime used for tooling.
-- For repo-wide source/config changes, run from repo root: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm format`, and `pnpm fallow:audit`.
+- Keep the Fallow audit script branch-neutral and supply the intended comparison ref explicitly. CI passes `github.event.pull_request.base.sha` through a quoted environment variable and reruns when a PR is retargeted; local audits use `--base <target-ref>`. Do not rely on upstream autodetection, which can yield an empty changeset on a pushed branch.
+- Configure Fallow only in the root `.fallowrc.json` and run it from the repository root across all workspace packages. Do not add package-level configs or package-specific analysis filters; let TypeScript project discovery cover the workspace.
+- Keep shared `@types/node` declarations aligned with the supported Node major declared in `pnpm-workspace.yaml`, regardless of the runtime used for tooling.
+- CI sets up the pinned Node and pnpm versions and invokes root `pnpm` commands directly on the runner. Keep dependency installation explicit and script-free; do not reintroduce a Docker wrapper or claim network/filesystem isolation for these checks.
+- For repo-wide source/config changes, run from repo root: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm format`, and `pnpm fallow:audit --base <target-ref>`.
 
 ## Child DOX Index
 
-- `consumers/AGENTS.md` — consumer application package contracts and package child index.
 - `docs/AGENTS.md` — documentation contracts, context docs, ADR rules, and documentation child index.
 - `libs/AGENTS.md` — workspace package contracts and package child index.

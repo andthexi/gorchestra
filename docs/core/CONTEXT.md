@@ -1,583 +1,124 @@
 # Gorchestra Core
 
-The Gorchestra core is the reusable Portfolio-level orchestration context. It manages Portfolio data, planning, graph relationships, delivery execution, portable Portfolio Snapshots, and Project-level work without depending on server-app tenancy concepts.
+Core is the reusable Portfolio-level orchestration context. It owns Portfolio data and work rules without taking on Consumer tenancy, authentication or deployment policy. This context describes the current implementation at `libs/core`. No Consumer application is currently implemented. Expedition and downstream execution remain outside the current foundation implementation.
 
 ## Language
 
 **Portfolio**:
-A core orchestration boundary that groups Projects and shared reusable context or resources such as Memories and Secrets.
-_Avoid_: Project Space, program, workspace
+A first-class grouping and isolated boundary for Projects, reusable knowledge and credential references. Portfolio containment does not make every record part of one aggregate.
+_Avoid_: Workspace, Project Space, tenant
 
-**Portfolio Graph**:
-The Portfolio-scoped graph of Core graph nodes and Links. Plans, Deliveries, Slices, Memories, and Memory Revisions can be nodes whether or not they currently have Links. Projects provide graph address context for Project-scoped nodes, and the Portfolio itself is the graph boundary; neither Project nor Portfolio is a graph node in v1.
-_Avoid_: Brain Graph, Workspace Graph, relationship map
-
-**Graph Node Ref**:
-A validated self-contained address for one node in the Portfolio Graph. A Graph Node Ref identifies the node and, for nested graph nodes, includes the owning domain context needed to interpret and validate the address: Plans and Deliveries carry Project context, Slices carry Delivery and Project context, and Memory Revisions carry Memory context. Memory parentage is Memory structure rather than graph address context, so Memory Graph Node Refs do not carry parent context. A Graph Node Ref is valid only when its included context matches the referenced Portfolio facts.
-_Avoid_: loose id pointer, graph node payload, denormalized node copy
-
-**Local Actor Ref**:
-An opaque consumer-supplied reference to the actor associated with a local core operation. A Local Actor Ref contains a consumer-defined actor type and actor id. Core validates only that these values are strings, stores them exactly as supplied for attribution, and does not inspect, trim, or interpret their contents.
-_Avoid_: User, Workspace Member, account
-
-**Audit Stamp**:
-The recorded operation time and attribution metadata attached to attribution-bearing core records or outcomes. A local Audit Stamp contains a Local Actor Ref and optional opaque correlation id stored exactly as supplied by the Consumer; an imported Audit Stamp preserves the original operation time while marking attribution as not locally resolvable.
-_Avoid_: createdBy field, Workspace Member field
-
-**Archive Period**:
-A lifecycle record containing the Audit Stamp that archived a record and, when later reactivated, the Audit Stamp that unarchived it. Current archival state is derived from whether the latest Archive Period has no unarchived stamp; archiving removes a record from active use but does not make it immutable.
-_Avoid_: archived flag, deleted flag
-
-**Core Input**:
-A value a Consumer passes through a public core API boundary, including command inputs, query arguments, Snapshot operation inputs, Command Context values, Work Context values, and Open Core options.
-_Avoid_: payload, request body, port result
-
-**Core Id**:
-A Core-owned ULID-format storage identity for Core records. Core-generated Core Ids are sortable and lexicographically creation-ordered, so Core list queries use ids as their canonical order and optional boundary.
-_Avoid_: opaque id, random id, display id
-
-**Core Orchestration API**:
-The public Core command/query surface for operations that read or mutate Core-owned Portfolio state. Consumers use Core queries for standalone reads of Core-owned Portfolio state, and mutations that affect Core invariants or lifecycle facts go through Core commands.
-_Avoid_: UI API, admin API, storage API
-
-**Paginated Query Envelope**:
-The standard Core list-query result boundary that wraps an ordered page or full ordered set of optionally id-bounded items with page navigation and count metadata. A Paginated Query Envelope is an id-bounded list result, not a separate cursor feed or a bare list array.
-_Avoid_: bare list response, cursor feed, infinite-scroll event stream
-
-**Command Context**:
-A Core command boundary value supplied by a Consumer for consumer-authorized Core commands. A Command Context contains the Local Actor Ref and optional opaque correlation id Core uses when it records Audit Stamps for user-authorized operations.
-_Avoid_: Operation Context, request context
-
-**Work Context**:
-A Core Work Operation boundary value supplied by a Consumer runtime when invoking runtime-owned Core Work Operations. Work Context is not user authorization and does not create Audit Stamps for runtime-generated facts.
-_Avoid_: Runtime Context, Runtime Command Context, Operation Context, user context
-
-**Core Work Operation**:
-A runtime-invoked Core write operation that advances already-recorded Core work without representing a consumer-authorized user command. Dispatch-target Core Work Operations are internal to the Core Dispatch Processor and are not directly callable by Consumers.
-_Avoid_: Command, query, scheduler job
-
-**Core Service**:
-A consumer-provided deployment boundary used by Core for deployment mechanics such as storage, Secret-at-rest protection and plaintext resolution, consumer-managed sandbox execution, logging, notification publishing, or best-effort Core Dispatch Wake signaling. Core Services do not own Portfolio orchestration, Dispatch processing behavior, Source Control Provider, Model Provider Protocol, Core-owned Sandbox Provider behavior, Agent Run behavior, portable Snapshot encryption, lifecycle time semantics, or Core identifier generation.
-_Avoid_: Core Port, plugin, consumer policy, integration logic
-
-**Core Service Output**:
-A value returned to Core by a Core Service. Core validates Core Service Outputs before trusting them; notification-only services such as logging, notification publishing, or Core Dispatch Wake signaling do not produce Core Service Outputs. Malformed readiness outputs from required Core Services are reported as invalid Core Service Outputs rather than failed readiness.
-_Avoid_: Core Input, provider behavior, consumer policy
-
-**Invalid Core Input**:
-A Core Input rejected before core behavior runs because it fails the declared input pipe for that public core API boundary.
-_Avoid_: invariant violation, domain failure, malformed request
-
-**Operation Error Union**:
-An operation-specific exported union of only the error variants a public Core operation can return.
-_Avoid_: full CoreError return, catch-all error type
-
-**Secret**:
-A Portfolio-owned sensitive value with non-unique user-facing metadata and a stored protected value reference but never plaintext. Users may create Secrets, update Secret Metadata, replace Secret values, and archive Secrets, and Core may return Secret records from write operations, but users may not view plaintext values after creation; v1 Secrets do not have provider-specific Secret types.
-_Avoid_: Credential, token, key, sensitive value
-
-**Secret Metadata**:
-The non-sensitive, user-facing fields of a Secret, currently its name. Secret Metadata excludes the Secret value and Protected Secret Value Reference, and Secret Metadata updates are distinct from Secret Value Replacement.
-_Avoid_: Secret Config, Secret settings, value metadata
-
-**Active Secret**:
-A Secret whose latest Archive Period is absent or unarchived, so Core may use its Protected Secret Value Reference for configured provider access, Agent Run runtime requirements, or sandbox credentials. An inactive Secret is archived and cannot be used without first being unarchived.
-_Avoid_: enabled Secret, live credential, archived Secret reference
-
-**Protected Secret Value Reference**:
-A consumer-specific protected token that lets the owning Consumer resolve Secret plaintext without Core storing plaintext. It may be an external protected-store reference or an inline encrypted value envelope.
-_Avoid_: Plaintext secret, decrypted secret value
-
-**Secret Value Replacement**:
-The operation of assigning a new protected value to an existing Secret without creating a new Secret identity or exposing the previous plaintext. Secret Value Replacement updates the Secret's value replacement audit evidence while preserving existing Secret References.
-_Avoid_: Secret value update, replacement Secret, value edit
-
-**Secret Reference**:
-A direct Core-owned Portfolio usage of a Secret by a stored data model that may use that Secret for future provider access, Agent Run environment exposure, command-scoped Agent Run preparation access, or Core-owned sandbox runtime credentials. Secret References report whether the referring data model is active and never expose plaintext.
-_Avoid_: Secret Link, credential usage, historical secret mention, Secret Binding
-
-**Environment Variable**:
-A Secret exposed to Agent Runs as a named runtime environment variable through an Agent Run Environment Secret Requirement. V1 Environment Variable names use uppercase POSIX-style names with letters, digits, and underscores, and must not start with a digit.
-_Avoid_: Environment, environment secret, Secret Binding
-
-**Agent Run Environment Secret Requirement**:
-An Agent Run Runtime Requirement that assigns one environment variable name to one Secret for an Agent Run Profile Snapshot or an additive Agent Run Runtime Requirement Override. Repeated environment variable names are applied in order with last-write-wins semantics, while exact duplicate environment Secret assignments are rejected as redundant. Core stores the environment variable name and Secret id, validates referenced Secrets when requirements are configured, and re-checks active Secret resolution during Agent Run Preparation; plaintext Secret values resolve only transiently through Consumer-provided Secret services.
-_Avoid_: Secret Binding, Secret Assignment, credential assignment, plaintext environment value
-
-**GitHub PAT**:
-A personal access token value a user may store as a Secret for GitHub Repository access. GitHub PAT is not a separate Secret type in v1.
-_Avoid_: GitHub token, GitHub credential
-
-**Portfolio Snapshot**:
-A Core-encrypted portable artifact containing portable Portfolio facts and logical Core Dispatch Requests. Portfolio Snapshots preserve Dispatch Request identities and bounded attempt history while Restore advances local processor coordination, returns imported leased requests to pending without consuming their crash-recovery budget, and invalidates active Agent Run sandbox readiness until Agent Run Preparation reconciles or recreates the sandbox. They always include Secrets but do not make live Agent Run Sandbox contents portable or guarantee that restored in-progress sandbox keys still resolve in a Consumer deployment.
-_Avoid_: Backup, dump, workspace export, sandbox snapshot
-
-**Export**:
-The operation that creates a passphrase-encrypted Portfolio Snapshot from the currently-open Portfolio using Core-owned snapshot encryption behavior.
-_Avoid_: Backup, dump
-
-**Restore**:
-The operation that replaces the currently-open Portfolio contents with a Core-encrypted Portfolio Snapshot using its passphrase.
-_Avoid_: Import, upload, merge
+**Consumer**:
+An application layer that provides user experience, authentication, authorization, Portfolio registration and selection, storage configuration, and Secret protection around Core.
+_Avoid_: Core provider, Portfolio
 
 **Project**:
-An orchestration boundary inside a Portfolio where Gorchestra executes Deliveries against one or more execution targets. A Project has a non-unique user-facing title; Project identity comes from its id. Project-specific planning context is expressed through Project-level Plans and Links to Portfolio-owned Memories.
-_Avoid_: Repository, repo
-
-**Project Source**:
-The immutable configured execution source a Project manages. A Project Source determines Delivery Artifact behavior, optional Slice Artifact behavior, Slice completion validation, Review Surface behavior, Feedback retrieval behavior, Ship behavior, and Abandon cleanup behavior.
-_Avoid_: Project Config, source config, target type
-
-**Project Source Type**:
-The kind of Project Source a Project uses, such as source control. Core owns Project Source Type behavior; provider operations perform that behavior on Core's behalf without deciding workflow semantics.
-_Avoid_: Project kind, target type
-
-**Model Use Config**:
-An atomic configuration value that selects a Model and Model Thinking Level together for an Agent Run. Model Use Config appears inside Agent Run Profiles and Agent Run Model Use Overrides so Core never represents a half-selected or incompatible model/thinking pair.
-_Avoid_: model id config, thinking override, partial model selection
-
-**Model Reference**:
-A direct Core-owned Portfolio usage of a Model by a stored reusable configuration model, such as an Agent Run Profile, that may select that Model for future Agent Runs. Model References report whether the referring data model is active and do not expand Agent Run Profile Snapshots, Agent Run Model Use Overrides, inherited/effective selections, or historical transcript usage.
-_Avoid_: Model Binding, model usage link, selected model pointer, inherited model usage, Agent Run transcript selection
-
-**Project Config**:
-Required Project-level source-agnostic orchestration settings shared across Project Source Types. In v1, Project Config supplies the Project's default Delivery Work Config; it does not change the Project Source or carry source-control-specific setup.
-_Avoid_: scheduler settings, source config, project type config
-
-**Source Control Project**:
-A Project whose Project Source is source control. In v1, Source Control Projects manage one or more GitHub Repositories.
-_Avoid_: Repository Project, Git project, repo project
-
-**Source Control Provider**:
-A Core-owned provider implementation for Source Control Project external operations, such as GitHub. A Repository uses one supported Source Control Provider, and that provider satisfies Core's Source Control Provider contract while Core owns Source Control Project workflow semantics.
-_Avoid_: Source Control Port, Project Source Type, consumer integration logic
-
-**Repository**:
-A Source Control Project-managed source control target. For Source Control Projects, a Delivery targets exactly one Repository, while Plans may coordinate work across multiple Repositories in the same Project. Repository provider config identifies the target and the Secret Core uses for provider access. Repository config writes validate the referenced Secret exists in the Portfolio without calling GitHub; external access validation happens in preflight or provider operations.
-_Avoid_: Project, repo
-
-**Repository Preflight**:
-An observational validation operation that checks whether Core can currently resolve and use a stored Repository's Source Control Provider configuration. Repository Preflight returns transient Validation Evidence and does not record lifecycle facts, readiness state, or history. Expected validation failures, including missing or inactive provider access Secrets and provider access failures, are reported as failed Validation Evidence; missing target Repository records, storage failures, and invalid Core Service Outputs remain operation errors.
-_Avoid_: Repository status, Repository health state, Repository readiness, access lifecycle event
-
-**Plan**:
-A Project-level reusable planning and discovery artifact. A Plan belongs to exactly one Project, captures research, analysis, requirements, and architectural discussion, records the identity of the one Planning Agent Run it starts with a selected Agent Run Profile when created, and may produce zero, one, or many Plan Outputs for its Project. Closing a Plan records consumer-authorized intent to stop further Planning input and model turns without deleting the Plan or invalidating pending Plan Output review.
-_Avoid_: Grill
-
-**Planning**:
-The read-only activity of exploring a problem and refining a Plan, plus creating, reviewing, and materializing Plan Output proposals. Planning does not implement Delivery or Slice work; implementation happens later through accepted Delivery execution.
-_Avoid_: Grilling, implementation
-
-**Planner**:
-The human steering Planning toward an acceptable Plan Output.
-_Avoid_: Agent, intelligence, Plan owner
-
-**Plan Output**:
-The structured proposal shape a planning Agent Run may produce for human review as one acceptable chunk. A Plan may have multiple Plan Outputs over time, each Plan Output is independently reviewable and materializable, and separate Plan Outputs may propose different acceptable chunks such as durable Memory changes first and executable Deliveries later. Each Plan Output proposes new Deliveries with their initial Slices, new Memories with initial Memory Revisions, and new Memory Revisions for existing Memories. Proposed Deliveries may depend on existing Deliveries or other proposed Deliveries in the same Plan Output. Accepting a Plan Output materializes those proposed artifacts into the Portfolio graph, including Instruction Sources stored on the materialized Slices, produced Links from the Plan to newly materialized Memories, produced Links from the Plan to every materialized Memory Revision, and depends-on Links for proposed Delivery or Slice dependencies. Rejecting it materializes none of them. Plan Outputs do not add Slices to existing Deliveries, must propose at least one initial Slice for each proposed Delivery, do not propose arbitrary Core Links, and are not stored Portfolio artifacts.
-_Avoid_: Accepted Plan, partial acceptance, staged output set, draft Plan
-
-**Delivery**:
-The Project-level unit of accepted executable work materialized by accepting a Plan Output. A Delivery belongs to a Project for execution, participates in the Portfolio graph for planning, provenance, and same-Project Delivery-level dependencies, targets exactly one execution target for its Project Source Type, and owns authoritative lifecycle fields for queueing and closure.
-_Avoid_: Change, task, ticket, draft Plan
-
-**Queued Delivery**:
-A Delivery whose queued lifecycle field is set, so its work may run once Delivery Work State gates allow it. Queueing a Delivery records user intent for work to begin when dependencies, readiness checks, and scheduler limits permit.
-_Avoid_: Started Delivery, running Delivery, active Delivery, Execution
-
-**Shipped Delivery**:
-A Delivery whose closed lifecycle field records a shipped outcome after its external integration lifecycle has been completed.
-_Avoid_: Released Delivery, landed Delivery
-
-**Abandon**:
-To close a Delivery without shipping it, after required Project Source Type-specific cleanup is attempted or recorded.
-_Avoid_: Archive, delete, cancel, soft-delete
-
-**Abandoned Delivery**:
-A Delivery whose closed lifecycle field records an abandoned outcome, removed from active execution consideration without being Shipped. Abandoning a queued Delivery must close or abandon active external work where possible. For dependency calculation, an Abandoned Delivery satisfies Delivery-level dependencies as if it were Shipped.
-_Avoid_: Archived Delivery, Deleted Delivery, canceled Delivery, soft-deleted Delivery
-
-**Slice**:
-An executable and reviewable unit inside exactly one Delivery and therefore exactly one Project. A Slice's parent Delivery, immutable Delivery-scoped order, and initial Instruction Source are immutable after acceptance. Slice order records the accepted Plan Output order for semantic same-Delivery sequencing, while public list/read-model arrays still use Core's canonical id-desc list order. Slices participate in the Portfolio graph, and Slice-level dependencies are represented by Links between Slices in the same Delivery.
-_Avoid_: Step, task, subtask
-
-**Slice Work State**:
-A derived state describing whether Slice work can run or what external state it is waiting on. Slice Work State is computed from same-Delivery Slice dependency Links, Core Dispatch Requests, Actions, completed Agent Runs, Slice Artifacts, and Review Surfaces, not stored directly. A Slice may be complete, operation-running, operation-queued, slice-dispatch-failed, needs-delivery-validation, dependency-blocked, needs-artifact-validation, correction-blocked, needs-review-surface, awaiting-review, slice-operation-failed, needs-artifact-creation, or executable, derived in that priority order. Complete means the Slice Artifact has been promoted into the Delivery Artifact and a later Slice Delivery Artifact validation passed. Needs-delivery-validation means the Slice Artifact has been promoted into the Delivery Artifact and the resulting Delivery Artifact still needs Slice Delivery Artifact validation. Needs-artifact-validation means completed Slice execution must be validated by Gorchestra before review or promotion. Needs-review-surface means Slice Artifact validation passed and a Slice Review Surface still needs to be created. Incomplete Agent Runs are transient runtime/adoption facts and do not create a public Slice Work State in v1. Correction-blocked means automatic correction retry budget is exhausted for a Failure Chain; its action points to the latest failed Action that exhausted retries. Slice-dispatch-failed means the latest Slice-scoped Delivery Work Operation Core Dispatch Request failed during dispatch processing; its Action references that failed request. Slice-operation-failed means the latest Slice-scoped external operation failed before correction could run. Operation-running and operation-queued mean a Slice-scoped Delivery Work Operation Core Dispatch Request has a leased attempt or remains pending. Needs-artifact-creation means the Slice is otherwise initially executable, but its Slice Artifact has not been created yet. maxProcessableSliceSlots limits concurrent Slice operation dispatches for a Delivery. Slice Artifact creation, Agent Run execution through runner completion, Slice Artifact validation, Review Surface creation, and Slice Delivery Artifact validation are slot-occupying Slice operations while they are being processed. Executable Slices are candidates for a Delivery Work Scheduler Pass to dispatch one Slice operation at a time and may be initial or correction work; correction work carries its Failure Chain. Dependency-blocked contains direct incomplete same-Delivery Slice dependencies ordered by dependency acceptance time, then Slice ID.
-_Avoid_: Slice status, task state, stored Slice state
-
-**Failure Chain**:
-A derived sequence of Slice correction work rooted at the failed validation or external-operation Action that first produces correction evidence for that sequence. A Failure Chain starts when a failed Action makes a Slice executable in correction mode. Failure Chain is not stored on Actions; correction Slice Work States derive and carry their current Failure Chain. Correction retries belong to that root Failure Chain until a later validation/promotion path succeeds or retry budget is exhausted.
-_Avoid_: retry group, attempt series, error thread
-
-**Instruction Source**:
-Immutable stored instructions used by Agent Runs to perform accepted Slice or Revision work.
-_Avoid_: Plan Output, Revision Output, prompt
-
-**Delivery Work Config**:
-Source-agnostic settings for executable Delivery work, including scheduler-processable Slice work slots, correction retry limits per Failure Chain, and execution/revision-execution Agent Run Profile selection. A null revision-execution Agent Run Profile selection means revision execution uses the execution Agent Run Profile, not that revision execution is disabled.
-_Avoid_: Execution Config, model config, agent run config, scheduler settings
-
-**Delivery Config**:
-Delivery-scoped configuration for future executable work on one Delivery. In v1, Delivery Config may provide a full Delivery Work Config override; it is not inherited per field and does not apply to revision planning.
-_Avoid_: Execution Config, Execution Policy, scheduler settings
-
-**Delivery Work State**:
-A derived state describing the current execution state of a Delivery. Delivery Work State is computed from Delivery lifecycle fields, dependency Links, dependency Delivery outcomes, Slices, Core Dispatch Requests, Actions, and Review Surfaces, not stored directly. Closed and unqueued states come from the Delivery's authoritative lifecycle fields. A Delivery may be closed, unqueued, operation-running, operation-queued, delivery-dispatch-failed, dependency-blocked, preflight-failed, needs-artifact-creation, slices-incomplete, delivery-operation-failed, delivery-validation-failed, delivery-review-failed, needs-artifact-validation, needs-review-surface, awaiting-review, or ready-to-ship, derived in that priority order. Operation-running and operation-queued mean a Delivery-scoped Delivery Work Operation Core Dispatch Request has a leased attempt or remains pending. Needs-artifact-creation means the Delivery is queued and unblocked, but its Delivery Artifact has not been created yet. Slices-incomplete means at least one Slice is not complete; detailed per-Slice state comes from Slice Work State. Delivery-dispatch-failed means the latest Delivery Work Scheduler Pass or Delivery-scoped Delivery Work Operation Core Dispatch Request failed during dispatch processing; its Action references that failed request. Delivery-operation-failed means the latest Delivery-scoped external operation failed. Delivery-validation-failed means the latest Delivery-level artifact validation failed; exact Delivery-level correction behavior is deferred. Delivery-review-failed means the current Delivery Review Surface closed without merge; exact Delivery-level correction behavior is deferred. Needs-artifact-validation means all Slices are complete and the Delivery Artifact needs Delivery-level validation before review/ship flow can continue. Needs-review-surface means Delivery Artifact validation passed and a Delivery Review Surface still needs to be created. Before creating a Delivery Review Surface, Gorchestra checks whether the Delivery Artifact is already integrated into the target; if so, it records observed Delivery Artifact integration and the Delivery becomes ready-to-ship without a new Review Surface. Awaiting-review means the Delivery Review Surface exists and is waiting for external review, merge, or observation; replaced Review Surfaces keep the Delivery awaiting-review with the current replacement Review Surface. Ready-to-ship means the Delivery Artifact is integrated into the target and shipDelivery may be called; v1 does not run post-merge Ship validation. Dependency-blocked means direct same-Project Delivery dependencies are not yet closed; blocked dependencies are ordered by dependency acceptance time, then Delivery ID. Preflight-failed means the latest Delivery preflight Action failed and work cannot continue until explicit preflight retry records a later passing Delivery preflight Action.
-_Avoid_: Execution state, job state, stored work state
-
-**Delivery Context**:
-A transient, never-stored context Gorchestra prepares around one Delivery from stored Portfolio facts. Delivery Context contains scoped, validated Portfolio facts needed to derive Delivery and Slice Work States for that Delivery, including the Delivery Artifact when present, each Slice with its Slice Artifact and direct Slice dependency links, direct Delivery dependency summaries, relevant Delivery Work Core Dispatch Requests, and Delivery Actions sorted by performed time. Delivery Context does not include resolved Delivery Work Config, selected Agent Run Profiles, selected Models, selected Model Providers, or plaintext provider access.
-_Avoid_: Runtime Delivery Work Context, scheduler context, stored execution context, Agent Run context, facts bag
-
-**Delivery Work Resolution**:
-A transient, never-stored resolution of the effective Delivery Work Config and selected execution Agent Run Profile needed for one scheduler-actionable Delivery work pass. Delivery Work Resolution does not contain plaintext provider access; provider families resolve provider access on demand for the specific preflight or external operation that needs it.
-_Avoid_: Runtime Delivery Work Context, scheduler context, execution context
-
-**Delivery Work Scheduler Pass**:
-A Core Work Operation that reads the current Delivery Context and Delivery Work Resolution, then requests concrete Delivery Work Operations for the currently actionable Delivery or Slice work. A Delivery Work Scheduler Pass is Delivery-scoped and may safely find no actionable work.
-_Avoid_: Delivery worker, Delivery lease, background job, stored scheduler state
-
-**Delivery Work Operation**:
-A concrete dispatched Core Work Operation that processes one scheduler-actionable Delivery-level or Slice-level operation derived from Delivery Work State or Slice Work State. Delivery Work Operations re-read current state before external side effects; stale operations are successful no-ops rather than failures. External effects use an operation identity stable across the Core Dispatch Request's automatic attempts together with provider-supported semantic targets for idempotency or reconciliation before automatic retry.
-_Avoid_: scheduler pass, worker lease, stored job
-
-**Process Delivery Work Operation**:
-The Core Work Operation boundary that processes one leased Delivery Work Operation Core Dispatch Request. It re-derives the current underlying work state without treating its own request as competing in-transit work, then either performs the still-current operation or completes as a stale no-op; actual operation results and failures remain Actions.
-_Avoid_: scheduler pass, run delivery work, worker lease
-
-**Outcome-Unknown External Operation**:
-An external operation attempt for which Core cannot determine whether the provider applied the intended effect. Core reconciles it through the stable Dispatch operation identity and provider-supported semantic target when possible and otherwise requires manual resolution rather than assuming failure or repeating the effect blindly.
-_Avoid_: Failed external operation, safe retry, stale no-op
-
-**Agent**:
-The discriminated value recorded on an Agent Run that identifies what kind of agent performed the work. In v1, the only Agent is Model Agent. Agent is not a stored core model and does not itself store the selected Model for each model call.
-_Avoid_: actor, stored Agent, worker, executor
-
-**Agent Type**:
-The kind of Agent recorded on an Agent Run. Agent Type describes how the work is performed, not why a particular run exists. In v1, Model Agent is the only supported Agent Type.
-_Avoid_: Mission type, purpose, interaction mode
-
-**Model Provider**:
-A Portfolio-owned configured source of selectable language Models. A Model Provider has an immutable Model Provider Source, optional standard access backed by Secrets, a list of custom headers backed by Secrets that defaults to empty, and optional provider-local AI SDK provider options. Core owns Model Provider Protocol behavior and maps supported sources and protocols to AI SDK language models so Model Agent execution is consistent across consumers. Editable Model Provider fields record when they were last updated. Model Providers may be archived, which makes their Models unavailable for new work while retaining them for historical references; this availability is derived rather than cascaded to child Models. Archived Model Providers may be updated before being unarchived, but their Model Provider Source remains immutable.
-_Avoid_: LLM provider, consumer model adapter, provider/protocol pair
-
-**Model Provider Source**:
-The immutable source identity Core uses to resolve a Model Provider into concrete AI SDK provider behavior. Built-in Model Provider Sources select Core-known provider adapters and default endpoints, such as OpenAI Responses, Anthropic, Google Generative AI, and Groq. Custom-hosted Model Provider Sources require an explicit base URL and declare the Model Provider Protocol they implement. A Model Provider Source determines the Model Provider Protocol for built-in sources and supplies the custom-hosted protocol declaration when Core cannot infer it.
-_Avoid_: endpoint field, provider/protocol matrix, provider brand string
-
-**Model Provider Protocol**:
-The stable Core-owned wire/API protocol Gorchestra uses to call a Model Provider through AI SDK-backed Core adapters. V1 supported Model Provider Protocols are `openai-responses`, `openai-chat-completions`, `anthropic-messages`, and `google-generative-ai`; `openai-completions` is not supported. Built-in Model Provider Sources determine their protocol by construction, while custom-hosted sources declare the protocol they implement. Consumers do not provide Model Provider Protocol implementations.
-_Avoid_: provider brand, model type, API key type
-
-**Model**:
-A named Portfolio-owned selectable language model under a Model Provider, with a provider-facing model identifier, optional model-local AI SDK provider options, and capability metadata such as supported inputs, context and output limits, positive thinking support, and pricing. A Model describes what the language model can do; Agent Run Profiles and Agent Run Model Use Overrides describe how Gorchestra uses it for Agent Runs. Model thinking capability stores only configured positive Model Thinking Levels (`minimal`, `low`, `medium`, `high`, `xhigh`); `none` is implicit and always selectable. Core validates configured positive thinking support against the Model Provider Protocol so provider-impossible levels do not become selectable. Models may be archived, which makes them unavailable for new work while retaining them for historical references. Archived Models may be updated before being unarchived.
-_Avoid_: provider/model string, model slug, runtime model policy
-
-**Model Preflight**:
-An observational validation operation that checks whether a stored Model is ready for Model Provider Protocol access. Model Preflight returns Validation Evidence and does not record lifecycle facts or Agent Run Events. Expected readiness failures, including archived Models or Model Providers, missing, inactive, or unresolved provider access Secrets, unsupported configured thinking, provider authentication or authorization failures, model availability failures, provider rate limits, content filtering, provider unavailability, and generation failures are reported as failed Validation Evidence; missing target Model records, missing referenced Model Provider records, storage failures, and invalid Core Service Outputs remain operation errors. Model Preflight uses a tiny bounded no-tool AI SDK `streamText` generation probe because AI SDK does not expose a provider-agnostic model metadata existence check. Provider setup guidance lives in `provider-setup.md`.
-_Avoid_: Model status, Model health state, access lifecycle event
-
-**Model Thinking Level**:
-A Core canonical level for requesting or explicitly disabling provider reasoning behavior during a Model Agent turn. `none` means the user or configuration explicitly requested disabled thinking for that Agent Run, while missing runtime thinking means Core sends no AI SDK reasoning option. `none` is best-effort because some providers may approximate disabled thinking. Positive Model Thinking Levels are `minimal`, `low`, `medium`, `high`, and `xhigh`; a selected positive level must be configured on the Model and supported by its Model Provider Protocol. Model Thinking Levels are recorded in Model Use Config values on Agent Run Profile Snapshots and Agent Run Model Use Overrides, and assistant-message events store the resolved generation model facts used for each finalized model output; advanced provider-specific provider options may still take precedence according to AI SDK provider behavior.
-_Avoid_: reasoning effort, thinking budget, provider reasoning value
-
-**Model Agent**:
-An Agent Type where Gorchestra's Core-owned agent loop uses selected Models to perform goal-directed work consistently across consumers. Core uses AI SDK `streamText` for model-backed turns while preserving Core-owned tool contracts and transcript events. Model selection comes from the Agent Run Profile Snapshot unless the Agent Run has a Model Use Override.
-_Avoid_: LLM Loop Agent, Pi Agent, Codex Agent, external harness, consumer agent adapter
-
-**Agent Run Tool**:
-A Core-owned callable operation exposed to a Model Agent during Agent Run turns. Agent Run Tools are model-call tools whose results become Agent Run transcript content; they are distinct from Agent Run Runtime Requirements and Run Command Requirements. V1 Core-owned workspace Agent Run Tools are `read`, `grep`, `find`, `ls`, `sh`, `edit`, and `write`, with source/domain tools such as proposal-recording tools added by Agent Run Purpose and Project Source Type.
-_Avoid_: Runtime Requirement, sandbox preparation command, provider-native tool
-
-**Outcome-Unknown Agent Run Tool Call**:
-An Agent Run Tool call whose processing ended without a durable result, so Core cannot know whether its effect occurred. Agent Run Turn recovery preserves the unknown outcome for inspection or reconciliation rather than automatically repeating the call.
-_Avoid_: Failed tool call, pending tool call, safe-to-retry tool call
-
-**Agent Run Tool Set**:
-The resolved set of Agent Run Tools available to a Model Agent for an Agent Run turn. In v1, Core derives the Agent Run Tool Set from the Agent Run Purpose and Project Source Type; the set describes model-call affordances, not sandbox preparation or deployment capability.
-_Avoid_: Runtime Requirement list, profile tool allowlist, tool installation list, sandbox command list
-
-**Agent Run Tool Set Snapshot**:
-The copied Tool Set selection stored on an Agent Run when it is created. The snapshot stores compact `{ name, contractVersion }` tool entries so Core can stabilize which Agent Run Tools and tool contract versions are available to that Agent Run across later catalog changes.
-_Avoid_: live tool registry, full provider schema copy, profile tool list, provider tool list
-
-**Agent Run Runtime Requirements**:
-The ordered environment Secret and run-command requirements an Agent Run needs in its Agent Run Sandbox. Agent Run Runtime Requirements can come from global runtime requirements shared by every Agent Run source context, Project Source Type and Agent Run Purpose contributions resolved at Model Agent Run creation, an Agent Run Profile Snapshot, and additive Agent Run Runtime Requirement Overrides; Core Agent Run runtime owns source/purpose requirement derivation, while providers execute or integrate but do not decide which source/purpose requirements exist. Source/purpose contributions compile to the same generic environment Secret and run-command requirement variants rather than source-type-specific requirement variants. Stored Agent Runs always have resolved source runtime requirements, with global runtime requirements stored at the front of the source runtime requirement list and an empty array representing resolved-empty source requirements only when no global or source-specific requirements apply. Model Agent Run creation validates Secret references in source-derived requirements, folds source requirements into desired runtime requirements before profile requirements, skips duplicate profile requirements that duplicate resolved source/purpose requirements, and fails without storing the Agent Run when source requirement resolution or source Secret reference validation fails. Duplicate requirements emitted by source/purpose resolution are invariant violations. Source/purpose requirements are the authoritative source requirement snapshot for that Agent Run and later preparation attempts trust the Agent Run's stored desired runtime requirements. Project Source Type and Agent Run Purpose combinations are explicit; Model Agent Run creation resolves source requirements from trusted Core-owned source context records needed by the Project Source Type × Agent Run Purpose branch, does not perform general Core storage consistency auditing or external provider calls, treats missing records it must load as not-found operation errors, and treats unhandled combinations as invariant violations while a handled combination may intentionally resolve to an empty requirement list. Global runtime requirements run before Project Source Type-specific requirements and are always exercised by Agent Run Profile Preflight. In v1, the global sequence is exactly root-runnable POSIX-compatible `sh` verification followed by `rg` and `fd` availability for command-backed `grep` and `find` Agent Run Tools, using best-effort installation paths and failing with setup guidance when the sandbox cannot support them; the model-visible shell command tool is named `sh` to match this required shell capability. Source Control Project source requirements use `sh` to make Git available inside the sandbox when the selected sandbox image does not already provide it, using best-effort installation paths and failing with setup guidance when the sandbox cannot support them. Source Control Planning ensures Git even when a Project currently has zero Repositories, and checks out each relevant Repository into `/workspace/<repo-owner>-<repo-name>-<repository-id>`. Each requirement must succeed before the next requirement is applied.
-_Avoid_: Sandbox Requirements, Runtime Environment Requirements, runtime values, dependency requirement, live profile runtime config, Agent Run Tools
-
-**Agent Run Run Command Requirement**:
-An Agent Run Runtime Requirement that runs a required-label, structured argv sandbox preparation command in sequence with environment Secret requirements. Run Command Requirements can be Core-authored source/purpose requirements or user-authored Agent Run Profile and Runtime Requirement Override requirements. V1 Run Command Requirements store a label, arbitrary executable name, string arguments, optional sandbox working directory, a `root` boolean, and command-scoped `commandSecretEnv` record. They do not interpret shell operators such as `&&`, pipes, redirects, or `cd`; chaining is represented by multiple requirements and directory changes use the working-directory field. Run commands execute inside the sandbox namespace with an optional sandbox path working directory that defaults to `/workspace`; host absolute paths and parent traversal are invalid. A Run Command Requirement with `root: true` asks the Sandbox Provider to execute the command with root privileges inside the sandbox rather than relying on shell-level `sudo`. V1 uses a Core-owned default sandbox command timeout rather than storing per-command timeout policy. Run Command Requirements may carry `commandSecretEnv` as a record from environment variable name to Secret id for that requirement's command execution only; those Secrets are resolved just-in-time and are not persisted into the sandbox runtime environment store. Environment Secret requirements add or update values in the sandbox runtime environment store, while Run Command Requirements let users add custom preparation commands; every sandbox run command automatically loads the current prepared sandbox runtime environment store.
-_Avoid_: Agent Run Tool, model tool call, runtime value, dependency requirement, raw shell string, shell transcript event
-
-**Agent Run Runtime Requirement Override**:
-A consumer-authorized batch of one or more Agent Run Runtime Requirements appended directly to an active Agent Run and materialized on the Agent Run alongside its transcript event. Runtime Requirement Overrides do not remove existing requirements; environment Secret assignments and run commands are applied in sequence, repeated environment variable names use last-write-wins semantics, and exact duplicate requirements are rejected as redundant.
-_Avoid_: live profile edit, requirement removal, dependency override, sandbox patch
-
-**Agent Run Profile**:
-A Portfolio-owned archivable reusable configuration surface for new Agent Runs. Selecting an Agent Run Profile supplies Core-owned run behavior such as Model Use Config, the explicit Core-normalized ordered Agent Run Runtime Requirements sequence, and an Agent Run Sandbox Config. An empty runtime requirement array means the profile contributes no requirements; archived Agent Run Profiles remain historical records but are not selectable for new work.
-_Avoid_: agent config, runtime profile, provider profile, model provider profile
-
-**Agent Run Profile Snapshot**:
-The copied profile selection stored on an Agent Run when it is created, containing the selected Agent Run Profile id, profile name, Model Use Config, Core-normalized ordered Agent Run Runtime Requirements, and Agent Run Sandbox Config. Agent Run Profile Snapshots make profile edits apply only to future Agent Runs.
-_Avoid_: live profile pointer, model selection event, profile reference
-
-**Agent Run Profile Reference**:
-A direct Core-owned usage of an Agent Run Profile by a stored reusable configuration model that may select that profile for future Agent Runs. V1 Agent Run Profile References come from Project Config and Delivery Config, distinguish execution and revision-execution roles, treat a null revision-execution profile as using the execution profile, include closed Delivery Config references as inactive, and exclude Agent Run Profile Snapshots, current Agent Run Model Use Overrides, and transcript history.
-_Avoid_: Agent Run history, profile snapshot usage, profile reference count
-
-**Agent Run Model Use Override**:
-A consumer-authorized current Model Use Config stored on an Agent Run that supersedes the Agent Run Profile Snapshot for later turns without changing the selected Agent Run Profile. Transcript events may preserve model switch history, but the override is the current runtime selection.
-_Avoid_: profile switch, transcript-selected model, live profile edit
-
-**Agent Run**:
-One concrete application-managed session where an agent carries out goal-directed work for Gorchestra. An Agent Run is the session boundary; do not introduce a separate Agent Run Session concept or checkpoint record in v1. Runtime resumability and debugging facts belong in Agent Run Events. An Agent Run records its agent, purpose, Agent Run Profile Snapshot, `toolSet` Agent Run Tool Set Snapshot, `sourceRuntimeRequirements` for global and source/purpose-contributed Agent Run Runtime Requirements, optional Agent Run Model Use Override, additive Agent Run Runtime Requirement Overrides, the materialized ordered desired Agent Run Runtime Requirements, and sandbox runtime readiness. Newly-created Model Agent Runs resolve source runtime requirements before being stored. A null Agent Run sandbox field means no sandbox has been successfully created and recorded; a non-null sandbox state always includes created lifecycle evidence, the sandbox key, applied runtime requirements, preparation freshness, and release state. It records its purpose with the domain target it works on, such as a Planning purpose for a Plan or a Slice execution purpose with Delivery, Slice, and an execution mode union. A newly created Model Agent Run starts with an `instruction-snapshot` Agent Run Event and an accepted Agent Run Preparation Core Dispatch Request before purpose-specific input events are appended. Initial Slice execution has no correction root; correction Slice execution records the Failure Chain root it is correcting. Agent Runs may gather information, use tools, edit code, run tests, produce outputs, or request human decisions. Core owns Agent Run behavior; an Agent Run does not own authoritative Delivery or Slice Work State.
-_Avoid_: Mission, Turn, AgentAttempt, Agent Run Session, Agent Run Checkpoint, actor
-
-**Agent Run Turn**:
-One event-bounded Agent Run response cycle that starts with `turn-started`, may contain multiple Model Steps and Agent Run Tool calls, and ends with `turn-ended`. An interrupted Turn resumes from its durable Agent Run Event boundaries rather than consuming its input as a new Turn.
-_Avoid_: Model Step, Agent Run, Dispatch Attempt, transcript checkpoint
-
-**Model Step**:
-One AI SDK language-model invocation inside a Core Agent Run Turn. A Model Step may produce assistant output and tool calls; Core records the finalized model output as one `assistant-message` Agent Run Event and records Core-executed tool outputs for that assistant message as a grouped `tool-message` Agent Run Event. Model Step order is derived from ordered `assistant-message` events within the turn rather than from an AI SDK step number.
-_Avoid_: Turn, tool run, Agent Run, AI SDK step id
-
-**Assistant Message Draft**:
-The transient in-progress assistant output for one Model Step before its finalized output is persisted as an `assistant-message` Agent Run Event. Its draft identity correlates live updates with that final event; a discarded draft has no durable event and is not a Portfolio fact.
-_Avoid_: partial Agent Run Event, streaming Agent Run Event, persisted draft
-
-**Blocked Agent Run**:
-An active Agent Run whose completed lifecycle field is null and whose blocked field records why Core must not start another model turn yet. New Agent Runs and accepted Runtime Requirement Overrides set a preparation-pending block until Agent Run Preparation succeeds or records a failure. A preparation failure block includes a structured failure target for sandbox provider/lifecycle setup or a failed runtime requirement with its ordered requirement index, while detailed block history and sanitized evidence belong in Agent Run Events rather than the materialized blocked field.
-_Avoid_: Completed Agent Run, failed Agent Run, paused Agent Run, stopped Agent Run
-
-**Agent Run Event**:
-An ordered event in an Agent Run transcript. Agent Run Events record Core-recognized facts such as Agent Run Model Use Override history, Agent Run Runtime Requirement Overrides, Agent Run Preparation and Sandbox release history, failed Core Dispatch processing, turn context boundaries, interrupt requests, proposed outputs, proposal review, and compaction boundaries, plus durable Agent Run Transcript Parts needed to rebuild future agent context. Input, assistant, and tool transcript messages are recorded by distinct `input-message`, `assistant-message`, and `tool-message` Agent Run Event variants rather than a generic message-appended event, so turn production and tool-response links are represented by the event variant. Agent Run Event ids use Core Id ordering semantics for transcript order, event references, context boundaries, and list-query windows. Live model or tool update deltas may stream to subscribers without becoming durable Agent Run Events.
-_Avoid_: Session Entry, transcript row, checkpoint
-
-**Notification Id**:
-A sortable Core-generated ULID-format identity assigned when a Notification is published. A Notification Id can order delivered notices but is not persisted, does not support replay, and is distinct from the Core Id of any enclosed record.
-_Avoid_: Core Id, replay cursor, Agent Run Event id
-
-**Agent Run Notification**:
-A transient, Core-safe Agent Run-scoped notice of a persisted Agent Run change, a newly persisted Agent Run Event, or a non-persisted model/tool update. Each has a Notification Id but remains best-effort, non-persisted, and non-replayable; durable truth is recovered from Agent Run and Agent Run Event reads.
-_Avoid_: Agent Run Event, transcript event, Core Event
-
-**Agent Run Transcript Part**:
-A Core-owned persisted AI SDK-compatible message part used for Agent Run history and future agent context projection. Input, assistant, and tool transcript roles are distinguished by their Agent Run Event variant, while event bodies store parts such as operator input, runtime input, assistant output, tool calls, tool results, displayable reasoning, sources, generated files, and compaction summaries; each part's type determines whether it is included in later agent context. Generic part metadata is preserved on the owning part rather than as a separate Core transcript part, and context projection maps that metadata to AI SDK provider metadata or provider options when appropriate. Persisted model tool-call inputs and tool outputs are redacted against prepared Secret plaintext values before storage and projection while trusted Core execution may use transient unredacted values. Live stream starts, stream deltas, and provider telemetry are not Agent Run Transcript Parts. Operator-provided transcript parts record the consumer-authorized append operation rather than separate semantic authorship.
-_Avoid_: Model Message, raw AI SDK message, provider stream event, streaming delta, Core-invented transcript part
-
-**Agent Run Context Compaction**:
-An Agent Run Event that replaces earlier context-visible transcript content with compacted system-projected Agent Run Transcript Parts for future context rebuilds while preserving the original events for audit and history. Agent Run Context Compaction records the inclusive Agent Run Event id compacted through, rather than the first later event to keep, so the compaction states exactly which prior context the replacement parts cover.
-_Avoid_: Context deletion, transcript truncation, first kept id, chat reset
-
-**Core Dispatch Processor**:
-The Core runtime capability that claims and processes durable Core Dispatch Requests for one open Portfolio. Core owns request selection, coordination, retry, and Core Work Operation routing, while the Consumer starts, supervises, drains, and stops the processor as part of its runtime lifecycle. Its handle exposes readiness after durable bootstrap and the first authoritative request scan, later completion or fatal failure, and parameterless configured-grace shutdown. A stopped or failed processor may be replaced on the same opened Core facade without reopening Core; only a starting, running, or stopping processor blocks another start.
-_Avoid_: Server Dispatcher, Delivery worker, Consumer job runner
-
-**Core Dispatch Wake**:
-A best-effort Portfolio-scoped signal that committed Core Dispatch Requests may be available. A Core Dispatch Wake carries no work payload and is not durable truth; the Core Dispatch Processor always queries stored requests after a wake or polling deadline.
-_Avoid_: Core Dispatch Request, ready marker, queue message
-
-**Core Dispatch Request**:
-A durable Core-owned request to execute already-recorded Core work, such as an Agent Run model turn, Agent Run Preparation, Agent Run Sandbox Release, Delivery Work Scheduler Pass, or Delivery Work Operation. A Core Dispatch Request records one logical work obligation; it is not proof that execution has started or completed, and it may require multiple Core Dispatch Attempts before becoming completed or failed. Each request carries Dispatch Coordination Claims that determine which requests may run concurrently. In v1, Agent Run lifecycle request types are `agent-run-model-turn`, `agent-run-preparation`, and `agent-run-sandbox-release`, each with an exclusive Agent Run claim. Core accepts the request in the same transaction as the facts that require it, and the Core Dispatch Processor can observe it only after that transaction commits.
-_Avoid_: Scheduler job, background job, runtime event, generic agent-run request
-
-**Core Dispatch Reason**:
-A typed reference on a Core Dispatch Request that identifies a Core fact or lifecycle transition requiring the work. A deduplicated request retains its distinct triggering reasons in bounded acceptance order; Core Dispatch Reasons are durable provenance for the obligation, not evidence that processing started.
-_Avoid_: Free-form job description, Core Dispatch Attempt outcome, correlation id
-
-**Core Dispatch Attempt**:
-One attempt by a Core Dispatch Processor to process a Core Dispatch Request under a Core Dispatch Lease. Retrying preserves the Core Dispatch Request identity and starts a distinct numbered Core Dispatch Attempt, so one logical work obligation may be attempted more than once.
-_Avoid_: Core Dispatch Request, retry request, duplicate request
-
-**Core Dispatch Lease**:
-The renewable, time-bounded ownership record for one Core Dispatch Attempt. Lease expiry permits Core to retry the request but does not prove the prior attempt stopped, so stale attempts may not complete or overwrite newer attempt progress.
-_Avoid_: Dispatch Coordination Claim, Delivery lease, permanent lock
-
-**Completed Core Dispatch Request**:
-A Core Dispatch Request whose handler durably finished processing its obligation. Completion does not imply the underlying domain or provider outcome passed; expected failures may be recorded as Agent Run Events or Delivery Actions while Dispatch processing still completes.
-_Avoid_: Successful Delivery, passing validation, successful provider operation
-
-**Waiting Core Dispatch Request**:
-A non-terminal Core Dispatch Request whose work cannot run until a named Core prerequisite changes. Waiting requests are not polled as eligible work; the Core transition that satisfies or ends the prerequisite reactivates or completes them.
-_Avoid_: Scheduled retry, failed request, blocked worker
-
-**Failed Core Dispatch Request**:
-A Core Dispatch Request whose processing ended because a handler error escaped or its interrupted-attempt recovery budget was exhausted. Failure preserves the request and its safe attempt history for diagnosis and future explicit requeue, and atomically records the corresponding safe Agent Run Event or Delivery Action when the request has an Agent Run or Delivery scope; handler errors are not automatically reprocessed.
-_Avoid_: Deleted request, cancelled request, failed Delivery Work Operation
-
-**Core Dispatch Deduplication Key**:
-An explicit request-type-specific semantic coalescing class for equivalent work triggers. Core keeps at most one matching pending or waiting coalescible request; when one matching request is already leased, later triggers create or join at most one pending successor so the leased obligation remains immutable. A Deduplication Key is distinct from a Dispatch Coordination Claim and never derives from claim scope alone.
-_Avoid_: Dispatch Coordination Claim, generic serialization key, completed-request identity
-
-**Dispatch Coordination Claim**:
-A Core-owned concurrency claim on a Core Dispatch Request. A claim names a hierarchical Dispatch Coordination Scope and either requires exclusive access to that scope or consumes one slot from a shared-capacity scope. A request may carry multiple claims, and one request admission atomically acquires all of them with its Core Dispatch Lease or acquires none. This lets Delivery-level work exclude Slice-level work for the same Delivery while Slice-level work can still run with bounded parallelism across sibling Slices. Dispatch Coordination Claims are not idempotency or coalescing keys: each request remains an independent logical work obligation even when its claims match another request. An eligible pending broader exclusive claim that is currently unacquirable prevents new conflicting descendant claims while active descendants drain; among acquirable requests, broader parent scopes are preferred before descendant scopes, with FIFO as the tie-breaker. For shared-capacity claims, the candidate request's snapshotted capacity governs new admission without revoking active attempts.
-_Avoid_: idempotency key, scheduler job id, typed dispatch target, flat serialization key, serialization-only key
-
-**Interactive Agent Run**:
-An Agent Run that remains open for human steering and may receive new human messages until its target domain object closes. Planning and Revision Planning Agent Runs are Interactive Agent Runs in v1. Closing a Plan or Revision Gate blocks further input and model turns for the associated Interactive Agent Run and records runtime completion on that Agent Run as a side effect; pending proposal review remains separate from target closure. Human-reviewable proposal events belong only to Interactive Agent Runs.
-_Avoid_: Human-in-the-loop Agent Run, chat session
-
-**Autonomous Agent Run**:
-An Agent Run that executes without ongoing human steering and sets its completed lifecycle field when its model/tool loop finishes. Slice execution and Revision execution Agent Runs are Autonomous Agent Runs in v1; Core evaluates their sandbox or artifact output after completion.
-_Avoid_: Background job, one-shot task
-
-**Agent Run Sandbox**:
-The isolated environment an Agent Run uses for its work, such as a worktree, temporary files, tools, and runtime environment. Core owns Agent Run orchestration semantics, while Sandbox Providers create, find, command, store files for, and release deployment-specific execution isolation. An Agent Run Sandbox is isolated to one Agent Run; cross-run state must be promoted by Gorchestra evaluation.
-_Avoid_: Mission Sandbox, Execution Sandbox, shared sandbox, workspace, project checkout
-
-**Agent Run Sandbox Config**:
-The saved Agent Run Profile configuration that declares how future Agent Run Sandboxes should be sourced and constrained. It includes one sandbox source variant, explicit vCPU resources, and network policy. V1 sources are Core-owned Vercel runtime, Core-owned Vercel VCR image, and Consumer-managed OCI image. Vercel source configs carry Secret references for token, team id, and project id; Consumer-managed source configs carry an OCI image string without saying whether the Consumer implementation is local or remote. Saved resources store only vCPUs; runtime memory is inferred as 2048 MiB per vCPU.
-_Avoid_: sandbox assignment, live sandbox state, runner config, deployment-specific local sandbox
-
-**Sandbox Provider**:
-The executable provider Core resolves from an Agent Run Sandbox Config before creating, finding, commanding, reading, writing, deleting, listing, or releasing an Agent Run Sandbox. Core owns Vercel Sandbox Provider behavior and resolves the configured Vercel credential Secrets before constructing it. Consumer-managed sandbox configs resolve to the Consumer-provided Sandbox Provider. Raw Sandbox Providers expose deployment-specific sandbox creation, lookup, command execution, file storage, Core cleanup path deletion for files or directories, directory listing, and release; Core-managed Sandbox Providers add Core-owned runtime environment store semantics, protected internal directory initialization for non-root model command isolation, output validation, managed Secret redaction from the prepared sandbox runtime environment store at model-visible/live/transcript output boundaries, structured command evidence, managed file-operation behavior with transient unredacted bytes available only to trusted Core logic, managed denial of Core-internal sandbox paths such as `/workspace/.gorchestra/**`, structured command path policy that rejects command working directories or path executables under Core-internal sandbox paths, and best-effort runtime environment store wiping before sandbox release.
-_Avoid_: Sandbox Service, Sandbox Runtime, source config, assignment
-
-**Agent Run Sandbox Key**:
-The Core-owned persisted key used to create, find, and release the concrete Agent Run Sandbox for one Agent Run. In v1, Core initializes the key to the Agent Run id. The key is not portable proof that a restored deployment still has a live sandbox with that key.
-_Avoid_: assignment ref, sandbox id, portable sandbox reference
-
-**Agent Run Sandbox Release**:
-The idempotent cleanup work that wipes and releases an Agent Run Sandbox and succeeds when the sandbox is confirmed absent. A failed release attempt records safe evidence and remains retryable until its Core Dispatch Request is completed or failed.
-_Avoid_: Agent Run completion, Sandbox deletion request, best-effort cleanup
-
-**Agent Run Profile Preflight**:
-An observational validation operation that checks whether a saved Agent Run Profile's Agent Run Sandbox Config can currently create, run a POSIX-compatible `sh` command as root, ensure `rg` and `fd` availability for command-backed `grep` and `find` Agent Run Tools, exercise managed sandbox file operations, set a runtime environment value, read that value from a shell command, and release a sandbox. Agent Run Profile Preflight returns transient Validation Evidence and does not mutate Portfolio facts. V1 preflight creates a temporary sandbox, verifies root `sh`, ensures command-backed `rg` and `fd`, verifies managed file-operation capability by writing, reading, listing, and deleting a temporary workspace path before writing a dummy runtime environment value, stores the dummy runtime environment value, verifies that a shell command can read it, and releases the sandbox; expected readiness failures such as missing or inactive Vercel credential Secrets or sandbox command failures are failed Validation Evidence, while missing target profiles, storage failures, and invalid Core Service Outputs remain operation errors.
-_Avoid_: Core preflight sandbox check, profile readiness state, sandbox lifecycle event
-
-**Agent Run Preparation**:
-The retry-aware runtime work that clears a preparation-pending Blocked Agent Run by making the Agent Run Sandbox fully ready for the Agent Run's ordered Agent Run Runtime Requirements and Agent Run Tool Set Snapshot. When preparation work is needed, Core first records an `agent-run-preparation-started` event for the preparation attempt. Core resolves the Agent Run Profile Snapshot's Agent Run Sandbox Config into a Sandbox Provider, reconciles the deterministic Agent Run Sandbox Key by finding and adopting an existing sandbox before ensuring creation of a missing one, records non-null Agent Run sandbox state only after sandbox creation or adoption succeeds, applies global runtime requirements first, verifies managed file-operation capability by writing, reading, listing, and deleting a temporary workspace path, and then applies remaining source-specific requirements before profile and override requirements. Environment Secret preparation updates a sandbox-local runtime environment file or store that future sandbox commands and tools load until release/wipe. Core passes plaintext Secrets to sandbox commands only through typed transient secret input fields such as `commandSecretEnv`, never through command arguments or stored command evidence. Command execution returns validated sanitized command evidence such as exit status and redacted stdout/stderr snippets. Preparation records aggregate started/completed/failed attempt events with sanitized evidence, environment Secret readiness, command evidence summaries, and the ordered sequence of successfully applied requirement steps; Core does not store one Agent Run Event per sandbox command. Sandbox creation/adoption and durably checkpointed requirement steps reconcile across attempts, but an interrupted Run Command Requirement without an applied checkpoint may run again and must be authored with that v1 limitation in mind. A model-turn request that finds the Agent Run blocked or its sandbox not fully prepared waits on Agent Run Preparation without adding skipped-turn transcript events; preparation failures leave it waiting for a later preparation trigger, successful preparation reactivates it, and Agent Run completion or target closure completes it as no longer applicable.
-_Avoid_: Agent Run Sandbox Preparation, Sandbox Assignment, project install, dependency requirement, dependency install, workspace setup
-
-**Delivery Artifact**:
-The Project Source Type-specific authoritative in-progress artifact for a Delivery in that Delivery's Project, created lazily by Gorchestra runtime work when execution first begins, promoted by Gorchestra from an Agent Run Sandbox after evaluation, and available to later Agent Runs or Project Source Type-specific external mutations. Every Project Source Type defines its Delivery Artifact. For a Source Control Project Delivery, the Delivery Artifact is the Delivery Branch.
-_Avoid_: Working Artifact, Working State, Agent Run Sandbox artifact, workspace, branch state
-
-**Slice Artifact**:
-A Project Source Type-specific temporary artifact for one Slice in that Slice's Project, created lazily by Gorchestra runtime work when that Slice first begins. Project Source Types may define Slice Artifacts when they support isolated or parallel Slice work. A Slice with a Slice Artifact is complete only after the Slice Artifact is promoted into the Delivery Artifact and the resulting Delivery Artifact passes Slice Delivery Artifact validation. For a Source Control Project Slice, the Slice Artifact is the Slice Branch.
-_Avoid_: Working Artifact, Agent Run Sandbox artifact, Delivery Artifact
-
-**Delivery Branch**:
-The Source Control Project representation of a Delivery Artifact. A Source Control Project Delivery has exactly one Delivery Branch, created from the Delivery's Target Branch when execution first begins and merged back into the Target Branch when the Delivery ships. Gorchestra assigns the Delivery Branch from the Delivery identity so branch creation can be retried safely.
-_Avoid_: Delivery Artifact, Agent Run Sandbox, Slice Branch
-
-**Target Branch**:
-The immutable source control branch a Source Control Project Delivery targets. The Delivery Branch is created from the Target Branch when execution first begins and merged back into the Target Branch when the Delivery ships. A Plan Output must specify a Target Branch for each Source Control Project Delivery.
-_Avoid_: Base Ref, base branch, starting branch
-
-**Slice Branch**:
-The Source Control Project representation of a Slice Artifact. Slice Branch work is merged into the Delivery Branch before the Slice is complete. Gorchestra assigns the Slice Branch from the parent Delivery identity and Slice identity so branch creation can be retried safely.
-_Avoid_: Slice Artifact, Delivery Branch, Agent Run Sandbox
-
-**Action**:
-An authoritative Delivery execution fact. An Action records evaluated Agent Run work, Delivery Work dispatch-processing failures, validation, external operation results, preflight results, artifact promotion, review-surface observations, or other execution facts that are not Delivery lifecycle field mutations. Queueing, shipping, and abandonment are recorded on Delivery lifecycle fields rather than as Actions. Action authorization is non-null only when the Action is the authoritative fact created by an explicit consumer-authorized operation. If a consumer-authorized operation writes a domain lifecycle field instead, that domain-named Audit Stamp carries the authorization and scheduler/runtime Actions use null authorization. Evidence attached to Actions is safe/redacted before storage or reuse, including when provided as input to a later Agent Run.
-_Avoid_: Job, Execution, lifecycle status
-
-**Decision**:
-A request for human judgment raised during Planning or Delivery execution. A Decision captures a point where Gorchestra needs human input before work can continue, such as exhausted correction retries. Decision is glossary-level in current v1 docs; exact model/API behavior is deferred.
-_Avoid_: Confirmation, approval, prompt
+A continuing undertaking that owns configured Assets and is referenced by independent Expeditions. A Project may exist before any Assets or work are added.
+_Avoid_: Repository, Expedition, workspace
+
+**Asset**:
+One identified, immutable Project-owned target configuration. The source-control variant identifies a GitHub repository and the same-Portfolio Secret used for access; it is not a checkout or an artifact produced by work.
+_Avoid_: Repository wrapper, checkout, Artifact
+
+**Secret**:
+A Portfolio-owned credential identity reusable by Assets across Projects. Ordinary Secret metadata excludes both the raw value and its protected reference.
+_Avoid_: Provider-specific credential model, plaintext record
+
+**Protected Secret Value Reference**:
+An opaque Consumer-produced value that allows the Consumer to resolve a Secret's plaintext. It may refer to an external store or contain an encrypted envelope; Core does not interpret the protection scheme.
+_Avoid_: Plaintext secret, encryption key, Secret identity
+
+**Secret Value Replacement**:
+Assigning a new protected value to an existing Secret while preserving its identity and all Asset references to it.
+_Avoid_: Replacement Secret, Asset rebinding, Secret metadata update
 
 **Portfolio Memory**:
-The Portfolio's second brain: the collection of Memories preserved across planning and execution. Project Memory is a view of Portfolio Memories relevant to a Project.
-_Avoid_: Workspace Memory, Wiki, knowledge base
+The Portfolio's user-maintained reusable knowledge, organized as Memories and their immutable revisions. Knowledge remains independent of any one Project or Expedition.
+_Avoid_: Project snapshot, Blueprint output, workspace wiki
 
 **Memory**:
-A Portfolio-owned note-like and collection-capable item in Portfolio Memory. A Memory stores its current revision snapshot for fast reads, has durable Memory Revision history, may contain child Memories through its immutable parent relationship, and is a stable Portfolio Graph node for the note identity.
-_Avoid_: Wiki, file, workspace note, folder-only record
+A note-like item that may have both content and children through an immutable parent relationship. It keeps a compact current revision summary containing identity, version and title; full content and revision attribution belong to Memory Revisions.
+_Avoid_: Folder-only record, embedded revision history, mutable body
 
 **Memory Revision**:
-An append-only record of a Memory's editable content at one save point. Memory Revisions preserve title and body history, while Memory stores the current revision snapshot for current reads. Memory Revision is a Portfolio Graph node so provenance can target the exact content snapshot a Plan produced.
-_Avoid_: embedded revision array, edit-in-place fields, draft
+One immutable title and body snapshot belonging to a Memory. Revision identity supports exact citations that do not follow later edits; version orders that Memory's history and guards subsequent edits.
+_Avoid_: Latest pointer, edit-in-place content, global version
 
-**Standalone Memory**:
-A Memory with no Memory Inline Links. A Standalone Memory still belongs to Portfolio Memory and may link to other Memories later.
-_Avoid_: Orphan Memory, unowned Memory
+**Audit Stamp**:
+Core-recorded operation time paired with exact Consumer-supplied actor and correlation references. It records attribution, not authentication, authorization or idempotency, and original creation attribution remains fixed.
+_Avoid_: User identity, permission, idempotency key
 
-**Current Memory**:
-A Memory that has not been superseded by another Memory.
-_Avoid_: Active Memory, latest Memory, unsuperseded Memory
+**Expedition**:
+An independent bounded undertaking belonging to a Project. It owns discovery context, Questions, Findings, Decisions and accepted Blueprints; its planned phase means materialized handoff, not successful delivery.
+_Avoid_: Project, Delivery, chat session
 
-**Superseded Memory**:
-An older Memory that has been replaced by one or more newer Memories through Memory Supersession.
-_Avoid_: Deleted Memory, outdated record, superseding Memory
+**Map**:
+The assembled current understanding of an Expedition, derived from its owned discovery facts and context.
+_Avoid_: Independently edited aggregate, stored discovery copy
 
-**Memory Inline Link**:
-An authored link in a Memory Revision body that points to another Memory.
-_Avoid_: Core Link, edge, separate relationship record
+**Frontier**:
+The derived set of open, unblocked and unclaimed Questions available for discovery.
+_Avoid_: Stored queue, scheduler, separate aggregate
 
-**Memory Supersession**:
-The relationship where one Memory replaces another Memory without deleting it. Supersession is represented through Memory-authored context rather than by editing or deleting the superseded Memory, so the superseded Memory remains inspectable.
-_Avoid_: Memory revision, Memory overwrite, Memory deletion
+**Question**:
+Precise discovery work with an accepted research, grilling or human-prerequisite method. Unknowns, notes and boundaries remain context values rather than additional work records.
+_Avoid_: Chat prompt, arbitrary note, task backlog
 
-**Link**:
-A typed directed relationship between Core graph nodes for system provenance or execution dependency semantics. Portfolio is the graph boundary, not a graph node. Links connect graph nodes, not other Links. A Link has one immutable Link Definition that names the relationship type and its `from` and `to` Graph Node Refs. V1 Links are immutable and non-removable after creation. V1 Core Link types are `produced` and `depends-on`. A produced Link records exact Core provenance from a Plan to a Memory or Memory Revision. A depends-on Link is a hard execution gate: the `from` node cannot run or complete correctly until the `to` node completes. V1 depends-on Links connect Deliveries within the same Project or Slices within the same Delivery. User-authored Memory-to-Memory references, support, contradiction, and supersession are expressed as Memory Inline Links instead of Core Links.
-_Avoid_: Memory Inline Link, relationship, edge, reference, edge-as-node
+**Finding**:
+An observation recorded in discovery, distinct from a settled conclusion.
+_Avoid_: Decision, verified truth
 
-**Link Definition**:
-The relationship-defining part of a Link: its source and target Graph Node Refs plus the relationship type for that supported endpoint pair. In v1, each supported endpoint pair has one supported relationship type, such as a Plan producing a Memory, but the type remains part of the Link Definition so relationship-specific behavior does not rely on endpoint shape alone. Link Definition fields are immutable because the type and endpoints are one graph fact rather than three independent fields.
-_Avoid_: link metadata, link payload, loose endpoint fields
+**Decision**:
+A settled domain conclusion reached through discovery.
+_Avoid_: Finding, runtime approval, architectural decision record
 
-**Preflight**:
-A readiness validation performed before Gorchestra begins or resumes work. Top-level Core preflight is an opened-Core API that checks required deployment mechanics such as storage, Secrets, and Agent Run Sandbox. Its storage check verifies that Core can reach the configured storage boundary without auditing all stored Portfolio facts. It returns a transient readiness report for consumers and does not check optional logging or notification publishing, Core-owned time/identifier mechanics, or provider-specific readiness. Delivery work scheduling resolves local Delivery Work Resolution before queueing operation requests, after cheap closed, unqueued, dependency-blocked, and preflight-failed gates. Provider-backed Delivery preflight checks the Delivery target Repository and the selected execution Model inside Process Delivery Work Operation before external side effects. Successful Delivery preflight is normally not stored, except when explicit retry supersedes the latest failed Delivery preflight Action; failed Delivery preflight is recorded as a validate-preflight Action whose component checks determine whether the preflight passed. Explicit Delivery preflight retry records both passing and expected failed readiness outcomes as Delivery preflight Actions; setup-incomplete readiness, such as missing or inactive Agent Run Profile selection, is preflight evidence, while storage failures, invalid Core Service Outputs, and missing referenced Portfolio facts that should exist remain operation errors rather than preflight evidence. A Delivery Work Scheduler Pass records Core Dispatch Requests from the Delivery Context and Delivery Work Resolution it read at the start of the pass; later changes apply to later passes. Delivery work concurrency is coordinated by Dispatch Coordination Claims rather than a separate Core-owned Delivery lease in v1. A Delivery whose latest Delivery preflight Action failed is preflight-failed until an explicit retry records a later passing Delivery preflight Action. Other preflight results, such as explicit Repository preflight, may be returned to consumers as safe validation evidence without storing Actions or authoritative Portfolio facts. Preflight may check Project, Repository, Model Provider, Model, Secret, Agent Run Profile, Agent Run Runtime Requirements, or execution target readiness.
-_Avoid_: Doctor, health check
+**Evidence**:
+An immutable supporting locator, version or excerpt owned by the content that cites it. A stored citation does not certify truth or future source availability.
+_Avoid_: Evidence registry, complete source archive, certification
 
-**Timeline**:
-A Portfolio-level derived list of events that affect Portfolio state, computed from Gorchestra facts. Project, Delivery, and Slice timelines are filtered views of the Portfolio Timeline.
-_Avoid_: Timeline Event records, log, activity feed
+**Agent Interaction**:
+An independent owner of integration state and immutable proposed-result versions for one domain target. Runtime execution and transcripts remain outside Core; a saved proposal is not accepted work.
+_Avoid_: Chat session, runtime transcript, target aggregate
 
-**Ship**:
-To close a Delivery's external integration lifecycle after all of its Slices are complete and its Delivery Artifact is integrated into the target. For a Source Control Project, a Delivery is Shipped when its Delivery Branch is integrated into the Target Branch, whether Gorchestra observes a merged Delivery Review Surface or observes that the Target Branch already contains the Delivery Branch. V1 does not run post-merge Ship validation; post-merge validation is a future feature candidate.
-_Avoid_: Release, submit, land
+**Blueprint**:
+Expedition-owned accepted work scope that materializes one coherent initial Delivery, Slice and dependency graph. Acceptance does not start execution or alter Asset and Secret configuration.
+_Avoid_: Draft work record, running Delivery, evolving task list
 
-**Review Surface**:
-The place where Delivery or Slice work is presented for human or external review; it belongs to the same Project as its scoped Delivery Artifact or Slice Artifact. Review Surface history is preserved when a Review Surface is replaced. For Source Control Projects, a Review Surface is a pull request.
-_Avoid_: Pull request, review target, submission
+**Delivery**:
+An independent accepted outcome targeting one existing Asset in its Project. It owns Slices and retains its accepted origin without giving later planning changes authority over execution.
+_Avoid_: Expedition, Blueprint, individual Slice
 
-**Slice Review Surface**:
-A Review Surface for a Slice Artifact. For Source Control Projects, this is a pull request from the Slice Branch into the Delivery Branch. The current Slice Review Surface for ongoing review is derived from Review Surface history.
-_Avoid_: Slice PR, review target
+**Slice**:
+A bounded executable and independently reviewable part of a Delivery. It derives its target from the Delivery and carries immutable Instructions.
+_Avoid_: Independent target, planning Question, Delivery
 
-**Delivery Review Surface**:
-A Review Surface for a Delivery Artifact. For Source Control Projects, this is a pull request from the Delivery Branch into the Target Branch. The current Delivery Review Surface for ongoing review is derived from Review Surface history.
-_Avoid_: Delivery PR, review target
+**Instructions**:
+The immutable accepted directions for carrying out a Slice.
+_Avoid_: Live chat, mutable planning notes, runtime transcript
 
-**Revision Gate**:
-Human-controlled artifact-scoped authorization within the scoped artifact's Project that allows Gorchestra to plan revision work in response to fetched Feedback for a Slice Artifact or Delivery Artifact. Opening a Revision Gate records the identity of the Revision Planning Agent Run it starts with a selected Agent Run Profile while the gate is open, and accepting a Revision Output consumes the gate. A Revision Gate remains open until it is explicitly closed without a Revision or consumed by an accepted Revision; gate closure or consumption completes the associated Revision Planning Agent Run when it is still open. Revision Gate does not create or reopen Slices.
-_Avoid_: revisionAllowed, needs-revision, changes-requested, per-comment approval
+**Operation**:
+An independent aggregate for a proposed external effect and its exact scope, Approval and Receipts. It references the requesting work rather than owning it; it is not every SDK call.
+_Avoid_: Domain query, runtime submission, work aggregate
 
-**Revision Output**:
-The structured proposal shape a revision-planning Agent Run must produce for review as a whole. A Revision Output proposes revision work against a Delivery Artifact or Slice Artifact and accounts for fetched Feedback with a Revision Disposition. Accepting a Revision Output creates a Revision. Rejecting it creates no Revision. Revision Outputs do not create or reopen Slices and are not stored Portfolio artifacts.
-_Avoid_: revision Slice, feedback Slice, partial acceptance, Plan Output
+**Approval**:
+Permission for the exact scope of a proposed external effect. Changed content cannot reuse an earlier Approval.
+_Avoid_: Blueprint acceptance, runtime completion, Receipt
 
-**Revision**:
-A unit of accepted revision work against a Slice Artifact or Delivery Artifact in that artifact's Project, created by accepting a Revision Output. A Revision stores the immutable Instruction Source and immutable Revision Disposition for the Agent Runs that perform the revision.
-_Avoid_: Slice, Delivery, Revision Output
+**Receipt**:
+Effect-specific evidence of an externally verified outcome. It records an observation, not retroactive permission to perform the effect.
+_Avoid_: Approval, submitted request, assumed success
 
-**Revision Disposition**:
-The immutable human-readable account of how a Revision responds to fetched Feedback.
-_Avoid_: Feedback, Feedback Disposition, stored comment, review response
-
-**Feedback**:
-Review input fetched from a Review Surface. Feedback does not authorize revision work unless the Revision Gate is open.
-_Avoid_: Review signal, stored comment
+**Archive Period**:
+Record-owned reversible archival history. The term alone does not grant archival operations to a model.
+_Avoid_: Deleted flag, generic retirement API
 
 ## Relationships
 
-- A **Consumer** passes **Core Inputs** to core after authorizing an operation.
-- **Invalid Core Input** is rejected before the operation can create or mutate Portfolio facts.
-- **Core Services** provide deployment mechanics to Core; any returned value is a **Core Service Output** and is validated before Core trusts it.
-- Core attempts to publish **Agent Run Notifications** through optional Consumer-provided notification publishing; Consumers own subscription authorization, run-scoped routing, and transport.
-- An archivable record stores **Archive Periods**; its current archived state is derived from the latest period.
-
-## Example dialogue
-
-> **Dev:** "Should the Core Orchestration API expose `listSecrets` so the UI can show a settings page?"
-> **Domain expert:** "No — that is a non-orchestration view, so the Consumer can use its storage projection. Core commands still create, replace, archive, and bind **Secrets** because those mutations affect Core invariants."
->
-> **Dev:** "When a **Model** is archived and later unarchived, do we clear an archived field?"
-> **Domain expert:** "No — we close the latest **Archive Period** so the current state and the transition history are both preserved."
-
-## Flagged ambiguities
-
-- "input passed to core" was narrowed to **Core Input** at the public Consumer-to-core API boundary; values returned by Core Services are **Core Service Outputs** with their own validation boundary.
-- Archival was narrowed from nullable `archived` stamps to **Archive Period** history so unarchive transitions are preserved instead of erased.
-- Core operation results were narrowed from catch-all **CoreError** returns to **Operation Error Unions** so each public operation advertises only the error variants it can return.
+- **Consumers → Core**: Consumers select and authorize a Portfolio and supply isolated storage and Secret-protection mechanics. Workspace and membership authority remain outside Core.
+- **Projects → Assets → Secrets**: Projects own configured targets; Assets reference reusable Secrets in the same Portfolio. A changed target requires a different Asset, while Secret Value Replacement preserves references.
+- **Memories → Memory Revisions**: Parentage defines the knowledge hierarchy. Each edit appends an immutable revision and atomically updates the Memory's compact current summary; exact citations retain their revision identity.
+- **Expeditions → Blueprints → Deliveries → Slices**: Reviewed planning materializes accepted work without starting it. Deliveries retain independent ownership, and Slices derive their target from their Delivery.
+- **Agent Interactions → domain proposals**: Saving a proposal and accepting its domain changes are separate actions. Runtime completion is not domain completion or acceptance.
+- **Operations → Approvals and Receipts**: Proposed scope, authority and verified external outcome are distinct facts. Domain gates still govern whether requesting work may proceed.
+- Ownership, child collections, usages and work targets derive from relationships rather than synchronized copies. Memory's compact revision summary and fixed original creation attribution are deliberate read-convenience exceptions.
+- Core owns repository-provider behavior; Consumers supply storage, protection and runtime integration. Configuring an Asset does not establish live provider validity or access.

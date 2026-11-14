@@ -1,7 +1,10 @@
 node_modules/
 dist/
 coverage/
-consumers/server/public/*.svg
+.cache/
+.fallow/
 .husky/_/
 .trowel/
+.env
+.env.*
 pnpm-lock.yaml

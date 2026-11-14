@@ -1,20 +1,18 @@
-/*
- * Gorchestra core API sketch.
- *
- * This barrel exposes the public Core orchestration API while implementation
- * concerns live in focused modules: commands, queries, snapshots, services,
- * errors, validation, and runtime stubs.
- */
-
-export type * as Commands from './commands'
-export type * from './dispatch'
-export { defaultDispatchProcessorOptions } from './dispatch'
-export type * from './core'
-export { openCore } from './core'
-export * as Domain from './domain'
-export type * from './errors'
-export * as Queries from './queries'
-export type * from './utils/types'
-export type * from './services'
-export { coreStorageMigrations } from './utils/storage/migrations'
-export type * as Snapshots from './utils/snapshots'
+export { Portfolio } from './portfolio'
+export type { CoreDependencies } from './dependencies'
+export { PortfolioClient, PortfolioSetup, PortfolioMigration } from './portfolio-client'
+export type { AuditStamp, Id } from './domain/commons'
+export type { Asset } from './domain/asset'
+export type { Memory } from './domain/memory'
+export type { MemoryRevision } from './domain/memory-revision'
+export type { Project } from './domain/project'
+export type { Secret } from './domain/secret'
+export type {
+	Result,
+	SharedOperationError,
+	InvalidInputError,
+	FactoryError,
+	SetupError,
+	MigrationError,
+	StorageOperationFailedError,
+} from './errors'

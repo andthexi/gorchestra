@@ -2,7 +2,7 @@ name: CI
 
 on:
     pull_request:
-        types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+        types: [opened, synchronize, reopened, edited, ready_for_review, converted_to_draft]
 
 permissions:
     contents: read
@@ -17,6 +17,11 @@ jobs:
         if: ${{ !github.event.pull_request.draft }}
         runs-on: ubuntu-24.04
         timeout-minutes: 45
+        env:
+            DO_NOT_TRACK: '1'
+            FALLOW_TELEMETRY_DISABLED: '1'
+            FALLOW_UPDATE_CHECK: '0'
+            VITEST_MAX_WORKERS: '2'
         defaults:
             run:
                 shell: bash
@@ -26,39 +31,36 @@ jobs:
               with:
                   fetch-depth: 0
                   persist-credentials: false
-            - name: Prepare the isolated workspace
-              id: setup
-              run: bash .github/scripts/ci-container.sh setup
-            - name: Verify offline containment
-              id: isolation
-              if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-              run: bash .github/scripts/ci-container.sh verify-isolation
-            - name: Check toolchain and dependencies
-              id: dependencies
-              if: ${{ !cancelled() && steps.isolation.outcome == 'success' }}
-              run: bash .github/scripts/ci-container.sh run check:dependencies
-            - name: Prepare selected workspace prerequisites
-              id: prepare
-              if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-              run: bash .github/scripts/ci-container.sh run check:prepare
-            - name: Lint selected workspaces
-              if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
-              run: bash .github/scripts/ci-container.sh run lint
-            - name: Check selected workspace formatting
-              if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-              run: bash .github/scripts/ci-container.sh run format
-            - name: Typecheck selected workspaces
-              if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
-              run: bash .github/scripts/ci-container.sh run typecheck
-            - name: Test selected workspaces
-              if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
-              run: bash .github/scripts/ci-container.sh run test
-            - name: Check selected workspace Fallow findings
-              if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
-              run: bash .github/scripts/ci-container.sh run fallow:check
-            - name: Audit changes against main
-              if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
-              run: bash .github/scripts/ci-container.sh run fallow:audit
-            - name: Clean up isolated resources
-              if: ${{ always() }}
-              run: bash .github/scripts/ci-container.sh cleanup
+            - name: Set up Node.js
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+              with:
+                  node-version: '24.22.3'
+                  package-manager-cache: false
+            - name: Set up pnpm
+              uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+              with:
+                  run_install: false
+                  cache: false
+            - name: Install dependencies
+              id: install
+              run: pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile
+            - name: Lint the monorepo
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              run: pnpm lint
+            - name: Check monorepo formatting
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              run: pnpm format
+            - name: Typecheck workspace projects
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              run: pnpm typecheck
+            - name: Test workspace packages
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              run: pnpm test
+            - name: Check monorepo Fallow findings
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              run: pnpm fallow:check
+            - name: Audit changes against the PR target
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              env:
+                  FALLOW_AUDIT_BASE: ${{ github.event.pull_request.base.sha }}
+              run: pnpm fallow:audit --base "$FALLOW_AUDIT_BASE"

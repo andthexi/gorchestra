@@ -1,7 +1,0 @@
-# Fastify-primary Nuxt fallback
-
-The Server Consumer production/start runtime uses one public Equipped Fastify listener for both API and browser traffic. Equipped owns `/api/**`, including `/api/health` and API documentation at `/api/__docs`; unmatched `/api/**` requests return Equipped HTTP errors. All non-API misses are delegated to the built Nuxt/Nitro `node` preset listener as the browser app fallback, so Nuxt owns browser pages and static assets without running a separate public listener.
-
-This revises the earlier two-server proxy decision before production runtime hardening. We chose Fastify-primary over a Nuxt-public proxy because the Server Consumer now requires one process and one listener while still preserving Equipped Server's route validation, middleware execution, response validation, error serialization, OpenAPI registration, and Fastify-backed API behavior. Equipped's generic custom not-found handler with raw Node response delegation lets Nuxt be mounted as a fallback without a Gorchestra-specific Fastify adapter or duplicated Equipped request handling.
-
-Nuxt development/HMR uses the same Fastify-primary topology: Equipped starts the public listener and runs a before-listen integration hook that initializes Nuxt dev, attaches Vite HMR to Equipped's Node HTTP server, and delegates non-API misses to the Nuxt dev listener. This keeps `/api/**` and Socket.IO traffic Equipped-owned while preserving Nuxt HMR on the one public listener.

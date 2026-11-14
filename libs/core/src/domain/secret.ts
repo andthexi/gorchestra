@@ -1,107 +1,123 @@
+import { Schema } from 'equipped/orm'
 import { v, type PipeOutput } from 'valleyed'
 
-import { coreSchema, schemaToPipe } from '../utils/storage/schema'
-import { archivePeriodPipe, auditStampPipe, idPipe, nonEmptyTrimmedStringPipe } from './commons'
-import { modelProviderProtocolPipe } from './model-provider'
+import { requireExplicitId, schemaPipe } from '../storage/schema'
+import { auditStampPipe, idPipe, protectedStringPipe, titlePipe } from './commons'
 
-export const secretValueRefPipe = nonEmptyTrimmedStringPipe
-export const envNamePipe = nonEmptyTrimmedStringPipe.pipe(
-	v.custom<string>((value) => /^[A-Z_][A-Z0-9_]*$/.test(value), 'Expected an environment variable name.'),
-)
-
-export const secretSchema = coreSchema('secrets')
-	.field('name', nonEmptyTrimmedStringPipe)
-	.field('valueRef', secretValueRefPipe)
+export const secretSchema = Schema.from('secrets')
+	.pk('id', idPipe, requireExplicitId)
+	.field('title', titlePipe)
+	.field('valueRef', protectedStringPipe)
 	.field('created', auditStampPipe)
-	.field('updated', v.nullable(auditStampPipe))
-	.field('valueReplaced', v.nullable(auditStampPipe))
-	.field('archivePeriods', v.array(archivePeriodPipe))
+	.field('valueUpdated', auditStampPipe)
 	.build()
-export const secretPipe = schemaToPipe(secretSchema)
-export type Secret = PipeOutput<typeof secretPipe>
 
-export const repositoryAccessSecretReferencePipe = v.object({
-	type: v.eq('repository-access'),
-	active: v.boolean(),
-	repositoryId: idPipe,
-	projectId: idPipe,
-	provider: v.eq('github'),
-	owner: nonEmptyTrimmedStringPipe,
-	name: nonEmptyTrimmedStringPipe,
+export const secretPipe = schemaPipe(secretSchema)
+export const publicSecretPipe = v.object({
+	id: secretSchema.fields.id.pipe,
+	title: secretSchema.fields.title.pipe,
+	created: secretSchema.fields.created.pipe,
+	valueUpdated: secretSchema.fields.valueUpdated.pipe,
 })
-export type RepositoryAccessSecretReference = PipeOutput<typeof repositoryAccessSecretReferencePipe>
+export type Secret = PipeOutput<typeof publicSecretPipe>
 
-export const agentRunProfileEnvironmentSecretReferencePipe = v.object({
-	type: v.eq('agent-run-profile-environment-secret'),
-	active: v.boolean(),
-	agentRunProfileId: idPipe,
-	name: nonEmptyTrimmedStringPipe,
-	envName: envNamePipe,
-})
-export type AgentRunProfileEnvironmentSecretReference = PipeOutput<typeof agentRunProfileEnvironmentSecretReferencePipe>
+if (import.meta.vitest) {
+	const { it, expect } = import.meta.vitest
 
-export const agentRunProfileRunCommandSecretReferencePipe = v.object({
-	type: v.eq('agent-run-profile-run-command-secret'),
-	active: v.boolean(),
-	agentRunProfileId: idPipe,
-	name: nonEmptyTrimmedStringPipe,
-	label: nonEmptyTrimmedStringPipe,
-	envName: envNamePipe,
-})
-export type AgentRunProfileRunCommandSecretReference = PipeOutput<typeof agentRunProfileRunCommandSecretReferencePipe>
+	it('keeps Secret string validation primitive and rejects incomplete public stamps', () => {
+		const stamp = { src: 'local', at: '2026-11-11T00:00:00.000Z', by: '', cid: null }
+		const input = {
+			id: '01k00000000000000000000001',
+			title: 'Access',
+			valueRef: 'synthetic-reference',
+			created: stamp,
+			valueUpdated: stamp,
+		}
+		const boxed: unknown = Object('text')
+		for (const field of ['title', 'valueRef']) {
+			for (const value of [boxed, { constructor: { name: 'String' }, length: 1 }]) {
+				expect(v.validate(secretPipe, { ...input, [field]: value }).valid).toBe(false)
+			}
+		}
+		for (const field of ['created', 'valueUpdated']) {
+			const value = { ...input, [field]: { src: 'local', at: stamp.at, by: stamp.by } }
+			expect(v.validate(secretPipe, value).valid).toBe(false)
+			expect(v.validate(publicSecretPipe, value).valid).toBe(false)
+		}
+		expect(v.validate(secretPipe, { ...input, id: `${input.id}\n` }).valid).toBe(false)
+	})
 
-export const agentRunProfileSandboxCredentialSecretReferencePipe = v.object({
-	type: v.eq('agent-run-profile-sandbox-credential'),
-	active: v.boolean(),
-	agentRunProfileId: idPipe,
-	name: nonEmptyTrimmedStringPipe,
-	credential: v.in(['vercel-token', 'vercel-team-id', 'vercel-project-id']),
-})
-export type AgentRunProfileSandboxCredentialSecretReference = PipeOutput<
-	typeof agentRunProfileSandboxCredentialSecretReferencePipe
->
+	it('does not evaluate undeclared protected getters when projecting safe metadata', () => {
+		const stamp = { src: 'local', at: '2026-11-11T00:00:00.000Z', by: '', cid: null }
+		const input = {
+			id: '01k00000000000000000000001',
+			title: 'Safe',
+			created: stamp,
+			valueUpdated: stamp,
+			get value() {
+				throw new Error('Must not read raw value')
+			},
+			get valueRef() {
+				throw new Error('Must not read protected reference')
+			},
+		}
+		expect(v.validate(publicSecretPipe, input)).toEqual({
+			valid: true,
+			value: { id: input.id, title: 'Safe', created: stamp, valueUpdated: stamp },
+		})
+	})
 
-export const modelProviderAuthSecretReferencePipe = v.object({
-	type: v.eq('model-provider-auth'),
-	active: v.boolean(),
-	modelProviderId: idPipe,
-	name: nonEmptyTrimmedStringPipe,
-	protocol: modelProviderProtocolPipe,
-})
-export type ModelProviderAuthSecretReference = PipeOutput<typeof modelProviderAuthSecretReferencePipe>
+	it('projects only safe Secret metadata from the storage record', () => {
+		const stamp = { src: 'local', at: '2026-11-11T00:00:00.000Z', by: 'test', cid: null }
+		const input = {
+			id: '01k00000000000000000000001',
+			title: '  Access  ',
+			valueRef: 'synthetic-protected-reference',
+			value: 'synthetic-raw-value',
+			created: stamp,
+			valueUpdated: stamp,
+		}
+		const parsed = v.validate(publicSecretPipe, input)
+		expect(parsed).toEqual({
+			valid: true,
+			value: {
+				id: input.id,
+				title: 'Access',
+				created: stamp,
+				valueUpdated: stamp,
+			},
+		})
+		if (!parsed.valid) throw new Error('Expected valid safe projection')
+		expect(Object.keys(parsed.value).sort()).toEqual(['created', 'id', 'title', 'valueUpdated'])
+		expect(JSON.stringify(parsed.value)).not.toContain('synthetic-')
+	})
 
-export const modelProviderHeaderSecretReferencePipe = v.object({
-	type: v.eq('model-provider-header'),
-	active: v.boolean(),
-	modelProviderId: idPipe,
-	name: nonEmptyTrimmedStringPipe,
-	protocol: modelProviderProtocolPipe,
-	headerName: nonEmptyTrimmedStringPipe,
-})
-export type ModelProviderHeaderSecretReference = PipeOutput<typeof modelProviderHeaderSecretReferencePipe>
-
-export const secretReferencePipe = v.discriminate((value) => value.type, {
-	'repository-access': repositoryAccessSecretReferencePipe,
-	'agent-run-profile-environment-secret': agentRunProfileEnvironmentSecretReferencePipe,
-	'agent-run-profile-run-command-secret': agentRunProfileRunCommandSecretReferencePipe,
-	'agent-run-profile-sandbox-credential': agentRunProfileSandboxCredentialSecretReferencePipe,
-	'model-provider-auth': modelProviderAuthSecretReferencePipe,
-	'model-provider-header': modelProviderHeaderSecretReferencePipe,
-})
-export type SecretReference = PipeOutput<typeof secretReferencePipe>
-
-export const listedSecretPipe = v.object({
-	id: idPipe,
-	name: nonEmptyTrimmedStringPipe,
-	created: auditStampPipe,
-	updated: v.nullable(auditStampPipe),
-	valueReplaced: v.nullable(auditStampPipe),
-	archived: v.boolean(),
-	references: v.array(secretReferencePipe),
-})
-export type ListedSecret = PipeOutput<typeof listedSecretPipe>
-
-export type ResolvedSecretEnvironment = Array<{
-	envName: string
-	secretId: Secret['id']
-}>
+	it('validates protected Secret storage with both required audit stamps', () => {
+		const stamp = { src: 'local', at: '2026-11-11T00:00:00.000Z', by: 'test', cid: null }
+		const input = {
+			id: '01k00000000000000000000001',
+			title: '  Access  ',
+			valueRef: ' \t\n',
+			created: stamp,
+			valueUpdated: stamp,
+			updated: stamp,
+		}
+		expect(v.validate(secretPipe, input)).toEqual({
+			valid: true,
+			value: {
+				id: input.id,
+				title: 'Access',
+				valueRef: ' \t\n',
+				created: stamp,
+				valueUpdated: stamp,
+			},
+		})
+		for (const value of [
+			{ ...input, valueRef: '' },
+			{ ...input, valueRef: undefined },
+			{ ...input, valueUpdated: undefined },
+			{ ...input, created: { src: 'local', at: stamp.at, by: stamp.by } },
+		])
+			expect(v.validate(secretPipe, value).valid).toBe(false)
+	})
+}

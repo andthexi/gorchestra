@@ -2,34 +2,37 @@
 
 ## Purpose
 
-The `docs/core/` tree documents Core domain language, durable Core decisions, and Core-specific context for reusable Portfolio-level orchestration.
+The `docs/core/` tree documents domain language and architectural decisions for the current Core implementation at `libs/core` (`@gorchestra/core`).
 
 ## Ownership
 
-- `CONTEXT.md` owns current Core domain language and the map of Core ADRs.
-- `provider-setup.md` owns operational setup guidance for Core-owned providers and preflight verification.
-- `adr/` owns durable Core decisions.
-- Core package source under `../../libs/core/` owns the current Core package type/runtime contract.
+- `CONTEXT.md` owns domain terms and relationships in glossary form.
+- `adr/` owns individual architectural decisions. Do not add an ADR README, decision inventory or standalone contract specification.
+- The [package README](../../libs/core/README.md) and [source instructions](../../libs/core/AGENTS.md) own implemented usage, schemas, API details and verification guidance.
 
 ## Local Contracts
 
-- Read `CONTEXT.md` before changing Core documentation.
-- Read relevant ADRs in `adr/` before changing, superseding, or adding Core decisions.
-- Keep Core documentation aligned with `../../libs/core/src/domain/` and `../../libs/core/src/index.ts` when changes affect both domain language and package source.
-- Do not encode Server Consumer tenancy or authorization policy as Core-owned behavior; Consumers own application-layer auth, tenancy, and deployment concerns.
+- Read [context](CONTEXT.md) and affected [ADRs](adr/) before changing language or decisions.
+- Use unnumbered Core/domain names in prose and code. The package is `@gorchestra/core`; its documentation lives in this directory.
+- Describe current boundaries and accepted designs without retired implementation comparisons or coexistence/cutover instructions. Consumer remains an architectural role; no Consumer application is implemented.
+- Offer an ADR only if **all three** hold: it is hard to reverse, surprising without context, and the result of a real tradeoff with genuine alternatives. If any is missing, skip it. Acceptance, importance, task delivery, deferral or a future review checkpoint alone is insufficient.
+- Prefer a short title and 1–3 sentences for context, decision and why. Add status, options or consequences only when useful. Keep the `YYYY-MM-DD-HHMM-slug.md` filename convention.
+- Keep decisions self-contained with their context, chosen approach, tradeoff and limits. Include substantive evidence or cite maintained source material; never use temporary planning notes as citations. Preserve actual replacement links without reproducing intermediate planning exchanges or inventing alternatives.
+- Keep acceptance separate from implementation status. Accepted designs do not authorize paused Expedition/downstream work or a new Consumer application.
 
 ## Work Guidance
 
-- Use Core terminology from `CONTEXT.md` consistently.
-- Add an ADR only for durable decisions with meaningful trade-offs; do not create ADRs for routine edits.
-- Prefer discriminated unions and atomic embedded records when documenting lifecycle shapes.
-- Keep portable Core concepts separate from Server Consumer deployment details.
+- Keep `CONTEXT.md` a glossary, not a schema/API specification, task checklist or verification report.
+- Document working package usage alongside source changes. Do not move unimplemented method tables or implementation plans into the glossary or a renamed catalog.
+- Prefer source/context links over duplicating detailed contracts across documents.
+- Keep the Equipped choice and dependency-owned storage responsibilities in the [storage foundation ADR](adr/2026-11-14-1432-equipped-storage.md); package usage documents Core-owned behavior and Consumer obligations rather than repeating dependency guarantees.
 
 ## Verification
 
-- From repo root, run `pnpm format` after Core documentation changes.
-- If Core package source also changes, run `pnpm lint`, `pnpm typecheck`, and `pnpm --filter @gorchestra/core test`.
+- Check relative links and owned Markdown formatting. Verify relevant source behavior when documenting implemented usage.
+- Document the direct root `pnpm` workflow accurately: checks run on the runner, not in a container or offline sandbox.
+- Do not force-add or rewrite ignored notes or unrelated files.
 
 ## Child DOX Index
 
-- `adr/` — Core ADRs. No child AGENTS.md currently required.
+- `adr/` — Core architectural decisions. No child AGENTS.md currently required.

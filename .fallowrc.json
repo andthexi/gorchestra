@@ -13,7 +13,6 @@
 	},
 	"typeAware": {
 		"enabled": false,
-		"projects": ["libs/core2/tsconfig.json"],
 		"require": "best-effort"
 	},
 	"audit": {

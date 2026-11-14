@@ -1,30 +1,27 @@
 # Gorchestra
 
-Gorchestra is a goal-oriented delivery orchestration project. This repository contains the reusable Core orchestration package and the v1 Server Consumer app layer.
+Gorchestra is a goal-oriented delivery orchestration project. This repository currently contains the reusable Core orchestration package; no application entrypoint or Consumer app is implemented.
 
 ## Workspace layout
 
-This repo is a private pnpm workspace. The root `package.json` owns product process scripts, shared TypeScript, lint, formatting, and test tooling. `pnpm-workspace.yaml` includes packages under `libs/*` and `consumers/*`.
+This repo is a private pnpm workspace. The root `package.json` owns shared TypeScript, lint, formatting, and tests. `pnpm-workspace.yaml` includes packages under `libs/*`.
 
 Current workspace packages:
 
-- `libs/core` (`@gorchestra/core`) — a private internal package exported directly from source (`./src/index.ts`) for workspace packages to consume.
-- `libs/core2` (`@gorchestra/core2`) — the parallel Core foundation package with validated native storage opening, explicit setup/migration, shared cleanup, attributed Project/Secret/Asset operations, derived Secret usages, Memory hierarchy and conditional immutable Revision append/read operations. All 17 foundation leaves and shared-boundary tests are implemented; the Server Consumer remains on the existing Core. The Server Consumer has not switched to it. See [package status](libs/core2/README.md) and [domain context](docs/core2/CONTEXT.md).
-- `libs/form-draft` (`@gorchestra/form-draft`) — private form draft primitives used by consumer UI forms.
-- `consumers/server` (`@gorchestra/consumer-server`) — the private v1 Server Consumer package, started by the root application entrypoint.
+- `libs/core` (`@gorchestra/core`) — the sole implementation package, exported directly from TypeScript source. It provides native storage opening, explicit setup/migration, shared cleanup, attributed Project/Secret/Asset operations, derived Secret usages, Memory hierarchy and immutable Revision append/read operations. See [package status](libs/core/README.md) and [domain context](docs/core/CONTEXT.md).
 
-## Core redesign documentation
+## Core documentation
 
-The Server Consumer still uses `@gorchestra/core`. The parallel foundation at `libs/core2` (`@gorchestra/core2`) provides value/error primitives, five model schemas, safe schema-derived public types, internal explicit-ID transport and an immutable native migration catalog with pure history classification. Its public lifecycle API opens native storage, explicitly initializes or upgrades an admitted store and shares shutdown ownership across privately issued views. A ready client binds attribution synchronously to Project/Secret/Asset operations, derived Secret usages and Memory creation/hierarchy/revision operations, using a shared transaction and Result-validation boundary. Secret writes validate the Consumer encoder and return safe metadata; other domain operations invoke no codecs or providers. Initial Memory creation writes a compact head and full first revision together; later append conditionally updates the summary and inserts an immutable snapshot with exact conflict/exhaustion failures. Equipped 5.3.7 supplies native root-session isolation; public Project and Revision overlap regressions pass after adapting its resolver, locking and ledger APIs. See [package usage and status](libs/core2/README.md), [domain context](docs/core2/CONTEXT.md), individual [architectural decisions](docs/core2/adr/), and the [testing guide](docs/core2/testing.md). Accepted Expedition and downstream designs do not resume that work.
+The foundation at `libs/core` provides value/error primitives, five model schemas, safe schema-derived public types, internal explicit-ID transport and an immutable native migration catalog with pure history classification. Its public lifecycle API opens native storage, explicitly initializes or upgrades an admitted store and shares shutdown ownership across privately issued views. A ready client binds attribution synchronously to Project/Secret/Asset operations, derived Secret usages and Memory creation/hierarchy/revision operations, using a shared transaction and Result-validation boundary. Secret writes validate the Consumer encoder and return safe metadata; other domain operations invoke no codecs or providers. Initial Memory creation writes a compact head and full first revision together; later append conditionally updates the summary and inserts an immutable snapshot with exact conflict/exhaustion failures. See [package usage and status](libs/core/README.md), [domain context](docs/core/CONTEXT.md), and individual [architectural decisions](docs/core/adr/). Accepted Expedition and downstream designs do not resume that work.
 
-Package manifest declarations remain `latest`; global `pnpm-workspace.yaml` overrides select Equipped `5.3.7` and Valleyed `4.5.25` repo-wide, including transitive dependencies, without local-path or package-specific exceptions. Future version changes belong in those overrides, followed by a pnpm-generated lockfile refresh and complete installed-resolution verification. The approved compatibility update adapts affected resolver, migration-lock and ledger APIs without a Consumer cutover or broader legacy refactor. This is a prerelease with no client migrations applied using the old ledger format; backward conversion of that format is out of scope. Core2 checks concrete adapter dependencies at admission and uses a fixed storage contract internally; see [package status](libs/core2/README.md). Task 0 verified installation and dependency alignment, not full workspace runtime qualification; see the [verification record and limits](docs/core2/testing.md#task-0-verification-record).
+Dependency declarations live in package manifests; shared overrides in `pnpm-workspace.yaml` apply across the workspace, including transitive dependencies. Change shared resolutions centrally and refresh the lockfile through pnpm. This is a prerelease with no client migrations applied using the old ledger format; backward conversion is out of scope. Core checks concrete adapter dependencies at admission and uses a fixed storage contract internally.
 
 ## Common commands
 
 Install dependencies from the repository root:
 
 ```bash
-pnpm install --ignore-scripts
+pnpm install --frozen-lockfile --ignore-scripts
 ```
 
 Run the common quality gates from the repository root:
@@ -34,17 +31,21 @@ pnpm lint
 pnpm format
 pnpm typecheck
 pnpm test
+pnpm fallow:check
+pnpm fallow:audit --base origin/main
 ```
 
-The script-free install does not run Server's Nuxt preparation. For credential-free checks, use the [reviewed preparation and disabled-dotenv test procedure](docs/core2/testing.md#credential-free-verification), not bare application/typecheck scripts. Set `pnpm_config_verify_deps_before_run=error` on pnpm run/exec commands to prevent implicit installs.
+The audit base above is an example: supply the branch or commit you intend to compare against. CI supplies the PR target's commit from the event, not a fixed branch or the source branch's upstream.
+
+Use the Node and pnpm versions pinned in `pnpm-workspace.yaml` and `package.json`. Root quality gates cover the monorepo: ESLint and Prettier check maintained repository files, TypeScript builds the root project-reference graph, pnpm runs package tests sequentially, and Fallow uses the root configuration. No application startup or package preparation is needed. `lint-staged` lints staged JavaScript/TypeScript and formats supported staged files regardless of directory. `prepare` installs Git hooks when explicitly invoked or lifecycle scripts are enabled. `verifyDepsBeforeRun: error` rejects missing or out-of-sync dependencies instead of installing implicitly.
 
 The normal scoped foundation test command is:
 
 ```sh
-pnpm_config_verify_deps_before_run=error pnpm --filter @gorchestra/core2 test
+pnpm --filter @gorchestra/core test
 ```
 
-The package has real Portfolio/Project, operation-boundary, lifecycle/setup/cleanup, primitive, model, explicit-ID, migration-catalog and history runtime tests; see [current coverage and limits](docs/core2/testing.md#implemented-boundary-and-scope). For the 5.3.7 update, existing Core/Server verification is typechecking and compilation only, as explicitly requested; Core2 overlap and runtime verification remain required. Unrun legacy suites are never reported as passing.
+The package has real Portfolio/Project, operation-boundary, lifecycle/setup/cleanup, primitive, model, explicit-ID, migration-catalog and history runtime tests.
 
 Useful fix commands:
 
