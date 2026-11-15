@@ -11,6 +11,19 @@ export const protectedStringPipe = v
 	.custom<string>((value) => typeof value === 'string', 'Expected a nonempty string.')
 	.pipe(v.min(1, 'Expected a nonempty string.'))
 
+export function canonicalBase64Pipe(byteLength?: number) {
+	return protectedStringPipe.pipe(
+		v.custom((value) => {
+			const decoded = Buffer.from(value, 'base64')
+			return (
+				decoded.toString('base64') === value &&
+				decoded.length > 0 &&
+				(byteLength === undefined || decoded.length === byteLength)
+			)
+		}, 'Expected canonical base64 bytes.'),
+	)
+}
+
 // JavaScript $ also matches before a final newline; enforce exact length too.
 export const idPipe = v
 	.custom<string>((value) => typeof value === 'string', 'Expected a Core id.')
@@ -34,18 +47,29 @@ const attributionFields = {
 }
 export const attributionPipe = v.object({ ...attributionFields, cid: v.defaults(attributionFields.cid, null) })
 
-export const auditStampPipe = v.object({
+const utcTimestampPipe = v
+	.custom<string>((value) => typeof value === 'string', 'Expected a UTC ISO timestamp.')
+	.pipe(
+		v.custom<string>((value) => {
+			const time = Date.parse(value)
+			return Number.isFinite(time) && new Date(time).toISOString() === value
+		}, 'Expected a UTC ISO timestamp.'),
+	)
+const localAuditStampPipe = v.object({
 	src: v.custom<'local'>((value) => value === 'local', 'Expected a local audit stamp.'),
-	at: v
-		.custom<string>((value) => typeof value === 'string', 'Expected a UTC ISO timestamp.')
-		.pipe(
-			v.custom<string>((value) => {
-				const time = Date.parse(value)
-				return Number.isFinite(time) && new Date(time).toISOString() === value
-			}, 'Expected a UTC ISO timestamp.'),
-		),
+	at: utcTimestampPipe,
 	...attributionFields,
 })
+const importedAuditStampPipe = v.object({
+	src: v.custom<'imported'>((value) => value === 'imported', 'Expected an imported audit stamp.'),
+	at: utcTimestampPipe,
+	iat: utcTimestampPipe,
+})
+export const auditStampPipe = v.discriminate(
+	(value) => value.src,
+	{ local: localAuditStampPipe, imported: importedAuditStampPipe },
+	'Expected an audit stamp.',
+)
 
 export type Id = PipeOutput<typeof idPipe>
 export type AuditStamp = PipeOutput<typeof auditStampPipe>
@@ -94,7 +118,7 @@ if (import.meta.vitest) {
 	})
 
 	it.each([
-		['src', 'local', 'Expected a local audit stamp.'],
+		['src', 'local', 'Expected an audit stamp.'],
 		['by', '  caller É\n', 'Expected attribution by to be a string.'],
 		['cid', '  correlation É\n', 'Expected attribution cid to be a string or null.'],
 		['at', '2024-02-29T12:34:56.789Z', 'Expected a UTC ISO timestamp.'],
@@ -110,7 +134,7 @@ if (import.meta.vitest) {
 		for (const value of [spoof, boxed, hostile]) {
 			expect.soft(v.validate(auditStampPipe, { ...stamp, [field]: value })).toMatchObject({
 				valid: false,
-				error: { messages: [{ path: field, message }] },
+				error: { messages: [field === 'src' ? { path: undefined, message } : { path: field, message }] },
 			})
 		}
 	})
@@ -185,6 +209,26 @@ if (import.meta.vitest) {
 			expect(v.validate(auditStampPipe, { ...stamp, cid })).toEqual({ valid: true, value: { ...stamp, cid } })
 		}
 		expect(stamp).not.toHaveProperty('cid')
+	})
+
+	it('validates imported audit stamps, preserves both times, and strips local fields', () => {
+		const stamp = {
+			src: 'imported' as const,
+			at: '2024-02-29T12:34:56.789Z',
+			iat: '2026-11-15T01:02:03.004Z',
+		}
+		expect(v.validate(auditStampPipe, { ...stamp, by: 'removed', cid: 'removed', ignored: true })).toEqual({
+			valid: true,
+			value: stamp,
+		})
+		for (const candidate of [
+			{ ...stamp, at: '2024-02-29' },
+			{ ...stamp, iat: '2026-11-15T01:02:03Z' },
+			{ src: 'imported', at: stamp.at },
+			{ ...stamp, src: 'other' },
+		]) {
+			expect(v.validate(auditStampPipe, candidate).valid).toBe(false)
+		}
 	})
 
 	it('copies exact caller strings and defaults only omitted cid to null', () => {

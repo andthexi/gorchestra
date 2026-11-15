@@ -18,6 +18,10 @@ export const find = defineOperation({
 		const secret = await storageCall(() => query.find())
 		if (!secret.ok) return secret
 		if (secret.value === null) return { ok: false, error: { type: 'not-found', resource, id: input.secretId } }
-		return stored(secretPipe, secret.value)
+		const parsed = stored(secretPipe, secret.value)
+		if (!parsed.ok) return parsed
+		if (!context.secrets.matches(parsed.value.value))
+			return { ok: false, error: { type: 'invalid-storage-output' } }
+		return parsed
 	},
 })

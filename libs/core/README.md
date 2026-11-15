@@ -1,6 +1,6 @@
 # @gorchestra/core
 
-Private ESM workspace package for the Core foundation and the repository's sole implementation package. Core owns Portfolio data and domain operations; Consumer applications supply user experience, authorization, storage configuration and Secret protection.
+Private ESM workspace package for the Core foundation and the repository's sole implementation package. Core owns Portfolio data and domain operations; Consumer applications supply user experience, authorization, storage configuration and the Portfolio encryption key or explicit plaintext selection; Core owns Secret protection.
 
 Core uses Equipped for persistence. See [why we chose Equipped](../../docs/core/adr/2026-11-14-1432-equipped-storage.md) for the dependency's responsibilities and the boundary with Core and Consumers.
 
@@ -14,15 +14,15 @@ This prerelease has no client migrations applied using the old ledger format. Ba
 - `PortfolioClient`: `state: 'ready'`, synchronous `as({ by, cid })` and `shutdown()`.
 - `PortfolioMigration`: `state: 'migration'`, explicit `migrate()` and `shutdown()`. A proper nonempty prefix needs multiple released migrations; the current catalog has one entry, so upgrade tests use a private test-owned catalog.
 
-`as()` returns a `Result` containing a privately constructed `Portfolio` with bound Project/Secret create/find/list, Secret value replacement/usages, Project-scoped Asset create/find/list, Memory create/find/list and Revision create/find/list. The Portfolio has no lifecycle controls or rebinding method. All 17 foundation operation leaves are implemented; the tested scope is the native InMemory contract, not application integration or certification of every adapter. Secret creation and value replacement invoke the required Consumer encoder; metadata reads, Asset/Memory operations and Secret usages never invoke codecs. Internal definitions, schemas, Repo, codec helpers, migration injection and owner controls are not Consumer APIs.
+`as()` returns a `Result` containing a privately constructed `Portfolio` with bound Project/Secret create/find/list, Secret value replacement/usages, Project-scoped Asset create/find/list, Memory create/find/list and Revision create/find/list. The Portfolio has no lifecycle controls or rebinding method. All 17 foundation operation leaves are implemented; the tested scope is the native InMemory contract, not application integration or certification of every adapter. Secret creation and value replacement use Core-owned plaintext or AES-256-GCM protection; metadata reads, Asset/Memory operations and Secret usages never decrypt values. Internal definitions, schemas, Repo, codec helpers, migration injection and owner controls are not Consumer APIs.
 
-Public types include `CoreDependencies<A>`, `FactoryError`, `SetupError`, `MigrationError`, `InvalidInputError`, `StorageOperationFailedError`, `Result<T, E>`, `SharedOperationError`, `Id`, `AuditStamp`, and the schema-derived `Project`, `Asset`, `Secret`, `Memory` and `MemoryRevision` records. `Secret` contains only safe metadata, never `valueRef` or raw values. Source owns the exact [dependency signatures](src/dependencies.ts), [lifecycle API](src/portfolio-client/index.ts) and [error unions](src/errors.ts).
+Public types include `CoreDependencies<A>`, `FactoryError`, `SetupError`, `MigrationError`, `InvalidInputError`, `StorageOperationFailedError`, `Result<T, E>`, `SharedOperationError`, `Id`, `AuditStamp`, and the schema-derived `Project`, `Asset`, `Secret`, `Memory` and `MemoryRevision` records. `Secret` contains only safe metadata, never the schema-owned stored `value` or raw values. Source owns the exact [dependency signatures](src/dependencies.ts), [lifecycle API](src/portfolio-client/index.ts) and [error unions](src/errors.ts).
 
 `new`, `setup`, `migrate`, `shutdown` and every domain operation are asynchronous; `as` returns a synchronous Result. Results are `{ ok: true, value }` or `{ ok: false, error }`; successful shutdown has `value: undefined`. An operation takes either no arguments or one required input object as listed below—never a dummy argument, caller context or metadata object. Expected failures are values; callers must inspect `ok`.
 
 ## Open, explicitly initialize, and close
 
-This synthetic InMemory example is suitable for local checks, not a Secret-protection implementation. Its encoder deliberately refuses all Secret writes by returning null:
+This synthetic InMemory example is suitable for local checks and explicitly selects Core-owned plaintext Secret storage. Production Consumers should supply a canonical base64-encoded 32-byte encryption key instead:
 
 ```ts
 import { InMemoryAdapter } from 'equipped/orm/adapters/in-memory'
@@ -33,10 +33,7 @@ const dependencies: CoreDependencies<InMemoryAdapter> = {
 		adapter: InMemoryAdapter.create({}),
 		resolveSchema: (name) => ({ table: name }),
 	},
-	secrets: {
-		encode: () => Promise.resolve(null),
-		decode: () => Promise.resolve({}),
-	},
+	secrets: { encryptionKey: null },
 }
 
 const opened = await PortfolioClient.new(dependencies)
@@ -72,19 +69,19 @@ The resolver maps logical names, including `_equipped_migrations`, to the suppli
 
 `CoreDependencies<A>` requires the capabilities and field types used by Core's catalog and operations, not a particular database. Keep the concrete adapter type at this boundary; when selecting between implementations, narrow the adapter in a branch and construct its matching resolver there before calling `PortfolioClient.new`.
 
-Core checks required methods, field declarations and callbacks before startup without invoking the resolver or codecs. Invalid dependencies return `invalid-input`. Core manages the supplied adapter's optional `connect()`/`disconnect()` directly; it does not start the global Equipped runtime.
+Core checks required methods, field declarations, and the canonical base64 32-byte encryption key (or explicit null) before startup without invoking the resolver. Invalid dependencies return `invalid-input`. Core manages the supplied adapter's optional `connect()`/`disconnect()` directly; it does not start the global Equipped runtime.
 
 Consumers must provide one isolated Portfolio boundary covering application CRUD, migration DDL, the native ledger and introspection. The adapter must declare native non-waiting storage-wide shared/exclusive locking; missing locking fails construction. Core uses shared access for opening and ordinary operations and exclusive access for setup and migration, holding access through transaction settlement. Contention returns `storage-operation-failed` without queueing or retry. Prefixes or sharing an adapter object alone do not prove isolation. See [Portfolio isolation](../../docs/core/adr/2026-11-12-0140-portfolio-authority.md) and [explicit schema transitions](../../docs/core/adr/2026-11-12-0140-explicit-schema-transitions.md).
 
 Opening reads and validates the native ledger. Valid empty history requires native inspection to find no application containers: even a metadata-only table or CRUD-created table is `storage-not-empty`. Opening never applies migrations or creates application tables. Malformed and unrecognized history precede storage-state refusals and are never repaired.
 
-`setup()` rechecks history and emptiness inside one outer native Repo session, applies the entire catalog, then validates the raw ledger as complete before permitting commit. Only successful commit returns a fresh ready client sharing the original owner. The retained setup view stays uninitialized and refuses another setup with `storage-already-initialized`. Setup failures unwind the transaction; native I/O failures are `storage-operation-failed`, unexpected authoring failures are `internal-error`, and history errors remain type-only. A resolved migration run with an incomplete or invalid ledger is a protocol failure: it aborts the outer transaction and keeps admission closed, while shutdown remains available. An ordinary post-run ledger read failure permits explicit setup retry after successful rollback.
+`setup()` rechecks history and emptiness inside one outer native Repo session, applies the entire catalog, validates the raw ledger as complete, creates and schema-validates exactly one stable Secret Protection record, then authoritatively rereads that unique record before permitting commit. The helper capability is established only by a later authenticated read, never retained by failed setup. Only successful commit returns a fresh ready client sharing the original owner. The retained setup view stays uninitialized and refuses another setup with `storage-already-initialized`. Setup failures unwind the transaction; native I/O failures are `storage-operation-failed`, unexpected authoring failures are `internal-error`, and history errors remain type-only. A resolved migration run with an incomplete or invalid ledger is a protocol failure: it aborts the outer transaction and keeps admission closed, while shutdown remains available. An ordinary post-run ledger read failure permits explicit setup retry after successful rollback.
 
 `migrate()` rechecks authoritative history and applies the entire pending suffix in one outer native Repo session. Empty history with no containers returns `storage-not-initialized`; empty history with containers returns `storage-not-empty`; complete history returns `schema-already-current`. Malformed, duplicate, unknown and gapped history precede those refusals. Only a successful complete run and commit returns a fresh ready view; the old migration view keeps its state and later refuses as current. A later migration failure rolls back the whole suffix rather than committing earlier entries, subject to the adapter's actual rollback behavior.
 
 The migration runner retains the same raw-ledger confirmation and invocation-local rollback safeguards as setup. Ordinary I/O failure with successful rollback permits explicit retry; observable protocol/unwind failure closes admission. Native errors from entirely declarative entries are classified as storage failures. Callback-bearing or mixed entries lack precise native failing-change provenance and use a safe `internal-error` fallback; this does not identify the hidden cause. No error-message inspection or automatic retry is performed.
 
-All views share shutdown admission and cleanup. Shutdown closes admission synchronously, drains admitted setup, migration and domain operations including pending encoder callbacks, and joins concurrent cleanup calls. Successful repeats do not disconnect again. A failed cleanup keeps admission closed and permits a later explicit shutdown retry without reconnecting or replaying work. Factory failures await cleanup before returning no capability; observable cleanup failure takes precedence. Same-owner callback reentry is unsupported; deployments must arrange non-overlapping maintenance. An already-admitted transition may finish while shutdown drains it, but its returned ready view cannot bind new work after admission closes.
+All views share shutdown admission and cleanup. Shutdown closes admission synchronously, drains admitted setup, migration and domain operations, and joins concurrent cleanup calls. Successful repeats do not disconnect again. A failed cleanup keeps admission closed and permits a later explicit shutdown retry without reconnecting or replaying work. Factory failures await cleanup before returning no capability; observable cleanup failure takes precedence. Deployments must arrange non-overlapping maintenance. An already-admitted transition may finish while shutdown drains it, but its returned ready view cannot bind new work after admission closes.
 
 ## Attributed Project operations
 
@@ -117,32 +114,28 @@ Each operation parses input before admission, takes shared storage-wide access, 
 
 [Secret operation source](src/operations/secrets/index.ts).
 
-| Operation             | Input                 | Success value                          | Specific failure beyond shared errors                                             |
-| --------------------- | --------------------- | -------------------------------------- | --------------------------------------------------------------------------------- |
-| `secrets.create`      | `{ title, value }`    | Safe Secret metadata                   | `secret-encoding-failed`                                                          |
-| `secrets.find`        | `{ secretId }`        | Safe Secret metadata                   | `not-found` with resource `secret` and the requested ID                           |
-| `secrets.list`        | No arguments          | All safe Secret metadata, ID ascending | None                                                                              |
-| `secrets.updateValue` | `{ secretId, value }` | Safe Secret metadata                   | `not-found` with resource `secret` and the requested ID; `secret-encoding-failed` |
+| Operation             | Input                 | Success value                          | Specific failure beyond shared errors                   |
+| --------------------- | --------------------- | -------------------------------------- | ------------------------------------------------------- |
+| `secrets.create`      | `{ title, value }`    | Safe Secret metadata                   | None                                                    |
+| `secrets.find`        | `{ secretId }`        | Safe Secret metadata                   | `not-found` with resource `secret` and the requested ID |
+| `secrets.list`        | No arguments          | All safe Secret metadata, ID ascending | None                                                    |
+| `secrets.updateValue` | `{ secretId, value }` | Safe Secret metadata                   | `not-found` with resource `secret` and the requested ID |
 
-Secret metadata returned by create/find/list/updateValue contains only `id`, `title`, `created` and `valueUpdated`. Neither plaintext nor `valueRef` is returned. Creation trims the title but preserves the exact nonempty raw value, including whitespace-only strings. Core generates the ID, awaits `encode({ secretId, value })` inside the operation transaction, validates an exact nonempty primitive reference, and only then inserts the complete row with matching creation/value-update stamps. Null, empty/nonstring results, throws and rejections return type-only `secret-encoding-failed`; there is no placeholder row, implicit retry or decode-after-encode. Native write/commit failures remain storage failures. A local rollback does not undo an external protection-store effect.
+Secret metadata returned by create/find/list/updateValue contains only `id`, `title`, `created` and `valueUpdated`. Neither plaintext nor the schema-owned protected `value` is returned. Creation trims the title but preserves every code unit of the exact nonempty raw JavaScript string, including whitespace-only strings and lone surrogates. Core generates the ID, protects the value synchronously inside the operation transaction, and inserts one complete row with matching creation/value-update stamps. Plaintext mode stores the exact string. Encrypted mode uses AES-256-GCM with a fresh 12-byte nonce, 16-byte tag, identity-bound authenticated context, and lossless UTF-16LE plaintext bytes. Native write/commit failures roll back the row.
 
-`find` and `list` validate the full stored record, including its protected reference, before safe projection; a corrupt reference cannot be hidden by dropping that field. One malformed member fails the whole list. Reads and Project operations do not invoke either codec. Detached Secret methods retain their Portfolio binding.
+`find` and `list` validate the full stored record, including its protected-value shape and agreement with the established protection mode, before safe projection; malformed storage cannot be hidden by dropping that field. One malformed member fails the whole list. Metadata reads and Project operations do not decrypt Secret values. Detached Secret methods retain their Portfolio binding.
 
-[`updateValue`](src/operations/secrets/update-value.ts) requires and validates the complete existing Secret before calling the encoder with the same ID and exact new raw value. It writes only the new `valueRef` and invocation's `valueUpdated` stamp; identity, title, creation attribution and Asset references stay unchanged. Repeating the same accepted value still invokes the encoder and records the operation—there is no equality-based no-op. Empty raw values are invalid; whitespace-only values remain valid. Missing/corrupt records fail before encoding, and encoder failures leave the old database row unchanged. Null or malformed native update output fails as `invalid-output` rather than returning fabricated metadata. The existing transaction boundary validates the Result before commit and waits for commit/rollback before settling. There is no expected-old-value/version guard: the last successful commit wins, so stale-screen replacement can overwrite a newer value.
+[`updateValue`](src/operations/secrets/update-value.ts) requires and validates the complete existing Secret before protecting the same ID's exact new raw value. It writes only the new `value` union and invocation's `valueUpdated` stamp; identity, title, creation attribution and Asset references stay unchanged. Repeating the same accepted value still records the operation and encrypted mode uses a fresh nonce—there is no equality-based no-op. Empty raw values are invalid; whitespace-only values remain valid. Missing/corrupt records fail before replacement. Native update failure, null/malformed native output, Result validation failure, or session commit rollback leaves the old protected value and metadata unchanged. The transaction boundary validates the Result before commit and waits for commit/rollback before settling. There is no expected-old-value/version guard: the last successful commit wins, so stale-screen replacement can overwrite a newer value.
 
 Given a bound `portfolio`, an existing `secretId`, and a Consumer-supplied `newValue`:
 
 ```ts
 const replaced = await portfolio.secrets.updateValue({ secretId, value: newValue })
 if (!replaced.ok) throw new Error(replaced.error.type)
-// replaced.value contains only safe metadata, never the value or reference.
+// replaced.value contains only safe metadata, never the protected or raw value.
 ```
 
-The internal [codec helpers](src/runtime/secrets.ts) also validate the supplied batch decoder. They capture distinct already-validated Secret IDs and exact references independently of callback-mutated request objects. Identical repeated pairs collapse; conflicting references for one ID violate an internal authoring invariant before callback invocation. Empty requests return an empty map without invoking the callback.
-
-Decoder response data must have exactly the requested own enumerable string keys and primitive string/null values. Empty decoded strings succeed; null fails only that ID in an otherwise valid response. Malformed keys/values or a thrown/rejected response fail every requested ID without inspecting diagnostics. Internal results are keyed by ID with no repeated ID inside each Result; there is no public decode or reveal method. Symbols and nonenumerable properties are not record data keys, and inherited properties cannot satisfy requests. No decoded values are cached across operations.
-
-Shutdown waits for an already-admitted encoder and its transaction to settle before cleanup, on both success and failure. Callbacks must not reenter operations or shutdown on the same owner.
+The internal [protection helpers](src/runtime/secrets.ts) authenticate the stable Portfolio protection record and key configuration before exposing encode/decode capability. The encrypted verifier and Secret values bind authenticated data to their protection and Secret identities; no public decode or reveal method exists and decoded values are not cached across operations.
 
 ## Project Assets and Secret usages
 
@@ -173,7 +166,7 @@ const usages = await portfolio.secrets.usages({ secretId })
 
 An Asset contains only `id`, `projectId`, nested `spec` and `created`; it has no title or expanded Secret. Creation validates the complete required Project and Secret, then every returned Project-scoped candidate before comparing owner/name case-insensitively. A same-Project duplicate is refused even when a different Secret is selected; a different Project may use the same target. Stored casing is preserved. An observed duplicate is rejected without a write, but concurrent duplicate prevention is not promised.
 
-Repository owner/name are separate exact ASCII identifiers, not URLs or combined locators. Asset creation generates one ID and stamp and writes only the Asset. It never invokes codecs or GitHub; valid configuration is not proof of provider access, and the required explicit Secret has no anonymous fallback.
+Repository owner/name are separate exact ASCII identifiers, not URLs or combined locators. Asset creation generates one ID and stamp and writes only the Asset. It never decrypts Secrets or invokes GitHub; valid configuration is not proof of provider access, and the required explicit Secret has no anonymous fallback.
 
 Asset find first requires the Project, validates the full Asset, then checks ownership. A valid Asset belonging to another Project returns `not-found` for the requested Asset without disclosing its owner. Asset list requires the Project even for an empty result. Usages requires the complete Secret before querying current nested Asset references; it returns full Assets, not copied reverse lists, IDs or counters. Secret value replacement preserves those references. These reads do not expand related records or verify live provider state.
 

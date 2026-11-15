@@ -15,6 +15,8 @@ export const list = defineOperation({
 		if (!secrets.ok) return secrets
 		const parsed = stored(v.array(secretPipe), secrets.value)
 		if (!parsed.ok) return parsed
+		if (parsed.value.some((secret) => !context.secrets.matches(secret.value)))
+			return { ok: false, error: { type: 'invalid-storage-output' } }
 		return { ok: true, value: parsed.value.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) }
 	},
 })

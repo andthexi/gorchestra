@@ -54,7 +54,6 @@ export const revisionConflictPipe = v.object({
 	expectedVersion: revisionVersionPipe,
 })
 
-export const secretEncodingFailedPipe = v.object({ type: v.is('secret-encoding-failed', 'Invalid input.') })
 export const revisionVersionExhaustedPipe = v.object({ type: v.is('revision-version-exhausted', 'Invalid input.') })
 const schemaMetadataInvalidPipe = v.object({ type: v.is('schema-metadata-invalid', 'Invalid input.') })
 const schemaVersionUnrecognizedPipe = v.object({ type: v.is('schema-version-unrecognized', 'Invalid input.') })
@@ -65,10 +64,6 @@ const storageNotEmptyPipe = v.object({ type: v.is('storage-not-empty', 'Invalid 
 const storageAlreadyInitializedPipe = v.object({ type: v.is('storage-already-initialized', 'Invalid input.') })
 const storageNotInitializedPipe = v.object({ type: v.is('storage-not-initialized', 'Invalid input.') })
 const schemaAlreadyCurrentPipe = v.object({ type: v.is('schema-already-current', 'Invalid input.') })
-
-const secretDecodingFailedPipe = v.object({ type: v.is('secret-decoding-failed', 'Invalid input.'), secretId: idPipe })
-// Internal keyed-map entries do not repeat their Secret identity.
-export const internalSecretDecodingFailedPipe = v.objectPick(secretDecodingFailedPipe, ['type'])
 
 export const factoryErrorPipe = v.or([
 	invalidInputPipe,
@@ -218,36 +213,7 @@ if (import.meta.vitest) {
 		}
 	})
 
-	it('keeps internal decoding-map failures type-only while public failures require identity', () => {
-		const value = {
-			type: 'secret-decoding-failed',
-			secretId: '01k00000000000000000000001',
-			cause: 'synthetic-PROTECTED',
-		}
-		expect(v.validate(internalSecretDecodingFailedPipe, value)).toEqual({
-			valid: true,
-			value: { type: 'secret-decoding-failed' },
-		})
-		expect(v.validate(secretDecodingFailedPipe, { type: 'secret-decoding-failed' }).valid).toBe(false)
-	})
-
-	it('limits decoding failures to the validated secret id', () => {
-		const error = { type: 'secret-decoding-failed', secretId: '01k00000000000000000000001' }
-		expect(
-			v.validate(secretDecodingFailedPipe, {
-				...error,
-				value: 'synthetic-secret',
-				valueRef: 'synthetic-reference',
-				cause: 'synthetic-error',
-			}),
-		).toEqual({ valid: true, value: error })
-		for (const secretId of ['', '01K00000000000000000000001', undefined]) {
-			expect(v.validate(secretDecodingFailedPipe, { ...error, secretId }).valid).toBe(false)
-		}
-	})
-
 	it.each([
-		['secret-encoding-failed', secretEncodingFailedPipe],
 		['revision-version-exhausted', revisionVersionExhaustedPipe],
 		['schema-metadata-invalid', schemaMetadataInvalidPipe],
 		['schema-version-unrecognized', schemaVersionUnrecognizedPipe],

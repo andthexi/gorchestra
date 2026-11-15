@@ -216,7 +216,7 @@ describe('project assets', () => {
 								throw new Error('Unexpected Asset operation')
 						}
 						expect(result).toEqual({ ok: false, error })
-						expect(reads).toEqual(['projects'])
+						expect(reads).toEqual(['secret_protection', 'projects'])
 						expect({ writes, ...codecCalls }).toEqual({ writes: 0, encodes: 0, decodes: 0 })
 					}
 				} finally {
@@ -265,7 +265,15 @@ describe('project assets', () => {
 							error: { type: 'storage-operation-failed' },
 						})
 					}
-					if (table === 'projects') expect(reads).toEqual(['projects', 'projects', 'projects'])
+					if (table === 'projects')
+						expect(reads).toEqual([
+							'secret_protection',
+							'projects',
+							'secret_protection',
+							'projects',
+							'secret_protection',
+							'projects',
+						])
 					if (table !== 'projects')
 						expect(await portfolio.secrets.usages({ secretId: secret.id })).toEqual({
 							ok: false,
@@ -538,7 +546,7 @@ describe('project assets', () => {
 					ok: false,
 					error: { type: 'invalid-storage-output' },
 				})
-				expect(reads).toEqual(['projects'])
+				expect(reads).toEqual(['secret_protection', 'projects'])
 			} finally {
 				adapter.findMany = findMany
 			}
@@ -591,7 +599,7 @@ describe('project assets', () => {
 					ok: false,
 					error: { type: 'invalid-storage-output' },
 				})
-				expect(reads).toEqual(['projects'])
+				expect(reads).toEqual(['secret_protection', 'projects'])
 			} finally {
 				adapter.findMany = findMany
 			}
@@ -721,7 +729,7 @@ describe('project assets', () => {
 					ok: false,
 					error: { type: 'not-found', resource: 'project', id: missing },
 				})
-				expect(reads.splice(0)).toEqual(['projects'])
+				expect(reads.splice(0)).toEqual(['secret_protection', 'projects'])
 				for (const corrupt of [
 					{ ...project, spec: { type: 'unsupported' } },
 					{ ...project, created: { ...project.created, cid: undefined } },
@@ -731,7 +739,7 @@ describe('project assets', () => {
 						ok: false,
 						error: { type: 'invalid-storage-output' },
 					})
-					expect(reads.splice(0)).toEqual(['projects'])
+					expect(reads.splice(0)).toEqual(['secret_protection', 'projects'])
 				}
 				adapter.stores.get('projects')!.set(project.id, project)
 				expect(
@@ -740,11 +748,11 @@ describe('project assets', () => {
 						spec: { ...input.spec, source: { ...input.spec.source, secretId: missing } },
 					}),
 				).toEqual({ ok: false, error: { type: 'not-found', resource: 'secret', id: missing } })
-				expect(reads.splice(0)).toEqual(['projects', 'secrets'])
+				expect(reads.splice(0)).toEqual(['secret_protection', 'projects', 'secrets'])
 				for (const corrupt of [
-					{ ...fullSecret, valueRef: '' },
-					{ ...fullSecret, valueRef: undefined },
-					{ ...fullSecret, valueRef: 1 },
+					{ ...fullSecret, value: { mode: 'plaintext', plaintext: '' } },
+					{ ...fullSecret, value: undefined },
+					{ ...fullSecret, value: 1 },
 					{ ...fullSecret, valueUpdated: undefined },
 					{ ...fullSecret, created: { ...secret.created, cid: undefined } },
 				]) {
@@ -753,7 +761,7 @@ describe('project assets', () => {
 						ok: false,
 						error: { type: 'invalid-storage-output' },
 					})
-					expect(reads.splice(0)).toEqual(['projects', 'secrets'])
+					expect(reads.splice(0)).toEqual(['secret_protection', 'projects', 'secrets'])
 				}
 				expect(writes).toBe(0)
 				expect(adapter.stores.get('assets')?.size ?? 0).toBe(0)

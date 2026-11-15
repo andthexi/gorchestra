@@ -2,12 +2,26 @@ import { Schema } from 'equipped/orm'
 import { v, type PipeOutput } from 'valleyed'
 
 import { requireExplicitId, schemaPipe } from '../storage/schema'
-import { auditStampPipe, idPipe, protectedStringPipe, titlePipe } from './commons'
+import { auditStampPipe, canonicalBase64Pipe, idPipe, protectedStringPipe, titlePipe } from './commons'
+
+export const secretValuePipe = v.discriminate(
+	(value) => value.mode,
+	{
+		plaintext: v.object({ mode: v.eq('plaintext'), plaintext: protectedStringPipe }),
+		encrypted: v.object({
+			mode: v.eq('encrypted'),
+			nonce: canonicalBase64Pipe(12),
+			ciphertext: canonicalBase64Pipe(),
+			tag: canonicalBase64Pipe(16),
+		}),
+	},
+	'Expected a stored Secret value.',
+)
 
 export const secretSchema = Schema.from('secrets')
 	.pk('id', idPipe, requireExplicitId)
 	.field('title', titlePipe)
-	.field('valueRef', protectedStringPipe)
+	.field('value', secretValuePipe)
 	.field('created', auditStampPipe)
 	.field('valueUpdated', auditStampPipe)
 	.build()
@@ -29,12 +43,12 @@ if (import.meta.vitest) {
 		const input = {
 			id: '01k00000000000000000000001',
 			title: 'Access',
-			valueRef: 'synthetic-reference',
+			value: { mode: 'plaintext', plaintext: 'synthetic-value' },
 			created: stamp,
 			valueUpdated: stamp,
 		}
 		const boxed: unknown = Object('text')
-		for (const field of ['title', 'valueRef']) {
+		for (const field of ['title']) {
 			for (const value of [boxed, { constructor: { name: 'String' }, length: 1 }]) {
 				expect(v.validate(secretPipe, { ...input, [field]: value }).valid).toBe(false)
 			}
@@ -72,8 +86,7 @@ if (import.meta.vitest) {
 		const input = {
 			id: '01k00000000000000000000001',
 			title: '  Access  ',
-			valueRef: 'synthetic-protected-reference',
-			value: 'synthetic-raw-value',
+			value: { mode: 'plaintext', plaintext: 'synthetic-raw-value' },
 			created: stamp,
 			valueUpdated: stamp,
 		}
@@ -97,7 +110,7 @@ if (import.meta.vitest) {
 		const input = {
 			id: '01k00000000000000000000001',
 			title: '  Access  ',
-			valueRef: ' \t\n',
+			value: { mode: 'plaintext', plaintext: ' \t\n' },
 			created: stamp,
 			valueUpdated: stamp,
 			updated: stamp,
@@ -107,14 +120,14 @@ if (import.meta.vitest) {
 			value: {
 				id: input.id,
 				title: 'Access',
-				valueRef: ' \t\n',
+				value: { mode: 'plaintext', plaintext: ' \t\n' },
 				created: stamp,
 				valueUpdated: stamp,
 			},
 		})
 		for (const value of [
-			{ ...input, valueRef: '' },
-			{ ...input, valueRef: undefined },
+			{ ...input, value: { mode: 'plaintext', plaintext: '' } },
+			{ ...input, value: undefined },
 			{ ...input, valueUpdated: undefined },
 			{ ...input, created: { src: 'local', at: stamp.at, by: stamp.by } },
 		])

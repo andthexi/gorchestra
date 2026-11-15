@@ -28,6 +28,8 @@ export const create = defineOperation({
 			}
 		const secret = stored(secretPipe, secretRead.value)
 		if (!secret.ok) return secret
+		if (!context.secrets.matches(secret.value.value))
+			return { ok: false, error: { type: 'invalid-storage-output' } }
 
 		const candidatesQuery = context.storage
 			.on(assetSchema)

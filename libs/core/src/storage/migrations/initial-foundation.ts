@@ -5,7 +5,7 @@ import type { StorageAdapter } from '../../dependencies'
 // Released snapshot: never import current models or edit this ID/definition.
 // Future schema changes belong in new catalog entries.
 export const initialFoundationMigration = {
-	id: '01m76d124c6e848k2hfvb4mar2',
+	id: '01m8h0t7m21v7t5bs8d9r9zq1a',
 	tx: true,
 	changes: [
 		{
@@ -14,10 +14,16 @@ export const initialFoundationMigration = {
 			pk: { name: 'id', type: 'string' },
 			fields: [
 				{ name: 'title', type: 'string' },
-				{ name: 'valueRef', type: 'string' },
+				{ name: 'value', type: 'object' },
 				{ name: 'created', type: 'object' },
 				{ name: 'valueUpdated', type: 'object' },
 			],
+		},
+		{
+			kind: 'createTable',
+			name: 'secret_protection',
+			pk: { name: 'id', type: 'string' },
+			fields: [{ name: 'spec', type: 'object' }],
 		},
 		{
 			kind: 'createTable',

@@ -4,7 +4,6 @@ import type { attributionPipe } from '../domain/commons'
 import { inputIssues, resultPipe, type Result, type SharedOperationError } from '../errors'
 import { defineOperation, type Operation } from './define-operation'
 import { Owner } from './owner'
-import { createSecretHelpers } from './secrets'
 import { transaction } from './transaction'
 
 export async function invokeOperation<II, IO, OI, OO, EI, EO>(
@@ -26,12 +25,17 @@ export async function invokeOperation<II, IO, OI, OO, EI, EO>(
 		return await owner.access('shared', async () => {
 			const ready = await owner.validateReady()
 			if (!ready.ok) return ready
+			try {
+				await owner.ensureSecretProtection()
+			} catch {
+				return { ok: false, error: { type: 'storage-operation-failed' } }
+			}
 			return transaction<OO, EO | SharedOperationError>(owner, async () => {
 				let result: unknown
 				try {
 					result = await definition.handler(parsed, {
 						storage: owner.repo,
-						secrets: createSecretHelpers(owner.dependencies.secrets),
+						secrets: owner.secrets,
 						stamp: { src: 'local', at: new Date().toISOString(), ...attribution },
 					})
 				} catch {
@@ -63,7 +67,10 @@ if (import.meta.vitest) {
 			owner = new Owner(dependencies, migrations)
 			owner.build()
 			await owner.access('exclusive', async () => {
-				await owner.repo.session(() => owner.migrator.up())
+				await owner.repo.session(async () => {
+					await owner.migrator.up()
+					await owner.establishSecretProtection()
+				})
 				return { ok: true, value: undefined }
 			})
 		})
@@ -341,9 +348,7 @@ if (import.meta.vitest) {
 					expect(input.text.toFixed()).toBe('4')
 					expect(context.storage).toBe(owner.repo)
 					expect(Object.keys(context).sort()).toEqual(['secrets', 'stamp', 'storage'])
-					expect(Object.keys(context.secrets).sort()).toEqual(['decode', 'encode'])
-					expect(context.secrets.encode).not.toBe(owner.dependencies.secrets.encode)
-					expect(context.secrets.decode).not.toBe(owner.dependencies.secrets.decode)
+					expect(Object.keys(context.secrets).sort()).toEqual(['decode', 'encode', 'matches'])
 					return Promise.resolve({ ok: true, value: 'parsed', cause: 'synthetic-PROTECTED' })
 				},
 			})

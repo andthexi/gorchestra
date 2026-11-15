@@ -248,30 +248,39 @@ describe('memories', () => {
 				const root = requireSuccess(
 					await portfolio.memories.create({ parentId: null, title: 'Root', body: '' }),
 				)
-				expect(calls.splice(0)).toEqual(['create:memories', 'create:memory_revisions'])
+				expect(calls.splice(0)).toEqual([
+					'read:secret_protection',
+					'create:memories',
+					'create:memory_revisions',
+				])
 				expect(requireSuccess(await portfolio.memories.list({ parentId: null }))).toEqual([root.memory])
-				expect(calls.splice(0)).toEqual(['read:memories'])
+				expect(calls.splice(0)).toEqual(['read:secret_protection', 'read:memories'])
 				const missing = '01k00000000000000000000001'
 				expect(await portfolio.memories.create({ parentId: missing, title: 'Child', body: '' })).toEqual({
 					ok: false,
 					error: { type: 'not-found', resource: 'memory', id: missing },
 				})
-				expect(calls.splice(0)).toEqual(['read:memories'])
+				expect(calls.splice(0)).toEqual(['read:secret_protection', 'read:memories'])
 				expect(await portfolio.memories.list({ parentId: missing })).toEqual({
 					ok: false,
 					error: { type: 'not-found', resource: 'memory', id: missing },
 				})
-				expect(calls.splice(0)).toEqual(['read:memories'])
+				expect(calls.splice(0)).toEqual(['read:secret_protection', 'read:memories'])
 				expect(requireSuccess(await portfolio.memories.list({ parentId: root.memory.id }))).toEqual([])
-				expect(calls.splice(0)).toEqual(['read:memories', 'read:memories'])
+				expect(calls.splice(0)).toEqual(['read:secret_protection', 'read:memories', 'read:memories'])
 				const child = requireSuccess(
 					await portfolio.memories.create({ parentId: root.memory.id, title: 'Child', body: '' }),
 				)
-				expect(calls.splice(0)).toEqual(['read:memories', 'create:memories', 'create:memory_revisions'])
+				expect(calls.splice(0)).toEqual([
+					'read:secret_protection',
+					'read:memories',
+					'create:memories',
+					'create:memory_revisions',
+				])
 				expect(requireSuccess(await portfolio.memories.list({ parentId: root.memory.id }))).toEqual([
 					child.memory,
 				])
-				expect(calls.splice(0)).toEqual(['read:memories', 'read:memories'])
+				expect(calls.splice(0)).toEqual(['read:secret_protection', 'read:memories', 'read:memories'])
 				expect(codecCalls).toEqual({ encodes: 0, decodes: 0 })
 			} finally {
 				if (findDescriptor) Object.defineProperty(adapter, 'findMany', findDescriptor)
@@ -314,12 +323,12 @@ describe('memories', () => {
 					expect(
 						await portfolio.memories.create({ parentId: parent.memory.id, title: 'Child', body: '' }),
 					).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
-					expect(reads.splice(0)).toEqual(['memories'])
+					expect(reads.splice(0)).toEqual(['secret_protection', 'memories'])
 					expect(await portfolio.memories.list({ parentId: parent.memory.id })).toEqual({
 						ok: false,
 						error: { type: 'invalid-storage-output' },
 					})
-					expect(reads.splice(0)).toEqual(['memories'])
+					expect(reads.splice(0)).toEqual(['secret_protection', 'memories'])
 					for (const result of [
 						await portfolio.memories.find({ memoryId: parent.memory.id }),
 						await portfolio.memories.list({ parentId: null }),
@@ -357,12 +366,12 @@ describe('memories', () => {
 				expect(
 					await portfolio.memories.create({ parentId: parent.memory.id, title: 'Child', body: '' }),
 				).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
-				expect(reads.splice(0)).toEqual(['memories'])
+				expect(reads.splice(0)).toEqual(['secret_protection'])
 				expect(await portfolio.memories.list({ parentId: parent.memory.id })).toEqual({
 					ok: false,
 					error: { type: 'storage-operation-failed' },
 				})
-				expect(reads.splice(0)).toEqual(['memories'])
+				expect(reads.splice(0)).toEqual(['secret_protection'])
 				for (const result of [
 					await portfolio.memories.find({ memoryId: parent.memory.id }),
 					await portfolio.memories.list({ parentId: null }),
@@ -514,7 +523,7 @@ describe('memories', () => {
 			expect(requireSuccess(await list({ parentId: null }))).toEqual(roots)
 			const returnedRoots = requireSuccess(await list({ parentId: null }))
 			returnedRoots[0]!.revision.title = 'mutated'
-			returnedRoots[0]!.created.by = 'mutated'
+			if (returnedRoots[0]!.created.src === 'local') returnedRoots[0]!.created.by = 'mutated'
 			returnedRoots.reverse()
 			expect(requireSuccess(await list({ parentId: null }))).toEqual(roots)
 			expect(requireSuccess(await list({ parentId: parent.memory.id }))).toEqual(
@@ -561,7 +570,7 @@ describe('memories', () => {
 			expect(adapter.stores.get('memories')!.get(pair.memory.id)).toEqual(stored)
 			const found = requireSuccess(await find({ memoryId: pair.memory.id }))
 			found.revision.title = 'mutated'
-			found.created.by = 'mutated'
+			if (found.created.src === 'local') found.created.by = 'mutated'
 			expect(requireSuccess(await find({ memoryId: pair.memory.id }))).toEqual(pair.memory)
 			const missing = '01k00000000000000000000001'
 			expect(await find({ memoryId: missing })).toEqual({
@@ -690,9 +699,9 @@ describe('memories', () => {
 					pair.revision,
 				])
 				pair.memory.revision.title = 'mutated'
-				pair.memory.created.by = 'mutated'
+				if (pair.memory.created.src === 'local') pair.memory.created.by = 'mutated'
 				pair.revision.body = 'mutated'
-				pair.revision.created.by = 'mutated'
+				if (pair.revision.created.src === 'local') pair.revision.created.by = 'mutated'
 				expect(requireSuccess(await portfolio.memories.find({ memoryId: pair.memory.id }))).toEqual(
 					original.memory,
 				)

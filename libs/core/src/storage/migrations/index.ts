@@ -28,7 +28,7 @@ if (import.meta.vitest) {
 			ok: true,
 			value: 'empty',
 		})
-		expect(await migrator.up()).toEqual({ ran: ['01m76d124c6e848k2hfvb4mar2'], skipped: [] })
+		expect(await migrator.up()).toEqual({ ran: ['01m8h0t7m21v7t5bs8d9r9zq1a'], skipped: [] })
 		const discovered = await adapter.introspect()
 		expect(discovered).toEqual(
 			initialFoundationMigration.changes.map(({ name, pk, fields }) => ({
@@ -41,6 +41,7 @@ if (import.meta.vitest) {
 		)
 		expect(discovered.map(({ name }) => name)).toEqual([
 			'secrets',
+			'secret_protection',
 			'projects',
 			'assets',
 			'memories',
@@ -48,13 +49,13 @@ if (import.meta.vitest) {
 		])
 		const ledger = await adapter.loadMigrations(repo.resolveConfig('_equipped_migrations'))
 		expect(ledger).toHaveLength(1)
-		expect(ledger.map(({ id }) => id)).toEqual(['01m76d124c6e848k2hfvb4mar2'])
+		expect(ledger.map(({ id }) => id)).toEqual(['01m8h0t7m21v7t5bs8d9r9zq1a'])
 		for (const entry of ledger) {
 			expect(Object.keys(entry).sort()).toEqual(['appliedAt', 'id'])
 			expect(v.validate(appliedAtPipe, entry.appliedAt).valid).toBe(true)
 		}
 		expect(classifyMigrationHistory(ledger, ids)).toEqual({ ok: true, value: 'ready' })
-		expect(await migrator.up()).toEqual({ ran: [], skipped: ['01m76d124c6e848k2hfvb4mar2'] })
+		expect(await migrator.up()).toEqual({ ran: [], skipped: ['01m8h0t7m21v7t5bs8d9r9zq1a'] })
 		expect(await adapter.loadMigrations(repo.resolveConfig('_equipped_migrations'))).toEqual(ledger)
 		expect(await adapter.introspect()).toEqual(discovered)
 		expect(migrations).toEqual(snapshot)
@@ -70,9 +71,9 @@ if (import.meta.vitest) {
 			.resolve((name) => ({ table: name }))
 			.build()
 		const migrator = Migrator.from(repo).withLock().migrations(migrations).build()
-		expect(await migrator.dry()).toEqual({ would: ['01m76d124c6e848k2hfvb4mar2'] })
+		expect(await migrator.dry()).toEqual({ would: ['01m8h0t7m21v7t5bs8d9r9zq1a'] })
 		const ids = migrations.map(({ id }) => id)
-		expect(ids).toEqual(['01m76d124c6e848k2hfvb4mar2'])
+		expect(ids).toEqual(['01m8h0t7m21v7t5bs8d9r9zq1a'])
 		expect(ids.length).toBeGreaterThan(0)
 		expect(new Set(ids).size).toBe(ids.length)
 		expect(ids).toEqual([...ids].sort())
