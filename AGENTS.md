@@ -33,8 +33,8 @@ This root AGENTS.md is the project-wide DOX rail: it gives repo-wide instruction
 
 ### Context relationships
 
-- **Consumers → Core**: Consumers create, open, authorize, protect, and operate Portfolios through the Core orchestration model.
-- **Core → Consumers**: Core owns Portfolio data; consumers provide user experience, authentication, authorization, and deployment-specific runtime concerns.
+- **Consumers → Core**: Consumers create, open, authorize, and operate Portfolios, supply isolated storage, and provision and safeguard encryption keys or explicitly select plaintext Secret storage.
+- **Core → Consumers**: Core owns Portfolio data and Secret protection; consumers provide user experience, authentication, authorization, and deployment-specific runtime concerns.
 
 ### Global modeling preferences
 
@@ -56,7 +56,7 @@ This root AGENTS.md is the project-wide DOX rail: it gives repo-wide instruction
 
 - `libs/core` (`@gorchestra/core`) is the sole implementation package; use unnumbered code identifiers such as `CoreDependencies`. Its current documentation lives in `docs/core/`. Do not restore deleted implementations or application entrypoints without an explicit request.
 - Keep Equipped and Valleyed declared as `latest` in package manifests. Set canonical resolved versions only in the global `pnpm-workspace.yaml` overrides; refresh the lockfile through pnpm. These overrides apply repo-wide, including transitive dependencies; no local-path or package-specific override exceptions. This prerelease has no client migrations using the old ledger format; backward conversion is out of scope, not a delivery/deployment gate.
-- For `libs/core`, use ordinary project TypeScript checking and behavior-focused runtime tests with the real Equipped InMemoryAdapter. Do not add separate type-test/negative-compile suites or persistent-backend test matrices. This scoped rule replaces the general focused-type-test requirement for this library only. Schema introspection remains at construction/setup/migrate. The accepted multi-client admission design also validates native migration history on every storage-backed operation under its storage-wide lock before executing the handler; domain ownership/revision validation and lifecycle admission still apply.
+- For `libs/core`, use ordinary project TypeScript checking and behavior-focused runtime tests with the real Equipped InMemoryAdapter. Do not add separate type-test/negative-compile suites or persistent-backend test matrices. This scoped rule replaces the general focused-type-test requirement for this library only. Schema introspection remains at construction/setup/migrate. Core validates native migration history on every storage-backed operation under its storage-wide lock before executing the handler; domain ownership/revision validation and lifecycle admission still apply.
 - Core runtime/overlap tests, ordinary TypeScript, lint/format and Fallow checks run through the root scripts. Use pnpm's workspace overrides and frozen lockfile for dependency consistency rather than a custom dependency-check script. Run heavy checks sequentially with memory headroom.
 
 ## Verification
