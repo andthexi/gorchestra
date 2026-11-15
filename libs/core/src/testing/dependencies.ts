@@ -6,14 +6,14 @@ export function createCountedSecretDependencies() {
 	return { dependencies, codecCalls }
 }
 
-export function createTestDependencies() {
+export function createTestDependencies(encryptionKey: string | null = null) {
 	return {
 		storage: {
 			adapter: InMemoryAdapter.create({}),
 			resolveSchema: (name: string) => ({ table: name }),
 		},
 		secrets: {
-			encryptionKey: null,
+			encryptionKey,
 		},
 	}
 }
