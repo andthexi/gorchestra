@@ -2,7 +2,7 @@
 
 Accepted.
 
-Core uses Equipped's typed schemas, capability-aware Repo and adapter-backed transactions, migration runner, locking, ledger and introspection rather than maintaining a second persistence abstraction or migration engine, keeping domain records and storage operations on one typed model while letting Consumers supply the backend.
+Core uses Equipped's typed schemas, capability-aware Repo and adapter-backed transactions, migration runner, storage-wide locking, ledger and introspection rather than maintaining a second persistence abstraction or migration engine, keeping domain records and storage operations on one typed model while letting Consumers supply the backend. Core requires declared non-waiting shared/exclusive locking, validates migration history under that access for every storage-backed call, and fails rather than substituting a local-lock fallback.
 
 This couples Core to Equipped's APIs and the selected adapter's supported behavior: transaction atomicity, isolation and durability come from that backend, not from Core reimplementing them, and neither an installed dependency nor InMemory tests certify another adapter or make external effects transactional.
 

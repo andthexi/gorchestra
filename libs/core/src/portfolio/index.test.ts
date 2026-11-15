@@ -48,6 +48,8 @@ describe('attributed Portfolio', () => {
 			input.by = 'Changed'
 			input.cid = 'Changed'
 			adapter.session = session
+			adapter.loadMigrations = history
+			adapter.introspect = inspect
 			const a = requireSuccess(await portfolio.projects.create({ title: 'A', spec: { type: 'source-control' } }))
 			const b = requireSuccess(await other.projects.create({ title: 'B', spec: { type: 'source-control' } }))
 			expect(a.created).toMatchObject({ by: '  author É\n', cid: '  correlation\n' })
@@ -62,7 +64,7 @@ describe('attributed Portfolio', () => {
 			requireSuccess(await opened.shutdown())
 		}
 	})
-	it('does not read migration history or inspect storage during ordinary Project and Memory operations', async () => {
+	it('validates migration history without schema inspection during every ordinary operation', async () => {
 		const dependencies = createTestDependencies()
 		await withReadyPortfolio(async (portfolio) => {
 			const history = vi.spyOn(dependencies.storage.adapter, 'loadMigrations')
@@ -76,7 +78,7 @@ describe('attributed Portfolio', () => {
 				)
 				expect(requireSuccess(await portfolio.projects.list())).toEqual([project])
 				expect(requireSuccess(await portfolio.memories.list({ parentId: null }))).toEqual([memory])
-				expect(history).not.toHaveBeenCalled()
+				expect(history).toHaveBeenCalledTimes(4)
 				expect(inspect).not.toHaveBeenCalled()
 			} finally {
 				history.mockRestore()

@@ -50,18 +50,16 @@ describe('Memory revisions', () => {
 			await withRevisionFixture(async ({ portfolio, adapter, memory, history, input }) => {
 				const createMany = adapter.createMany.bind(adapter)
 				const session = adapter.session.bind(adapter)
+				const lock = adapter.lock.bind(adapter)
 				const entered = Promise.withResolvers<void>()
-				const submitted = Promise.withResolvers<void>()
+
 				const release = Promise.withResolvers<void>()
 				const laterEntered = Promise.withResolvers<void>()
 				const releaseLater = Promise.withResolvers<void>()
 				const inserted: string[] = []
-				let attempts = 0
 				let secondSettled = false
-				adapter.session = (work) => {
-					if (++attempts === 2) submitted.resolve()
-					return session(work)
-				}
+				adapter.session = (work) => session(work)
+				adapter.lock = (_config, _mode, work) => work()
 				adapter.createMany = async (...args) => {
 					const rows = await createMany(...args)
 					if (args[0].name !== 'memory_revisions') return rows
@@ -96,7 +94,6 @@ describe('Memory revisions', () => {
 							return result
 						})
 					pending.push(second)
-					await submitted.promise
 					await new Promise<void>((resolve) => setImmediate(resolve))
 					expect(secondSettled).toBe(false)
 					expect(inserted).toHaveLength(1)
@@ -156,6 +153,7 @@ describe('Memory revisions', () => {
 					await Promise.allSettled(pending)
 					adapter.createMany = createMany
 					adapter.session = session
+					adapter.lock = lock
 				}
 			})
 		},
@@ -363,7 +361,7 @@ describe('Memory revisions', () => {
 				expect(update).toHaveBeenCalledTimes(1)
 				expect(insert).toHaveBeenCalledTimes(1)
 				expect(session).toHaveBeenCalledTimes(1)
-				expect(load).not.toHaveBeenCalled()
+				expect(load).toHaveBeenCalledTimes(1)
 				expect(inspect).not.toHaveBeenCalled()
 				const updateArgs = update.mock.calls[0]
 				const insertArgs = insert.mock.calls[0]

@@ -39,36 +39,38 @@ export class PortfolioMigration {
 		const release = this.#owner.admit()
 		if (!release) return { ok: false, error: { type: 'storage-operation-failed' } }
 		try {
-			const result = await transaction(this.#owner, async (): Promise<Result<void, MigrationError>> => {
-				let result: Result<void, MigrationError>
-				try {
-					const state = await this.#owner.inspect()
-					if (!state.ok) result = state
-					else
-						switch (state.value) {
-							case 'ready':
-								result = { ok: false, error: { type: 'schema-already-current' } }
-								break
-							case 'empty':
-								result = { ok: false, error: { type: 'storage-not-initialized' } }
-								break
-							case 'migration':
-								try {
-									await this.#owner.migrator.up()
-									result = await this.#owner.confirmMigrationRun()
-								} catch (error) {
-									result = { ok: false, error: migrationFailure(error, this.#owner.catalog) }
-								}
-								break
-							default:
-								throw new Error('Unexpected history state.')
-						}
-				} catch {
-					result = { ok: false, error: { type: 'internal-error' } }
-				}
-				const parsed = v.validate(resultPipe(v.undefined(), migrationErrorPipe), result)
-				return parsed.valid ? parsed.value : { ok: false, error: { type: 'internal-error' } }
-			})
+			const result = await this.#owner.access('exclusive', () =>
+				transaction(this.#owner, async (): Promise<Result<void, MigrationError>> => {
+					let result: Result<void, MigrationError>
+					try {
+						const state = await this.#owner.inspect()
+						if (!state.ok) result = state
+						else
+							switch (state.value) {
+								case 'ready':
+									result = { ok: false, error: { type: 'schema-already-current' } }
+									break
+								case 'empty':
+									result = { ok: false, error: { type: 'storage-not-initialized' } }
+									break
+								case 'migration':
+									try {
+										await this.#owner.migrator.up()
+										result = await this.#owner.confirmMigrationRun()
+									} catch (error) {
+										result = { ok: false, error: migrationFailure(error, this.#owner.catalog) }
+									}
+									break
+								default:
+									throw new Error('Unexpected history state.')
+							}
+					} catch {
+						result = { ok: false, error: { type: 'internal-error' } }
+					}
+					const parsed = v.validate(resultPipe(v.undefined(), migrationErrorPipe), result)
+					return parsed.valid ? parsed.value : { ok: false, error: { type: 'internal-error' } }
+				}),
+			)
 			return result.ok ? { ok: true, value: issueClient(this.#owner) } : result
 		} finally {
 			release()
@@ -98,37 +100,41 @@ export class PortfolioSetup {
 		let failure: SetupError | undefined
 		let completed = false
 		try {
-			await this.#owner.repo.session(async () => {
-				let result: Result<void, SetupError>
-				try {
-					const state = await this.#owner.inspect()
-					if (!state.ok) result = state
-					else
-						switch (state.value) {
-							case 'ready':
-							case 'migration':
-								result = { ok: false, error: { type: 'storage-already-initialized' } }
-								break
-							case 'empty':
-								try {
-									await this.#owner.migrator.up()
-									result = await this.#owner.confirmMigrationRun()
-								} catch (error) {
-									result = { ok: false, error: migrationFailure(error, this.#owner.catalog) }
-								}
-								break
-							default:
-								throw new Error('Unexpected history state.')
-						}
-				} catch {
-					result = { ok: false, error: { type: 'internal-error' } }
-				}
-				const parsed = v.validate(resultPipe(v.undefined(), setupErrorPipe), result)
-				if (!parsed.valid) failure = { type: 'internal-error' }
-				else if (!parsed.value.ok) failure = parsed.value.error
-				if (failure) throw abort
-				completed = true
+			const locked = await this.#owner.access('exclusive', async () => {
+				await this.#owner.repo.session(async () => {
+					let result: Result<void, SetupError>
+					try {
+						const state = await this.#owner.inspect()
+						if (!state.ok) result = state
+						else
+							switch (state.value) {
+								case 'ready':
+								case 'migration':
+									result = { ok: false, error: { type: 'storage-already-initialized' } }
+									break
+								case 'empty':
+									try {
+										await this.#owner.migrator.up()
+										result = await this.#owner.confirmMigrationRun()
+									} catch (error) {
+										result = { ok: false, error: migrationFailure(error, this.#owner.catalog) }
+									}
+									break
+								default:
+									throw new Error('Unexpected history state.')
+							}
+					} catch {
+						result = { ok: false, error: { type: 'internal-error' } }
+					}
+					const parsed = v.validate(resultPipe(v.undefined(), setupErrorPipe), result)
+					if (!parsed.valid) failure = { type: 'internal-error' }
+					else if (!parsed.value.ok) failure = parsed.value.error
+					if (failure) throw abort
+					completed = true
+				})
+				return { ok: true, value: undefined }
 			})
+			if (!locked.ok) return { ok: false, error: { type: 'storage-operation-failed' } }
 			if (!completed || failure) {
 				this.#owner.closeAdmission()
 				return { ok: false, error: { type: 'storage-operation-failed' } }
@@ -311,6 +317,7 @@ if (import.meta.vitest) {
 			expect(calls).toEqual([
 				'_equipped_migrations',
 				'_equipped_migrations',
+				'_equipped_migrations',
 				'test_pending_one',
 				'test_pending_two',
 				'_equipped_migrations',
@@ -469,7 +476,7 @@ if (import.meta.vitest) {
 		'permits explicit migration retry after a rolled-back %s I/O failure',
 		async (fault) => {
 			const { adapter, opened, before } = await migrationFixture()
-			let method: 'loadMigrations' | 'acquireMigrationLock' | 'recordMigration' | 'session'
+			let method: 'loadMigrations' | 'lock' | 'recordMigration' | 'session'
 			switch (fault) {
 				case 'inspection':
 				case 'native-load':
@@ -477,7 +484,7 @@ if (import.meta.vitest) {
 					method = 'loadMigrations'
 					break
 				case 'lock':
-					method = 'acquireMigrationLock'
+					method = 'lock'
 					break
 				case 'record':
 					method = 'recordMigration'
@@ -912,7 +919,8 @@ async function openWithCatalog(
 			return { ok: false, error: { type: 'storage-operation-failed' } }
 		}
 		owner.build()
-		const state = await owner.inspect()
+		const builtOwner = owner
+		const state = await builtOwner.access('shared', () => builtOwner.inspect())
 		if (!state.ok) {
 			const cleanup = await owner.shutdown()
 			return cleanup.ok ? state : cleanup
