@@ -1,7 +1,6 @@
 import { OrmAdapter, type InferAdapterConfig, type Migration } from 'equipped/orm'
 import { v, PipeError } from 'valleyed'
 
-import type { Id } from './domain/commons'
 import type { migrations } from './storage/migrations'
 
 export type StorageAdapter = OrmAdapter &
@@ -90,6 +89,12 @@ const adapterMethods = v.object({
 	disconnect: v.optional(methodPipe),
 })
 
+const encryptionKeyPipe = v.custom<string>((value) => {
+	if (typeof value !== 'string' || !/^[A-Za-z0-9+/]{43}=$/.test(value)) return false
+	const key = Buffer.from(value, 'base64')
+	return key.length === 32 && key.toString('base64') === value
+}, 'Expected a canonical base64-encoded 32-byte encryption key or null.')
+
 export function dependenciesPipe() {
 	return v.object({
 		storage: v.object({
@@ -103,10 +108,7 @@ export function dependenciesPipe() {
 				'Expected a function.',
 			),
 		}),
-		secrets: v.object({
-			encode: v.custom<RuntimeDependencies['secrets']['encode']>(isCallback, 'Expected a function.'),
-			decode: v.custom<RuntimeDependencies['secrets']['decode']>(isCallback, 'Expected a function.'),
-		}),
+		secrets: v.object({ encryptionKey: v.nullable(encryptionKeyPipe) }),
 	})
 }
 
@@ -114,12 +116,10 @@ export function dependenciesPipe() {
 // Never re-pair a resolver with another adapter or manufacture configurations.
 export type RuntimeDependencies = {
 	storage: { adapter: StorageAdapter; resolveSchema: (name: string) => unknown }
-	secrets: {
-		encode: (input: { secretId: Id; value: string }) => Promise<string | null>
-		decode: (input: { secrets: Array<{ secretId: Id; valueRef: string }> }) => Promise<Record<Id, string | null>>
-	}
+	secrets: { encryptionKey: string | null }
 }
 
-export type CoreDependencies<A extends StorageAdapter> = Omit<RuntimeDependencies, 'storage'> & {
+export type CoreDependencies<A extends StorageAdapter> = Omit<RuntimeDependencies, 'storage' | 'secrets'> & {
 	storage: { adapter: A; resolveSchema: (name: string) => InferAdapterConfig<NoInfer<A>> }
+	secrets: { encryptionKey: string | null }
 } & StorageAdmission<NoInfer<A>>

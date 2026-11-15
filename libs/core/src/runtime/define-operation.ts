@@ -2,13 +2,13 @@ import type { Repo } from 'equipped/orm'
 import { v, type Pipe, type PipeInput, type PipeOutput } from 'valleyed'
 
 import type { StorageAdapter } from '../dependencies'
-import type { AuditStamp } from '../domain/commons'
+import type { auditStampPipe } from '../domain/commons'
 import { sharedOperationErrorPipe, type Result } from '../errors'
 import type { createSecretHelpers } from './secrets'
 
 export type OperationContext = {
 	readonly storage: Repo<StorageAdapter>
-	readonly stamp: AuditStamp
+	readonly stamp: Extract<PipeOutput<typeof auditStampPipe>, { src: 'local' }>
 	readonly secrets: ReturnType<typeof createSecretHelpers>
 }
 

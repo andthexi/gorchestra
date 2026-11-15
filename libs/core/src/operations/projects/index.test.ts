@@ -88,12 +88,6 @@ describe('projects', () => {
 	})
 	it('strips extra input and creates exactly one row without implicit children or codec calls', async () => {
 		const dependencies = createTestDependencies()
-		dependencies.secrets.encode = () => {
-			throw new Error('Projects must not encode')
-		}
-		dependencies.secrets.decode = () => {
-			throw new Error('Projects must not decode')
-		}
 		const adapter = dependencies.storage.adapter
 		const original = adapter.createMany.bind(adapter)
 		const descriptor = Object.getOwnPropertyDescriptor(adapter, 'createMany')

@@ -61,7 +61,10 @@ if (import.meta.vitest) {
 		const owner = new Owner(createTestDependencies(), migrations)
 		owner.build()
 		await owner.access('exclusive', async () => {
-			await owner.repo.session(() => owner.migrator.up())
+			await owner.repo.session(async () => {
+				await owner.migrator.up()
+				await owner.establishSecretProtection()
+			})
 			return { ok: true, value: undefined }
 		})
 		try {

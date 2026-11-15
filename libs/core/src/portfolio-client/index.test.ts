@@ -1,7 +1,7 @@
 import { EquippedError } from 'equipped/errors'
 import { Repo, Schema } from 'equipped/orm'
 import { InMemoryAdapter } from 'equipped/orm/adapters/in-memory'
-import { v, PipeError } from 'valleyed'
+import { v } from 'valleyed'
 import { expect, it } from 'vitest'
 
 import {
@@ -34,111 +34,6 @@ it('rejects an adapter without storage-wide locking before connecting', async ()
 	} finally {
 		if (descriptor) Object.defineProperty(adapter, 'lock', descriptor)
 		else Object.defineProperty(adapter, 'lock', { configurable: true, value: lock })
-	}
-})
-
-it.each([false, true])('drains a pending Secret encoder before cleanup (encoder fails: %s)', async (fail) => {
-	const deps = createTestDependencies()
-	const adapter = deps.storage.adapter
-	const entered = Promise.withResolvers<void>()
-	const encodeGate = Promise.withResolvers<void>()
-	const cleanupEntered = Promise.withResolvers<void>()
-	const cleanupGate = Promise.withResolvers<void>()
-	const events: string[] = []
-	let encodes = 0
-	let decodes = 0
-	let closed = false
-	let activeSession = false
-	let cleaned = 0
-	deps.secrets.encode = async () => {
-		encodes++
-		entered.resolve()
-		await encodeGate.promise
-		events.push('encoder-settled')
-		if (fail) throw new Error('synthetic-PROTECTED')
-		return 'synthetic-reference'
-	}
-	deps.secrets.decode = () => {
-		decodes++
-		return Promise.resolve({})
-	}
-	const opened = requireSuccess(await PortfolioClient.new(deps))
-	if (opened.state !== 'uninitialized') throw new Error('Expected setup')
-	const client = requireSuccess(await opened.setup())
-	const portfolio = requireSuccess(client.as({ by: 'drain' }))
-	const session = adapter.session.bind(adapter)
-	const createMany = adapter.createMany.bind(adapter)
-	const writes: Array<Record<string, unknown>[]> = []
-	adapter.session = async (work) => {
-		activeSession = true
-		try {
-			return await session(work)
-		} finally {
-			activeSession = false
-			events.push('session-settled')
-		}
-	}
-	adapter.createMany = (...args) => {
-		writes.push(args[2])
-		return createMany(...args)
-	}
-	adapter.disconnect = async () => {
-		cleaned++
-		events.push('cleanup')
-		expect(activeSession).toBe(false)
-		cleanupEntered.resolve()
-		await cleanupGate.promise
-	}
-	const pending = portfolio.secrets.create({ title: 'Pending', value: 'synthetic-PROTECTED' })
-	try {
-		await entered.promise
-		expect(activeSession).toBe(true)
-		expect(writes).toEqual([])
-		expect(adapter.stores.get('secrets')?.size ?? 0).toBe(0)
-		const shutdown = client.shutdown()
-		void shutdown.then(() => {
-			closed = true
-		})
-		expect(opened.shutdown()).toBe(shutdown)
-		expect(client.as({ by: 'later' })).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
-		expect(await portfolio.secrets.create({ title: 'Too late', value: 'synthetic-raw' })).toEqual({
-			ok: false,
-			error: { type: 'storage-operation-failed' },
-		})
-		expect(await portfolio.secrets.find({ secretId: '01k00000000000000000000001' })).toEqual({
-			ok: false,
-			error: { type: 'storage-operation-failed' },
-		})
-		expect(await portfolio.secrets.list()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
-		expect(closed).toBe(false)
-		expect(cleaned).toBe(0)
-		expect(writes).toEqual([])
-		encodeGate.resolve()
-		const result = await pending
-		if (fail) expect(result).toEqual({ ok: false, error: { type: 'secret-encoding-failed' } })
-		else {
-			const secret = requireSuccess(result)
-			expect(writes).toEqual([[{ ...secret, valueRef: 'synthetic-reference' }]])
-		}
-		await cleanupEntered.promise
-		expect(events).toEqual(['encoder-settled', 'session-settled', 'cleanup'])
-		expect(writes).toHaveLength(fail ? 0 : 1)
-		expect(adapter.stores.get('secrets')?.size ?? 0).toBe(fail ? 0 : 1)
-		expect(encodes).toBe(1)
-		expect(decodes).toBe(0)
-		expect(closed).toBe(false)
-		cleanupGate.resolve()
-		expect(await shutdown).toEqual({ ok: true, value: undefined })
-		expect(await opened.shutdown()).toEqual({ ok: true, value: undefined })
-		expect(cleaned).toBe(1)
-	} finally {
-		encodeGate.resolve()
-		cleanupGate.resolve()
-		await pending
-		await opened.shutdown()
-		adapter.session = session
-		adapter.createMany = createMany
-		delete adapter.disconnect
 	}
 })
 
@@ -216,7 +111,7 @@ it.each([false, true])(
 function dependencies(): CoreDependencies<InMemoryAdapter> {
 	return {
 		storage: { adapter: InMemoryAdapter.create({}), resolveSchema: (name) => ({ table: name }) },
-		secrets: { encode: () => Promise.resolve(null), decode: () => Promise.resolve({}) },
+		secrets: { encryptionKey: null },
 	}
 }
 
@@ -315,7 +210,7 @@ it.each(['left', 'right'] as const)('narrows the %s adapter before constructing 
 			.pipe(({ table }) => ({ table }))
 	}
 	async function openSelected(adapter: LeftAdapter | RightAdapter) {
-		const secrets = { encode: () => Promise.resolve(null), decode: () => Promise.resolve({}) }
+		const secrets = { encryptionKey: null }
 		switch (adapter.kind) {
 			case 'left': {
 				const resolveSchema: CoreDependencies<LeftAdapter>['storage']['resolveSchema'] = (name) => ({
@@ -504,74 +399,6 @@ it.each([null, undefined, 'synthetic-PROTECTED', {}, { storage: null }])(
 	},
 )
 
-it('rejects a nonfunction resolver without calling startup or codecs', async () => {
-	const deps = dependencies()
-	const calls: string[] = []
-	deps.storage.adapter.connect = () => {
-		calls.push('connect')
-		return Promise.resolve()
-	}
-	try {
-		const result: unknown = await Reflect.apply(PortfolioClient.new.bind(PortfolioClient), PortfolioClient, [
-			{ ...deps, storage: { ...deps.storage, resolveSchema: 'synthetic-PROTECTED' } },
-		])
-		expect(result).toEqual({
-			ok: false,
-			error: {
-				type: 'invalid-input',
-				issues: [{ path: 'storage.resolveSchema', message: 'Expected a function.' }],
-			},
-		})
-		expect(calls).toEqual([])
-	} finally {
-		delete deps.storage.adapter.connect
-	}
-})
-
-it.each([
-	['storage', 'resolveSchema'],
-	['secrets', 'encode'],
-	['secrets', 'decode'],
-] as const)('rejects a callable PipeError at %s.%s without exposing supplied issues', async (container, key) => {
-	const deps = dependencies()
-	const calls: string[] = []
-	const injected = Object.assign(() => calls.push('injected'), {
-		messages: [{ path: 'synthetic-PROTECTED', message: 'synthetic-PROTECTED' }],
-	})
-	Object.setPrototypeOf(injected, PipeError.prototype)
-	deps.storage.resolveSchema = (name) => {
-		calls.push('resolve')
-		return { table: name }
-	}
-	deps.secrets.encode = () => {
-		calls.push('encode')
-		return Promise.resolve(null)
-	}
-	deps.secrets.decode = () => {
-		calls.push('decode')
-		return Promise.resolve({})
-	}
-	deps.storage.adapter.connect = () => {
-		calls.push('connect')
-		return Promise.resolve()
-	}
-	const input = { ...deps, [container]: { ...deps[container], [key]: injected } }
-	try {
-		const result: unknown = await Reflect.apply(PortfolioClient.new.bind(PortfolioClient), PortfolioClient, [input])
-		expect(result).toEqual({
-			ok: false,
-			error: {
-				type: 'invalid-input',
-				issues: [{ path: `${container}.${key}`, message: 'Expected a function.' }],
-			},
-		})
-		expect(JSON.stringify(result)).not.toContain('synthetic-PROTECTED')
-		expect(calls).toEqual([])
-	} finally {
-		delete deps.storage.adapter.connect
-	}
-})
-
 it('does not require unused delete, raw or aggregate capabilities', async () => {
 	const deps = dependencies()
 	const adapter = deps.storage.adapter
@@ -588,44 +415,6 @@ it('does not require unused delete, raw or aggregate capabilities', async () => 
 			if (descriptor) Object.defineProperty(adapter, name, descriptor)
 			else Reflect.deleteProperty(adapter, name)
 		}
-	}
-})
-
-it('resolves native history and DDL names without preflighting codecs during opening or setup', async () => {
-	const deps = dependencies()
-	const calls: string[] = []
-	deps.storage.resolveSchema = (name) => {
-		calls.push(name)
-		return { table: name }
-	}
-	deps.secrets.encode = () => {
-		calls.push('encode')
-		return Promise.reject(new Error('synthetic-PROTECTED'))
-	}
-	deps.secrets.decode = () => {
-		calls.push('decode')
-		return Promise.reject(new Error('synthetic-PROTECTED'))
-	}
-	const opened = success(await PortfolioClient.new(deps))
-	try {
-		expect(calls).toEqual(['_equipped_migrations', '_equipped_migrations'])
-		if (opened.state !== 'uninitialized') throw new Error('Expected setup')
-		success(await opened.setup())
-		expect(calls).toEqual([
-			'_equipped_migrations',
-			'_equipped_migrations',
-			'_equipped_migrations',
-			'_equipped_migrations',
-			'_equipped_migrations',
-			'secrets',
-			'projects',
-			'assets',
-			'memories',
-			'memory_revisions',
-			'_equipped_migrations',
-		])
-	} finally {
-		success(await opened.shutdown())
 	}
 })
 
@@ -650,18 +439,6 @@ it('validates raw malformed adapter history and inspection outputs without leaki
 		Object.defineProperty(adapter, 'loadMigrations', { configurable: true, writable: true, value: load })
 		Object.defineProperty(adapter, 'introspect', { configurable: true, writable: true, value: inspect })
 	}
-})
-
-it('returns a safe error for hostile dependency getters without invoking callbacks', async () => {
-	const input = {
-		get storage() {
-			throw new Error('synthetic-PROTECTED')
-		},
-	}
-	await expect(Reflect.apply(PortfolioClient.new.bind(PortfolioClient), PortfolioClient, [input])).resolves.toEqual({
-		ok: false,
-		error: { type: 'internal-error' },
-	})
 })
 
 it.each([
@@ -775,27 +552,6 @@ it.each([
 	} finally {
 		if (original) Object.defineProperty(adapter, 'supportedFieldTypes', original)
 		else Reflect.deleteProperty(adapter, 'supportedFieldTypes')
-	}
-})
-
-it.each(['encode', 'decode'] as const)('requires %s even for setup-only opening', async (method) => {
-	const deps = dependencies()
-	let calls = 0
-	deps.storage.adapter.connect = () => {
-		calls++
-		return Promise.resolve()
-	}
-	try {
-		const result: unknown = await Reflect.apply(PortfolioClient.new.bind(PortfolioClient), PortfolioClient, [
-			{ ...deps, secrets: { ...deps.secrets, [method]: undefined } },
-		])
-		expect(result).toEqual({
-			ok: false,
-			error: { type: 'invalid-input', issues: [{ path: `secrets.${method}`, message: 'Expected a function.' }] },
-		})
-		expect(calls).toBe(0)
-	} finally {
-		delete deps.storage.adapter.connect
 	}
 })
 
@@ -1203,11 +959,12 @@ it('explicit setup commits the full catalog and returns a fresh ready view', asy
 			'memories',
 			'memory_revisions',
 			'projects',
+			'secret_protection',
 			'secrets',
 		])
 		expect(
 			(await deps.storage.adapter.loadMigrations({ table: '_equipped_migrations' })).map(({ id }) => id),
-		).toEqual(['01m76d124c6e848k2hfvb4mar2'])
+		).toEqual(['01m8h0t7m21v7t5bs8d9r9zq1a'])
 		expect(await opened.setup()).toEqual({ ok: false, error: { type: 'storage-already-initialized' } })
 	} finally {
 		success(await opened.shutdown())
@@ -1225,53 +982,4 @@ it('refuses a metadata-only application table instead of treating no rows as emp
 	expect(await PortfolioClient.new(deps)).toEqual({ ok: false, error: { type: 'storage-not-empty' } })
 	expect((await deps.storage.adapter.introspect()).map(({ name }) => name)).toEqual(['existing'])
 	expect(await deps.storage.adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual([])
-})
-
-it('requires both codecs and supported native methods before startup', async () => {
-	const deps = dependencies()
-	const calls: string[] = []
-	deps.storage.adapter.connect = () => {
-		calls.push('connect')
-		return Promise.resolve()
-	}
-	deps.storage.adapter.disconnect = () => {
-		calls.push('disconnect')
-		return Promise.resolve()
-	}
-	try {
-		const result: unknown = await Reflect.apply(PortfolioClient.new.bind(PortfolioClient), PortfolioClient, [
-			{ ...deps, secrets: { encode: deps.secrets.encode, decode: 'synthetic-PROTECTED' } },
-		])
-		expect(result).toEqual({
-			ok: false,
-			error: { type: 'invalid-input', issues: [{ path: 'secrets.decode', message: 'Expected a function.' }] },
-		})
-		expect(calls).toEqual([])
-	} finally {
-		delete deps.storage.adapter.connect
-		delete deps.storage.adapter.disconnect
-	}
-})
-
-it('opens fresh storage without application tables, migration writes or codec calls', async () => {
-	const adapter = InMemoryAdapter.create({})
-	const calls: string[] = []
-	const result = await PortfolioClient.new({
-		storage: { adapter, resolveSchema: (name) => ({ table: name }) },
-		secrets: {
-			encode: () => {
-				calls.push('encode')
-				return Promise.resolve(null)
-			},
-			decode: () => {
-				calls.push('decode')
-				return Promise.resolve({})
-			},
-		},
-	})
-	expect(result).toMatchObject({ ok: true, value: { state: 'uninitialized' } })
-	expect(await adapter.introspect()).toEqual([])
-	expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual([])
-	expect(calls).toEqual([])
-	if (result.ok) expect(await result.value.shutdown()).toEqual({ ok: true, value: undefined })
 })

@@ -115,6 +115,7 @@ export class PortfolioSetup {
 								case 'empty':
 									try {
 										await this.#owner.migrator.up()
+										await this.#owner.establishSecretProtection()
 										result = await this.#owner.confirmMigrationRun()
 									} catch (error) {
 										result = { ok: false, error: migrationFailure(error, this.#owner.catalog) }
@@ -292,40 +293,6 @@ if (import.meta.vitest) {
 			expect(await setup.value.shutdown()).toEqual({ ok: true, value: undefined })
 		}
 	}
-
-	it('resolves native history and pending DDL names without preflighting codecs during migration', async () => {
-		const dependencies = createTestDependencies()
-		const resolve = dependencies.storage.resolveSchema
-		const calls: string[] = []
-		let armed = false
-		dependencies.storage.resolveSchema = (name) => {
-			if (armed) calls.push(name)
-			return resolve(name)
-		}
-		dependencies.secrets.encode = () => {
-			calls.push('encode')
-			throw new Error('synthetic-PROTECTED')
-		}
-		dependencies.secrets.decode = () => {
-			calls.push('decode')
-			throw new Error('synthetic-PROTECTED')
-		}
-		const { opened } = await migrationFixture(upgradeCatalog, dependencies)
-		armed = true
-		try {
-			expect(await opened.migrate()).toMatchObject({ ok: true, value: { state: 'ready' } })
-			expect(calls).toEqual([
-				'_equipped_migrations',
-				'_equipped_migrations',
-				'_equipped_migrations',
-				'test_pending_one',
-				'test_pending_two',
-				'_equipped_migrations',
-			])
-		} finally {
-			expect(await opened.shutdown()).toEqual({ ok: true, value: undefined })
-		}
-	})
 
 	it('drains an admitted migration before shared cleanup and rejects new admission immediately', async () => {
 		const { adapter, opened } = await migrationFixture()
@@ -847,7 +814,7 @@ if (import.meta.vitest) {
 		const result = await openWithCatalog(
 			{
 				storage: { adapter, resolveSchema: (name) => ({ table: name }) },
-				secrets: { encode: () => Promise.resolve(null), decode: () => Promise.resolve({}) },
+				secrets: { encryptionKey: null },
 			},
 			[
 				...migrations,
@@ -872,14 +839,14 @@ if (import.meta.vitest) {
 		}
 	})
 
-	it('issues a migration view for a valid proper native catalog prefix', async () => {
+	it('rejects a migration prefix without established Secret protection', async () => {
 		const { InMemoryAdapter } = await import('equipped/orm/adapters/in-memory')
 		const adapter = InMemoryAdapter.create({})
-		await adapter.recordMigration({ table: '_equipped_migrations' }, '01m76d124c6e848k2hfvb4mar2', 0)
+		await adapter.recordMigration({ table: '_equipped_migrations' }, '01m8h0t7m21v7t5bs8d9r9zq1a', 0)
 		const result = await openWithCatalog(
 			{
 				storage: { adapter, resolveSchema: (name) => ({ table: name }) },
-				secrets: { encode: () => Promise.resolve(null), decode: () => Promise.resolve({}) },
+				secrets: { encryptionKey: null },
 			},
 			[
 				...migrations,
@@ -891,11 +858,10 @@ if (import.meta.vitest) {
 				},
 			],
 		)
-		expect(result).toMatchObject({ ok: true, value: { state: 'migration' } })
-		if (result.ok) expect(await result.value.shutdown()).toEqual({ ok: true, value: undefined })
+		expect(result).toEqual({ ok: false, error: { type: 'internal-error' } })
 		expect(await adapter.introspect()).toEqual([])
 		expect(await adapter.loadMigrations({ table: '_equipped_migrations' })).toEqual([
-			{ id: '01m76d124c6e848k2hfvb4mar2', appliedAt: 0 },
+			{ id: '01m8h0t7m21v7t5bs8d9r9zq1a', appliedAt: 0 },
 		])
 	})
 }
@@ -920,7 +886,11 @@ async function openWithCatalog(
 		}
 		owner.build()
 		const builtOwner = owner
-		const state = await builtOwner.access('shared', () => builtOwner.inspect())
+		const state = await builtOwner.access('shared', async () => {
+			const inspected = await builtOwner.inspect()
+			if (inspected.ok && inspected.value !== 'empty') await builtOwner.authenticateSecretProtection()
+			return inspected
+		})
 		if (!state.ok) {
 			const cleanup = await owner.shutdown()
 			return cleanup.ok ? state : cleanup

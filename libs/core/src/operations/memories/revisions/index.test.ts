@@ -295,8 +295,10 @@ describe('Memory revisions', () => {
 					})),
 					{ created: { ...memory.created, cid: undefined } },
 				]) {
-					adapter.findMany = async (...args) =>
-						(await findMany(...args)).map((row) => ({ ...row, ...corruption }))
+					adapter.findMany = async (...args) => {
+						const rows = await findMany(...args)
+						return args[0].name === 'memories' ? rows.map((row) => ({ ...row, ...corruption })) : rows
+					}
 					for (const expectedVersion of [1, 2])
 						expect(await portfolio.memories.revisions.create({ ...input, expectedVersion })).toEqual({
 							ok: false,
@@ -767,7 +769,7 @@ describe('Memory revisions', () => {
 			expect(requireSuccess(await portfolio.memories.find({ memoryId: pair.memory.id }))).toEqual(current)
 			const returned = requireSuccess(await list({ memoryId: pair.memory.id }))
 			returned[0]!.body = 'mutated'
-			returned[0]!.created.by = 'mutated'
+			if (returned[0]!.created.src === 'local') returned[0]!.created.by = 'mutated'
 			returned.reverse()
 			expect(requireSuccess(await list({ memoryId: pair.memory.id }))).toEqual(history)
 			adapter.stores.get('memory_revisions')!.set(other.revision.id, { ...other.revision, body: undefined })
@@ -803,7 +805,7 @@ describe('Memory revisions', () => {
 						ok: false,
 						error: { type: 'invalid-storage-output' },
 					})
-					expect(reads.splice(0)).toEqual(['memories'])
+					expect(reads.splice(0)).toEqual(['secret_protection', 'memories'])
 				}
 			} finally {
 				adapter.findMany = findMany
@@ -848,9 +850,9 @@ describe('Memory revisions', () => {
 				const { find } = portfolio.memories.revisions
 				const found = requireSuccess(await find({ revisionId: pair.revision.id }))
 				expect(found).toEqual(pair.revision)
-				expect(reads.splice(0)).toEqual(['memory_revisions'])
+				expect(reads.splice(0)).toEqual(['secret_protection', 'memory_revisions'])
 				found.body = 'mutated'
-				found.created.by = 'mutated'
+				if (found.created.src === 'local') found.created.by = 'mutated'
 				expect(requireSuccess(await find({ revisionId: pair.revision.id }))).toEqual(pair.revision)
 				expect(requireSuccess(await find({ revisionId: newer.id }))).toEqual(newer)
 				expect(adapter.stores.get('memory_revisions')!.get(pair.revision.id)).toEqual(stored)
@@ -872,7 +874,7 @@ describe('Memory revisions', () => {
 						error: { type: 'invalid-storage-output' },
 					})
 				}
-				expect(reads.every((name) => name === 'memory_revisions')).toBe(true)
+				expect(reads.every((name) => name === 'secret_protection' || name === 'memory_revisions')).toBe(true)
 				expect(codecCalls).toEqual({ encodes: 0, decodes: 0 })
 			} finally {
 				adapter.findMany = findMany
