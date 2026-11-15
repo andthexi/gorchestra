@@ -12,6 +12,7 @@ export type StorageAdapter = OrmAdapter &
 			| 'findByPk'
 			| 'findMany'
 			| 'createMany'
+			| 'deleteMany'
 			| 'updateByPk'
 			| 'updateMany'
 			| 'lock'
@@ -78,6 +79,7 @@ const adapterMethods = v.object({
 	findByPk: methodPipe,
 	findMany: methodPipe,
 	createMany: methodPipe,
+	deleteMany: methodPipe,
 	updateByPk: methodPipe,
 	updateMany: methodPipe,
 	lock: methodPipe,

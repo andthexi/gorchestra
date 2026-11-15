@@ -399,10 +399,10 @@ it.each([null, undefined, 'synthetic-PROTECTED', {}, { storage: null }])(
 	},
 )
 
-it('does not require unused delete, raw or aggregate capabilities', async () => {
+it('requires replacement deletion but not raw or aggregate capabilities', async () => {
 	const deps = dependencies()
 	const adapter = deps.storage.adapter
-	const methods = ['deleteMany', 'deleteByPk', 'raw', 'aggregate'] as const
+	const methods = ['deleteByPk', 'raw', 'aggregate'] as const
 	const descriptors = methods.map((name) => [name, Object.getOwnPropertyDescriptor(adapter, name)] as const)
 	for (const method of methods) Object.defineProperty(adapter, method, { configurable: true, value: undefined })
 	try {
