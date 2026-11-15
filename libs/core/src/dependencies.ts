@@ -15,10 +15,10 @@ export type StorageAdapter = OrmAdapter &
 			| 'createMany'
 			| 'updateByPk'
 			| 'updateMany'
+			| 'lock'
 			| 'loadMigrations'
 			| 'recordMigration'
 			| 'introspect'
-			| 'acquireMigrationLock'
 			| 'applyCreateTable'
 		>
 	>
@@ -81,10 +81,10 @@ const adapterMethods = v.object({
 	createMany: methodPipe,
 	updateByPk: methodPipe,
 	updateMany: methodPipe,
+	lock: methodPipe,
 	loadMigrations: methodPipe,
 	recordMigration: methodPipe,
 	introspect: methodPipe,
-	acquireMigrationLock: methodPipe,
 	applyCreateTable: methodPipe,
 	connect: v.optional(methodPipe),
 	disconnect: v.optional(methodPipe),

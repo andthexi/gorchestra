@@ -14,6 +14,29 @@ import {
 
 import { createTestDependencies, requireSuccess } from '../testing/fixtures'
 
+it('rejects an adapter without storage-wide locking before connecting', async () => {
+	const dependencies = createTestDependencies()
+	const adapter = dependencies.storage.adapter
+	const lock = adapter.lock.bind(adapter)
+	const descriptor = Object.getOwnPropertyDescriptor(adapter, 'lock')
+	let connected = false
+	adapter.connect = () => {
+		connected = true
+		return Promise.resolve()
+	}
+	Object.defineProperty(adapter, 'lock', { configurable: true, value: undefined })
+	try {
+		expect(await PortfolioClient.new(dependencies as never)).toMatchObject({
+			ok: false,
+			error: { type: 'invalid-input' },
+		})
+		expect(connected).toBe(false)
+	} finally {
+		if (descriptor) Object.defineProperty(adapter, 'lock', descriptor)
+		else Object.defineProperty(adapter, 'lock', { configurable: true, value: lock })
+	}
+})
+
 it.each([false, true])('drains a pending Secret encoder before cleanup (encoder fails: %s)', async (fail) => {
 	const deps = createTestDependencies()
 	const adapter = deps.storage.adapter
@@ -225,10 +248,10 @@ it('uses one resolved physical ledger for opening, locking, recording and reopen
 	const historyConfig = repo.resolveConfig('_equipped_migrations')
 	const load = adapter.loadMigrations.bind(adapter)
 	const record = adapter.recordMigration.bind(adapter)
-	const lock = adapter.acquireMigrationLock.bind(adapter)
+	const lock = adapter.lock.bind(adapter)
 	const loads: Parameters<typeof adapter.loadMigrations>[0][] = []
 	const records: Parameters<typeof adapter.recordMigration>[0][] = []
-	const locks: Parameters<typeof adapter.acquireMigrationLock>[0][] = []
+	const locks: Parameters<typeof adapter.lock>[0][] = []
 	adapter.loadMigrations = (config) => {
 		loads.push(config)
 		return load(config)
@@ -237,9 +260,9 @@ it('uses one resolved physical ledger for opening, locking, recording and reopen
 		records.push(config)
 		return record(config, id, at)
 	}
-	adapter.acquireMigrationLock = (config, work) => {
+	adapter.lock = (config, mode, work) => {
 		locks.push(config)
-		return lock(config, work)
+		return lock(config, mode, work)
 	}
 	try {
 		const opened = success(await PortfolioClient.new(deps))
@@ -254,7 +277,8 @@ it('uses one resolved physical ledger for opening, locking, recording and reopen
 			const ledger = await load(historyConfig)
 			expect(ledger).toHaveLength(1)
 			expect(records).toEqual([historyConfig])
-			expect(locks).toEqual([historyConfig])
+			expect(locks.length).toBeGreaterThan(0)
+			for (const config of locks) expect(config).toEqual(historyConfig)
 			expect(loads.length).toBeGreaterThan(0)
 			for (const config of loads) expect(config).toEqual(historyConfig)
 			expect(await load({ table: '_equipped_migrations' })).toEqual([])
@@ -273,7 +297,7 @@ it('uses one resolved physical ledger for opening, locking, recording and reopen
 	} finally {
 		adapter.loadMigrations = load
 		adapter.recordMigration = record
-		adapter.acquireMigrationLock = lock
+		adapter.lock = lock
 	}
 })
 
@@ -584,10 +608,12 @@ it('resolves native history and DDL names without preflighting codecs during ope
 	}
 	const opened = success(await PortfolioClient.new(deps))
 	try {
-		expect(calls).toEqual(['_equipped_migrations'])
+		expect(calls).toEqual(['_equipped_migrations', '_equipped_migrations'])
 		if (opened.state !== 'uninitialized') throw new Error('Expected setup')
 		success(await opened.setup())
 		expect(calls).toEqual([
+			'_equipped_migrations',
+			'_equipped_migrations',
 			'_equipped_migrations',
 			'_equipped_migrations',
 			'_equipped_migrations',
@@ -649,7 +675,7 @@ it.each([
 	'loadMigrations',
 	'recordMigration',
 	'introspect',
-	'acquireMigrationLock',
+	'lock',
 	'applyCreateTable',
 	'connect',
 	'disconnect',
@@ -946,7 +972,7 @@ it('cleans up unexpected native construction exceptions as internal errors', asy
 	}
 })
 
-it.each(['loadMigrations', 'introspect', 'acquireMigrationLock', 'recordMigration', 'session'] as const)(
+it.each(['loadMigrations', 'introspect', 'lock', 'recordMigration', 'session'] as const)(
 	'returns safe setup %s failures and permits retry after rollback',
 	async (method) => {
 		const deps = dependencies()

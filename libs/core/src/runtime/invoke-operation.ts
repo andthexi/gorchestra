@@ -23,19 +23,23 @@ export async function invokeOperation<II, IO, OI, OO, EI, EO>(
 	const release = owner.admit()
 	if (!release) return { ok: false, error: { type: 'storage-operation-failed' } }
 	try {
-		return await transaction<OO, EO | SharedOperationError>(owner, async () => {
-			let result: unknown
-			try {
-				result = await definition.handler(parsed, {
-					storage: owner.repo,
-					secrets: createSecretHelpers(owner.dependencies.secrets),
-					stamp: { src: 'local', at: new Date().toISOString(), ...attribution },
-				})
-			} catch {
-				result = { ok: false, error: { type: 'internal-error' } }
-			}
-			const output = v.validate(resultPipe(definition.output, definition.error), result)
-			return output.valid ? output.value : { ok: false, error: { type: 'invalid-output' } }
+		return await owner.access('shared', async () => {
+			const ready = await owner.validateReady()
+			if (!ready.ok) return ready
+			return transaction<OO, EO | SharedOperationError>(owner, async () => {
+				let result: unknown
+				try {
+					result = await definition.handler(parsed, {
+						storage: owner.repo,
+						secrets: createSecretHelpers(owner.dependencies.secrets),
+						stamp: { src: 'local', at: new Date().toISOString(), ...attribution },
+					})
+				} catch {
+					result = { ok: false, error: { type: 'internal-error' } }
+				}
+				const output = v.validate(resultPipe(definition.output, definition.error), result)
+				return output.valid ? output.value : { ok: false, error: { type: 'invalid-output' } }
+			})
 		})
 	} finally {
 		release()
@@ -58,7 +62,10 @@ if (import.meta.vitest) {
 			dependencies = createTestDependencies()
 			owner = new Owner(dependencies, migrations)
 			owner.build()
-			await owner.repo.session(() => owner.migrator.up())
+			await owner.access('exclusive', async () => {
+				await owner.repo.session(() => owner.migrator.up())
+				return { ok: true, value: undefined }
+			})
 		})
 		afterEach(async () => {
 			expect(await owner.shutdown()).toEqual({ ok: true, value: undefined })

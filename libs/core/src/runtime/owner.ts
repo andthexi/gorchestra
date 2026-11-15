@@ -1,4 +1,4 @@
-import { Migrator, Repo, type Migration } from 'equipped/orm'
+import { Migrator, OrmLockError, Repo, type Migration } from 'equipped/orm'
 import { v } from 'valleyed'
 
 import type { CoreDependencies, RuntimeDependencies, StorageAdapter } from '../dependencies'
@@ -64,6 +64,21 @@ export class Owner {
 		return state
 	}
 
+	async inspectHistory() {
+		let history: unknown
+		try {
+			history = await this.dependencies.storage.adapter.loadMigrations(
+				this.repo.resolveConfig('_equipped_migrations'),
+			)
+		} catch {
+			return { ok: false, error: { type: 'storage-operation-failed' } } as const
+		}
+		return classifyMigrationHistory(
+			history,
+			this.catalog.map(({ id }) => id),
+		)
+	}
+
 	async confirmMigrationRun(): Promise<Result<void, StorageOperationFailedError>> {
 		let history: unknown
 		try {
@@ -83,6 +98,33 @@ export class Owner {
 		// failure. Abort the outer session and do not admit another setup.
 		this.closeAdmission()
 		return { ok: false, error: { type: 'storage-operation-failed' } }
+	}
+
+	async validateReady(): Promise<Result<void, StorageOperationFailedError>> {
+		const state = await this.inspectHistory()
+		if (state.ok && state.value === 'ready') return { ok: true, value: undefined }
+		if (state.ok || state.error.type !== 'storage-operation-failed') this.closeAdmission()
+		return { ok: false, error: { type: 'storage-operation-failed' } }
+	}
+
+	async access<T, E>(
+		mode: 'shared' | 'exclusive',
+		work: () => Promise<Result<T, E>>,
+	): Promise<Result<T, E | StorageOperationFailedError>> {
+		let entered = false
+		try {
+			return await this.repo.lock('_equipped_migrations', mode, () => {
+				entered = true
+				return work()
+			})
+		} catch (error) {
+			if (!(error instanceof OrmLockError)) {
+				if (entered) throw error
+				return { ok: false, error: { type: 'storage-operation-failed' } }
+			}
+			if (error.reason !== 'busy' && error.reason !== 'acquisition-failed') this.closeAdmission()
+			return { ok: false, error: { type: 'storage-operation-failed' } }
+		}
 	}
 
 	closeAdmission() {
@@ -163,9 +205,12 @@ if (import.meta.vitest) {
 		try {
 			expect(owner.dependencies.storage.adapter).toBe(adapter)
 			expect(await owner.inspect()).toEqual({ ok: true, value: 'empty' })
-			await owner.repo.session(async () => {
-				await owner.migrator.up()
-				expect(await owner.confirmMigrationRun()).toEqual({ ok: true, value: undefined })
+			await owner.access('exclusive', async () => {
+				await owner.repo.session(async () => {
+					await owner.migrator.up()
+					expect(await owner.confirmMigrationRun()).toEqual({ ok: true, value: undefined })
+				})
+				return { ok: true, value: undefined }
 			})
 			const project = await withExplicitId('01k00000000000000000000001', () =>
 				owner.repo
