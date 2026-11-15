@@ -1,4 +1,5 @@
 export { Portfolio } from './portfolio'
+export type { SnapshotError } from './portfolio/snapshot'
 export type { CoreDependencies } from './dependencies'
 export { PortfolioClient, PortfolioSetup, PortfolioMigration } from './portfolio-client'
 export type { AuditStamp, Id } from './domain/commons'

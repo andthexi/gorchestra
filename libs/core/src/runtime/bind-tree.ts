@@ -60,7 +60,13 @@ if (import.meta.vitest) {
 		const { migrations } = await import('../storage/migrations')
 		const owner = new Owner(createTestDependencies(), migrations)
 		owner.build()
-		await owner.repo.session(() => owner.migrator.up())
+		await owner.access('exclusive', async () => {
+			await owner.repo.session(async () => {
+				await owner.migrator.up()
+				await owner.establishSecretProtection()
+			})
+			return { ok: true, value: undefined }
+		})
 		try {
 			const parse = defineOperation({
 				title: 'Parse',

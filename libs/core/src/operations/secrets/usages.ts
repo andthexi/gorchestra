@@ -21,6 +21,8 @@ export const usages = defineOperation({
 			return { ok: false, error: { type: 'not-found', resource: 'secret' as const, id: input.secretId } }
 		const secret = stored(secretPipe, secretRead.value)
 		if (!secret.ok) return secret
+		if (!context.secrets.matches(secret.value.value))
+			return { ok: false, error: { type: 'invalid-storage-output' } }
 
 		const query = context.storage
 			.on(assetSchema)

@@ -9,16 +9,16 @@ describe('projects', () => {
 		const adapter = dependencies.storage.adapter
 		const findMany = adapter.findMany.bind(adapter)
 		const session = adapter.session.bind(adapter)
+		const lock = adapter.lock.bind(adapter)
 		const entered = Promise.withResolvers<void>()
 		const release = Promise.withResolvers<void>()
-		const submitted = Promise.withResolvers<void>()
+
 		await withReadyPortfolio(async (portfolio) => {
 			const baseline = requireSuccess(
 				await portfolio.projects.create({ title: 'Existing', spec: { type: 'source-control' } }),
 			)
 			const missing = '01k00000000000000000000001'
 			let held = false
-			let attempts = 0
 			let createdBeforeRelease = false
 			adapter.findMany = async (...args) => {
 				const rows = await findMany(...args)
@@ -29,10 +29,8 @@ describe('projects', () => {
 				}
 				return rows
 			}
-			adapter.session = (work) => {
-				if (++attempts === 2) submitted.resolve()
-				return session(work)
-			}
+			adapter.session = (work) => session(work)
+			adapter.lock = (_config, _mode, work) => work()
 			const lookup = portfolio.projects.find({ projectId: missing })
 			const pending: Promise<unknown>[] = [lookup]
 			try {
@@ -44,7 +42,6 @@ describe('projects', () => {
 						return result
 					})
 				pending.push(creation)
-				await submitted.promise
 				// Drain promise-only native work without awaiting a queued transaction.
 				await new Promise<void>((resolve) => setImmediate(resolve))
 				const settledWhileHeld = createdBeforeRelease
@@ -65,6 +62,7 @@ describe('projects', () => {
 				await Promise.allSettled(pending)
 				adapter.findMany = findMany
 				adapter.session = session
+				adapter.lock = lock
 			}
 		}, dependencies)
 	})
@@ -90,12 +88,6 @@ describe('projects', () => {
 	})
 	it('strips extra input and creates exactly one row without implicit children or codec calls', async () => {
 		const dependencies = createTestDependencies()
-		dependencies.secrets.encode = () => {
-			throw new Error('Projects must not encode')
-		}
-		dependencies.secrets.decode = () => {
-			throw new Error('Projects must not decode')
-		}
 		const adapter = dependencies.storage.adapter
 		const original = adapter.createMany.bind(adapter)
 		const descriptor = Object.getOwnPropertyDescriptor(adapter, 'createMany')

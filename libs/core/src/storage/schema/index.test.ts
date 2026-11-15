@@ -80,13 +80,16 @@ it('stores and reads the five authoritative models with generated identities and
 			}),
 	)
 	const secret = await withExplicitId(secretId, () =>
-		repo.on(secretSchema).one().create({
-			id: secretId,
-			title: '  Access  ',
-			valueRef: ' 	\n',
-			created,
-			valueUpdated: created,
-		}),
+		repo
+			.on(secretSchema)
+			.one()
+			.create({
+				id: secretId,
+				title: '  Access  ',
+				value: { mode: 'plaintext', plaintext: ' 	\n' },
+				created,
+				valueUpdated: created,
+			}),
 	)
 	const asset = await withExplicitId(assetId, () =>
 		repo
@@ -125,7 +128,13 @@ it('stores and reads the five authoritative models with generated identities and
 	)
 
 	expect(project).toEqual({ id: projectId, title: 'Project', spec: { type: 'source-control' }, created })
-	expect(secret).toEqual({ id: secretId, title: 'Access', valueRef: ' 	\n', created, valueUpdated: created })
+	expect(secret).toEqual({
+		id: secretId,
+		title: 'Access',
+		value: { mode: 'plaintext', plaintext: ' 	\n' },
+		created,
+		valueUpdated: created,
+	})
 	expect(asset).toEqual({
 		id: assetId,
 		projectId,

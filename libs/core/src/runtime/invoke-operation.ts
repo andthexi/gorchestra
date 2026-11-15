@@ -4,7 +4,6 @@ import type { attributionPipe } from '../domain/commons'
 import { inputIssues, resultPipe, type Result, type SharedOperationError } from '../errors'
 import { defineOperation, type Operation } from './define-operation'
 import { Owner } from './owner'
-import { createSecretHelpers } from './secrets'
 import { transaction } from './transaction'
 
 export async function invokeOperation<II, IO, OI, OO, EI, EO>(
@@ -23,19 +22,28 @@ export async function invokeOperation<II, IO, OI, OO, EI, EO>(
 	const release = owner.admit()
 	if (!release) return { ok: false, error: { type: 'storage-operation-failed' } }
 	try {
-		return await transaction<OO, EO | SharedOperationError>(owner, async () => {
-			let result: unknown
+		return await owner.access('shared', async () => {
+			const ready = await owner.validateReady()
+			if (!ready.ok) return ready
 			try {
-				result = await definition.handler(parsed, {
-					storage: owner.repo,
-					secrets: createSecretHelpers(owner.dependencies.secrets),
-					stamp: { src: 'local', at: new Date().toISOString(), ...attribution },
-				})
+				await owner.ensureSecretProtection()
 			} catch {
-				result = { ok: false, error: { type: 'internal-error' } }
+				return { ok: false, error: { type: 'storage-operation-failed' } }
 			}
-			const output = v.validate(resultPipe(definition.output, definition.error), result)
-			return output.valid ? output.value : { ok: false, error: { type: 'invalid-output' } }
+			return transaction<OO, EO | SharedOperationError>(owner, async () => {
+				let result: unknown
+				try {
+					result = await definition.handler(parsed, {
+						storage: owner.repo,
+						secrets: owner.secrets,
+						stamp: { src: 'local', at: new Date().toISOString(), ...attribution },
+					})
+				} catch {
+					result = { ok: false, error: { type: 'internal-error' } }
+				}
+				const output = v.validate(resultPipe(definition.output, definition.error), result)
+				return output.valid ? output.value : { ok: false, error: { type: 'invalid-output' } }
+			})
 		})
 	} finally {
 		release()
@@ -58,7 +66,13 @@ if (import.meta.vitest) {
 			dependencies = createTestDependencies()
 			owner = new Owner(dependencies, migrations)
 			owner.build()
-			await owner.repo.session(() => owner.migrator.up())
+			await owner.access('exclusive', async () => {
+				await owner.repo.session(async () => {
+					await owner.migrator.up()
+					await owner.establishSecretProtection()
+				})
+				return { ok: true, value: undefined }
+			})
 		})
 		afterEach(async () => {
 			expect(await owner.shutdown()).toEqual({ ok: true, value: undefined })
@@ -334,9 +348,7 @@ if (import.meta.vitest) {
 					expect(input.text.toFixed()).toBe('4')
 					expect(context.storage).toBe(owner.repo)
 					expect(Object.keys(context).sort()).toEqual(['secrets', 'stamp', 'storage'])
-					expect(Object.keys(context.secrets).sort()).toEqual(['decode', 'encode'])
-					expect(context.secrets.encode).not.toBe(owner.dependencies.secrets.encode)
-					expect(context.secrets.decode).not.toBe(owner.dependencies.secrets.decode)
+					expect(Object.keys(context.secrets).sort()).toEqual(['decode', 'encode', 'matches'])
 					return Promise.resolve({ ok: true, value: 'parsed', cause: 'synthetic-PROTECTED' })
 				},
 			})

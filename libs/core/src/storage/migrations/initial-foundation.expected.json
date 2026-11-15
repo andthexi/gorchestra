@@ -1,5 +1,5 @@
 {
-	"id": "01m76d124c6e848k2hfvb4mar2",
+	"id": "01m8h0t7m21v7t5bs8d9r9zq1a",
 	"tx": true,
 	"changes": [
 		{
@@ -15,8 +15,8 @@
 					"type": "string"
 				},
 				{
-					"name": "valueRef",
-					"type": "string"
+					"name": "value",
+					"type": "object"
 				},
 				{
 					"name": "created",
@@ -24,6 +24,20 @@
 				},
 				{
 					"name": "valueUpdated",
+					"type": "object"
+				}
+			]
+		},
+		{
+			"kind": "createTable",
+			"name": "secret_protection",
+			"pk": {
+				"name": "id",
+				"type": "string"
+			},
+			"fields": [
+				{
+					"name": "spec",
 					"type": "object"
 				}
 			]

@@ -1,9 +1,19 @@
-import { Migrator, Repo, type Migration } from 'equipped/orm'
+import { Migrator, OrmLockError, Repo, type Migration } from 'equipped/orm'
 import { v } from 'valleyed'
 
 import type { CoreDependencies, RuntimeDependencies, StorageAdapter } from '../dependencies'
+import { secretProtectionPipe, secretProtectionSchema } from '../domain/secret-protection'
 import type { Result, StorageOperationFailedError, SetupError } from '../errors'
 import { classifyMigrationHistory } from '../storage/history'
+import { stored } from '../storage/read'
+import { withExplicitId } from '../storage/schema'
+import {
+	authenticateProtection,
+	createProtection,
+	createSecretHelpers,
+	parseEncryptionKey,
+	SECRET_PROTECTION_ID,
+} from './secrets'
 
 // Internal resource lifetime, never exported from the package entry.
 export class Owner {
@@ -14,11 +24,50 @@ export class Owner {
 	#cleanup: Promise<Result<void, StorageOperationFailedError>> | undefined
 	#repo: Repo<StorageAdapter> | undefined
 	#migrator: Migrator<StorageAdapter> | undefined
+	#secretHelpers: ReturnType<typeof createSecretHelpers> | undefined
+	readonly encryptionKey: Buffer | null
 
 	constructor(
 		readonly dependencies: RuntimeDependencies,
 		readonly catalog: readonly Migration<StorageAdapter>[],
-	) {}
+	) {
+		this.encryptionKey = parseEncryptionKey(dependencies.secrets.encryptionKey)
+	}
+
+	get secrets() {
+		if (!this.#secretHelpers) throw new Error('Secret protection has not been authenticated.')
+		return this.#secretHelpers
+	}
+
+	async establishSecretProtection() {
+		const candidate = createProtection(this.encryptionKey)
+		const created = await withExplicitId(SECRET_PROTECTION_ID, () =>
+			this.repo.on(secretProtectionSchema).one().create(candidate),
+		)
+		const parsedCreate = stored(secretProtectionPipe, created)
+		if (!parsedCreate.ok || parsedCreate.value.id !== SECRET_PROTECTION_ID)
+			throw new Error('Invalid created Secret protection.')
+		const rows = await this.repo.on(secretProtectionSchema).all().find()
+		if (rows.length !== 1) throw new Error('Invalid Secret protection count.')
+		const protection = stored(secretProtectionPipe, rows[0])
+		if (!protection.ok || protection.value.id !== SECRET_PROTECTION_ID)
+			throw new Error('Invalid Secret protection.')
+		authenticateProtection(protection.value, this.encryptionKey)
+	}
+
+	async ensureSecretProtection() {
+		await this.authenticateSecretProtection()
+	}
+
+	async authenticateSecretProtection() {
+		const rows = await this.repo.on(secretProtectionSchema).all().find()
+		if (rows.length !== 1) throw new Error('Invalid Secret protection count.')
+		const protection = stored(secretProtectionPipe, rows[0])
+		if (!protection.ok) throw new Error('Invalid Secret protection.')
+		if (protection.value.id !== SECRET_PROTECTION_ID) throw new Error('Invalid Secret protection identity.')
+		authenticateProtection(protection.value, this.encryptionKey)
+		this.#secretHelpers = createSecretHelpers(protection.value, this.encryptionKey)
+	}
 
 	build() {
 		this.#repo = Repo.from<StorageAdapter>(this.dependencies.storage.adapter)
@@ -64,6 +113,21 @@ export class Owner {
 		return state
 	}
 
+	async inspectHistory() {
+		let history: unknown
+		try {
+			history = await this.dependencies.storage.adapter.loadMigrations(
+				this.repo.resolveConfig('_equipped_migrations'),
+			)
+		} catch {
+			return { ok: false, error: { type: 'storage-operation-failed' } } as const
+		}
+		return classifyMigrationHistory(
+			history,
+			this.catalog.map(({ id }) => id),
+		)
+	}
+
 	async confirmMigrationRun(): Promise<Result<void, StorageOperationFailedError>> {
 		let history: unknown
 		try {
@@ -83,6 +147,33 @@ export class Owner {
 		// failure. Abort the outer session and do not admit another setup.
 		this.closeAdmission()
 		return { ok: false, error: { type: 'storage-operation-failed' } }
+	}
+
+	async validateReady(): Promise<Result<void, StorageOperationFailedError>> {
+		const state = await this.inspectHistory()
+		if (state.ok && state.value === 'ready') return { ok: true, value: undefined }
+		if (state.ok || state.error.type !== 'storage-operation-failed') this.closeAdmission()
+		return { ok: false, error: { type: 'storage-operation-failed' } }
+	}
+
+	async access<T, E>(
+		mode: 'shared' | 'exclusive',
+		work: () => Promise<Result<T, E>>,
+	): Promise<Result<T, E | StorageOperationFailedError>> {
+		let entered = false
+		try {
+			return await this.repo.lock('_equipped_migrations', mode, () => {
+				entered = true
+				return work()
+			})
+		} catch (error) {
+			if (!(error instanceof OrmLockError)) {
+				if (entered) throw error
+				return { ok: false, error: { type: 'storage-operation-failed' } }
+			}
+			if (error.reason !== 'busy' && error.reason !== 'acquisition-failed') this.closeAdmission()
+			return { ok: false, error: { type: 'storage-operation-failed' } }
+		}
 	}
 
 	closeAdmission() {
@@ -156,16 +247,19 @@ if (import.meta.vitest) {
 		const owner = buildOwner(
 			{
 				storage: { adapter, resolveSchema },
-				secrets: { encode: () => Promise.resolve(null), decode: () => Promise.resolve({}) },
+				secrets: { encryptionKey: null },
 			},
 			migrations,
 		)
 		try {
 			expect(owner.dependencies.storage.adapter).toBe(adapter)
 			expect(await owner.inspect()).toEqual({ ok: true, value: 'empty' })
-			await owner.repo.session(async () => {
-				await owner.migrator.up()
-				expect(await owner.confirmMigrationRun()).toEqual({ ok: true, value: undefined })
+			await owner.access('exclusive', async () => {
+				await owner.repo.session(async () => {
+					await owner.migrator.up()
+					expect(await owner.confirmMigrationRun()).toEqual({ ok: true, value: undefined })
+				})
+				return { ok: true, value: undefined }
 			})
 			const project = await withExplicitId('01k00000000000000000000001', () =>
 				owner.repo
