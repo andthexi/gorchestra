@@ -1,3 +1,0 @@
-# Core storage uses Equipped Repo
-
-Gorchestra Core storage is backed directly by an Equipped Repo supplied by the Consumer for one already-scoped Portfolio storage boundary. Core owns its storage schemas, storage validation, storage helpers, and exported migration definitions, while Consumers choose the Equipped adapter, configure the Repo for the target Portfolio, and run Core-provided migrations explicitly outside `openCore` using Equipped's Migrator. Core receives the Repo directly rather than a custom storage service with `preflight` and `transaction` functions so Core can own Portfolio persistence semantics without depending on one database implementation.

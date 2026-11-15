@@ -11,7 +11,12 @@
 		"maxCyclomatic": 80,
 		"maxCrap": 4000
 	},
+	"typeAware": {
+		"enabled": false,
+		"require": "best-effort"
+	},
 	"audit": {
-		"gate": "all"
+		"gate": "all",
+		"typeAware": true
 	}
 }

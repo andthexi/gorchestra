@@ -1,29 +1,42 @@
-import base from '@k11/configs/eslint/base'
+import { defineConfig } from 'eslint/config'
+import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript'
 import tseslint from 'typescript-eslint'
+import node from 'xi-configs/eslint/node-ts'
 
-export default tseslint.config(
-	{ ignores: ['coverage/**', '.husky/_/**', '**/.nuxt/**', '**/.output/**'] },
-	...base,
-	...tseslint.configs.recommendedTypeChecked,
+const typedFiles = ['**/*.{ts,tsx,mts,cts}']
+const typedRules = Object.assign({}, ...tseslint.configs.recommendedTypeCheckedOnly.map((config) => config.rules))
+
+export default defineConfig([
 	{
-		settings: {
-			'import/resolver': {
-				typescript: {
-					project: './tsconfig.eslint.json',
-				},
-			},
-		},
+		ignores: [
+			'**/node_modules/**',
+			'**/dist/**',
+			'**/coverage/**',
+			'**/.cache/**',
+			'**/.fallow/**',
+			'.husky/_/**',
+			'.trowel/**',
+			'dev/**',
+		],
 	},
 	{
-		files: ['src/**/*.ts', 'libs/**/*.ts', 'consumers/**/*.ts'],
+		files: ['**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'],
+		extends: [node],
+	},
+	{
+		files: typedFiles,
+		rules: typedRules,
+		settings: {
+			'import-x/resolver-next': [
+				createTypeScriptImportResolver({ project: ['tsconfig.json', 'libs/*/tsconfig.json'] }),
+			],
+		},
 		languageOptions: {
 			parserOptions: {
-				project: './tsconfig.eslint.json',
+				project: true,
+				projectService: false,
 				tsconfigRootDir: import.meta.dirname,
 			},
 		},
-		rules: {
-			'@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
-		},
 	},
-)
+])

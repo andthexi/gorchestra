@@ -1,3 +1,0 @@
-# Portfolio Owner export and import authority
-
-Exporting or restoring a Portfolio Snapshot requires Portfolio Owner authority because Snapshots include Secrets and full Portfolio orchestration history, and restore replaces the currently-open Portfolio contents. In the v1 server app, the Workspace Owner is also the Portfolio Owner for the Workspace's default Portfolio. Creating a new Portfolio from a Snapshot is a consumer workflow: the Workspace Owner provisions and owns the new Portfolio, then the server opens Core for that Portfolio and restores the Snapshot into it. Future consumers may infer Portfolio Owner authority differently.
