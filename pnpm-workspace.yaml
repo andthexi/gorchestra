@@ -14,7 +14,7 @@ allowBuilds:
     unrs-resolver: true
 
 overrides:
-    equipped: 5.3.7
+    equipped: 5.3.8
     valleyed: 4.5.25
 
 minimumReleaseAge: 1440
