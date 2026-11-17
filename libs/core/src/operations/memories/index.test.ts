@@ -454,7 +454,7 @@ describe('memories', () => {
 						adapter.session = session
 					}
 					expect(sessions).toBe(1)
-					expect(inserted).toBe(stage === 'before-revision' ? 1 : 2)
+					expect(inserted).toBe(stage === 'before-revision' || stage === 'memory-output' ? 1 : 2)
 					expect(attempts.map(({ table }) => table)).toEqual(
 						stage === 'memory-output' ? ['memories'] : ['memories', 'memory_revisions'],
 					)
