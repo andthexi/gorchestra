@@ -1,6 +1,6 @@
 # Make transaction boundaries explicit
 
-Accepted; explicit transaction boundaries and removal of internal Result validation are **unimplemented**. The current shared runner still wraps handlers in a transaction and validates their Results; see [package usage](../../../libs/core/README.md#memory-hierarchy-and-immutable-revision-reads).
+Accepted; the shared runner still retains its wrapper-owned transaction, while removal of Core-authored Result validation and validation of external storage responses are implemented. Explicit handler-owned transaction boundaries remain unimplemented; see [package usage](../../../libs/core/README.md#memory-hierarchy-and-immutable-revision-reads).
 
 An automatic transaction around every handler imposes one commit boundary even when an operation must persist intent before an external call. Remove that automatic wrapper: handlers explicitly call a shared transaction helper around work that must commit together, and the helper aborts its transaction on a failed Result or exception. Memory creation groups its Memory and first Revision; [interaction startup](2026-11-12-0140-interaction-starts.md) uses separate transactions for launch intent and startup confirmation, with no transaction or database lock across the intervening harness call. Required atomic domain changes must still commit together; removing the blanket boundary does not relax their invariants.
 

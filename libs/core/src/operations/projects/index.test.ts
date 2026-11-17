@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import type { StorageAdapter } from '../../dependencies'
 import { PortfolioClient } from '../../index'
 import { createTestDependencies, requireSuccess, withReadyPortfolio } from '../../testing/fixtures'
 
@@ -66,19 +67,19 @@ describe('projects', () => {
 			}
 		}, dependencies)
 	})
-	it('rolls back a malformed native create result as invalid-output', async () => {
+	it('rejects malformed native create data as invalid-storage-output and rolls back', async () => {
 		const dependencies = createTestDependencies()
 		const adapter = dependencies.storage.adapter
 		const original = adapter.createMany.bind(adapter)
 		await withReadyPortfolio(async (portfolio) => {
 			try {
-				adapter.createMany = async (...args) =>
+				adapter.createMany = async (...args: Parameters<StorageAdapter['createMany']>) =>
 					(await original(...args)).map((row) => ({ ...row, title: null }))
 				expect(
 					await portfolio.projects.create({ title: 'Uncommitted', spec: { type: 'source-control' } }),
 				).toEqual({
 					ok: false,
-					error: { type: 'invalid-output' },
+					error: { type: 'invalid-storage-output' },
 				})
 				expect(requireSuccess(await portfolio.projects.list())).toEqual([])
 			} finally {
@@ -223,6 +224,24 @@ describe('projects', () => {
 			} finally {
 				adapter.createMany = original
 			}
+		}, dependencies)
+	})
+	it('rejects a malformed native Project create response through the storage schema pipe', async () => {
+		const dependencies = createTestDependencies()
+		const adapter = dependencies.storage.adapter
+		const createMany = adapter.createMany.bind(adapter)
+		await withReadyPortfolio(async (portfolio) => {
+			try {
+				adapter.createMany = async (...args: Parameters<StorageAdapter['createMany']>) =>
+					(await createMany(...args)).map((row) => ({ ...row, title: null }))
+				expect(await portfolio.projects.create({ title: 'Valid', spec: { type: 'source-control' } })).toEqual({
+					ok: false,
+					error: { type: 'invalid-storage-output' },
+				})
+			} finally {
+				adapter.createMany = createMany
+			}
+			expect(requireSuccess(await portfolio.projects.list())).toEqual([])
 		}, dependencies)
 	})
 	it('distinguishes malformed stored Projects from missing records and final output', async () => {

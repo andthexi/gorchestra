@@ -445,7 +445,7 @@ describe('memories', () => {
 							error: {
 								type:
 									stage === 'memory-output' || stage === 'revision-output'
-										? 'invalid-output'
+										? 'invalid-storage-output'
 										: 'storage-operation-failed',
 							},
 						})
@@ -455,7 +455,18 @@ describe('memories', () => {
 					}
 					expect(sessions).toBe(1)
 					expect(inserted).toBe(stage === 'before-revision' ? 1 : 2)
-					expect(attempts.map(({ table }) => table)).toEqual(['memories', 'memory_revisions'])
+					expect(attempts.map(({ table }) => table)).toEqual(
+						stage === 'memory-output' ? ['memories'] : ['memories', 'memory_revisions'],
+					)
+					if (stage === 'memory-output') {
+						const memoryId = attempts[0]!.rows[0]!.id
+						if (typeof memoryId !== 'string') throw new Error('Expected attempted Memory ID')
+						expect(await portfolio.memories.find({ memoryId })).toEqual({
+							ok: false,
+							error: { type: 'not-found', resource: 'memory', id: memoryId },
+						})
+						continue
+					}
 					const memoryId = attempts[0]!.rows[0]!.id
 					const revisionId = attempts[1]!.rows[0]!.id
 					if (typeof memoryId !== 'string' || typeof revisionId !== 'string')

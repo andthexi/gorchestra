@@ -74,6 +74,8 @@ export const create = defineOperation({
 			),
 		)
 		if (!revision.ok) return revision
-		return { ok: true, value: { memory, revision: revision.value } }
+		const validatedRevision = stored(memoryRevisionPipe, revision.value)
+		if (!validatedRevision.ok) return validatedRevision
+		return { ok: true, value: { memory, revision: validatedRevision.value } }
 	},
 })

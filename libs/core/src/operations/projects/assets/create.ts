@@ -47,10 +47,12 @@ export const create = defineOperation({
 		if (duplicate) return { ok: false, error: { type: 'duplicate-asset-target', assetId: duplicate.id } }
 		const id = Instance.createId()
 		const query = context.storage.on(assetSchema).one()
-		return withExplicitId(id, () =>
+		const created = await withExplicitId(id, () =>
 			storageCall(() =>
 				query.create({ id, projectId: input.projectId, spec: input.spec, created: context.stamp }),
 			),
 		)
+		if (!created.ok) return created
+		return stored(assetPipe, created.value)
 	},
 })

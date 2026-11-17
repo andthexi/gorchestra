@@ -1,7 +1,7 @@
 import { v, PipeError, type Pipe, type PipeOutput } from 'valleyed'
 
 import type { attributionPipe } from '../domain/commons'
-import { inputIssues, resultPipe, type Result, type SharedOperationError } from '../errors'
+import { inputIssues, type Result, type SharedOperationError } from '../errors'
 import { defineOperation, type Operation } from './define-operation'
 import { Owner } from './owner'
 import { transaction } from './transaction'
@@ -11,7 +11,7 @@ export async function invokeOperation<II, IO, OI, OO, EI, EO>(
 	owner: Owner,
 	attribution: PipeOutput<typeof attributionPipe>,
 	input: unknown,
-): Promise<Result<OO, EO | SharedOperationError>> {
+): Promise<Result<OI, EI | SharedOperationError>> {
 	let parsed: IO | PipeError
 	try {
 		parsed = v.compile(definition.input)(input)
@@ -30,7 +30,7 @@ export async function invokeOperation<II, IO, OI, OO, EI, EO>(
 			} catch {
 				return { ok: false, error: { type: 'storage-operation-failed' } }
 			}
-			return transaction<OO, EO | SharedOperationError>(owner, async () => {
+			return transaction<OI, EI | SharedOperationError>(owner, async () => {
 				let result: unknown
 				try {
 					result = await definition.handler(parsed, {
@@ -41,8 +41,7 @@ export async function invokeOperation<II, IO, OI, OO, EI, EO>(
 				} catch {
 					result = { ok: false, error: { type: 'internal-error' } }
 				}
-				const output = v.validate(resultPipe(definition.output, definition.error), result)
-				return output.valid ? output.value : { ok: false, error: { type: 'invalid-output' } }
+				return result as Result<OI, EI | SharedOperationError>
 			})
 		})
 	} finally {
@@ -110,7 +109,7 @@ if (import.meta.vitest) {
 			expect(rows[0]?.created).toEqual(rows[1]?.created)
 			expect(rows[0]?.created).toMatchObject({ src: 'local', ...attribution })
 		})
-		it('returns a parsed declared failure with extra fields stripped', async () => {
+		it('returns Core-authored Results unchanged without runtime transformations or stripping', async () => {
 			const operation = defineOperation({
 				title: 'Failure',
 				description: 'Synthetic transforming failure',
@@ -125,9 +124,14 @@ if (import.meta.vitest) {
 					}),
 			})
 			const result = await invokeOperation(operation, owner, attribution, undefined)
-			expect(result).toEqual({ ok: false, error: { type: 'synthetic-failure', length: 4 } })
+			expect(result).toEqual({
+				ok: false,
+				error: { type: 'synthetic-failure', length: 'four', cause: 'synthetic-PROTECTED' },
+				raw: 'synthetic-PROTECTED',
+			})
 			if (result.ok || result.error.type !== 'synthetic-failure') throw new Error('Expected declared failure')
-			expect(result.error.length.toFixed()).toBe('4')
+			expect(result.error.length).toBe('four')
+			expect(JSON.stringify(result)).toContain('synthetic-PROTECTED')
 		})
 		it.each(['skip', 'swallow'] as const)('refuses a native session protocol violation: %s', async (mode) => {
 			const adapter = dependencies.storage.adapter
@@ -332,7 +336,7 @@ if (import.meta.vitest) {
 				adapter.session = original
 			}
 		})
-		it('validates transformed output inside the session before commit', async () => {
+		it('does not transform or strip Core-authored output inside the session', async () => {
 			const adapter = dependencies.storage.adapter
 			const original = adapter.session.bind(adapter)
 			let inside = false
@@ -340,10 +344,7 @@ if (import.meta.vitest) {
 				title: 'Transform',
 				description: 'Synthetic transforming pipes',
 				input: v.object({ text: v.string().pipe((text) => text.length) }),
-				output: v.string().pipe((text) => {
-					expect(inside).toBe(true)
-					return text.length
-				}),
+				output: v.string().pipe((text: string) => text.length),
 				handler: (input, context) => {
 					expect(input.text.toFixed()).toBe('4')
 					expect(context.storage).toBe(owner.repo)
@@ -364,14 +365,14 @@ if (import.meta.vitest) {
 			try {
 				const result = await invokeOperation(operation, owner, attribution, { text: 'four', ignored: true })
 				expect(inside).toBe(false)
-				expect(result).toEqual({ ok: true, value: 6 })
+				expect(result).toEqual({ ok: true, value: 'parsed', cause: 'synthetic-PROTECTED' })
 				if (!result.ok) throw new Error('Expected success')
-				expect(result.value.toFixed()).toBe('6')
+				expect(result.value).toBe('parsed')
 			} finally {
 				adapter.session = original
 			}
 		})
-		it('rolls back malformed output instead of committing handler writes', async () => {
+		it('preserves the transaction for invalid storage results without parsing Core Results', async () => {
 			const operation = defineOperation({
 				title: 'Malformed',
 				description: 'Synthetic invalid output',
@@ -387,11 +388,8 @@ if (import.meta.vitest) {
 					return { ok: true, value: '' }
 				},
 			})
-			expect(await invokeOperation(operation, owner, attribution, undefined)).toEqual({
-				ok: false,
-				error: { type: 'invalid-output' },
-			})
-			expect(await owner.repo.on(projectSchema).all().find()).toEqual([])
+			expect(await invokeOperation(operation, owner, attribution, undefined)).toEqual({ ok: true, value: '' })
+			expect(await owner.repo.on(projectSchema).all().find()).toHaveLength(1)
 		})
 		it('rejects invalid input before admission and session or handler execution', async () => {
 			const adapter = dependencies.storage.adapter

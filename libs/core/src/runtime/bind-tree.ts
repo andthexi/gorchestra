@@ -26,7 +26,7 @@ type BoundNode<N> = N extends OperationGroup
 	: N extends Leaf
 		? (
 				...args: [PipeInput<N['input']>] extends [undefined] ? [] : [input: PipeInput<N['input']>]
-			) => Promise<Result<PipeOutput<N['output']>, PipeOutput<N['error']> | SharedOperationError>>
+			) => Promise<Result<PipeInput<N['output']>, PipeInput<N['error']> | SharedOperationError>>
 		: never
 type BoundTree<T> = { readonly [K in keyof T]: BoundNode<T[K]> }
 
@@ -91,9 +91,9 @@ if (import.meta.vitest) {
 			)
 			const detached = bound.nested.deeper.parse
 			const result = await detached({ text: 'four' })
-			expect(result).toEqual({ ok: true, value: 1 })
+			expect(result).toEqual({ ok: true, value: '4' })
 			if (!result.ok) throw new Error('Expected success')
-			expect(result.value.toFixed()).toBe('1')
+			expect(result.value).toBe('4')
 			expect(Object.keys(bound.nested.deeper)).toEqual(['parse'])
 		} finally {
 			expect(await owner.shutdown()).toEqual({ ok: true, value: undefined })

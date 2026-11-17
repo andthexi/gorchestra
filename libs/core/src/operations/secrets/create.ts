@@ -2,9 +2,9 @@ import { Instance } from 'equipped'
 import { v } from 'valleyed'
 
 import { protectedStringPipe } from '../../domain/commons'
-import { publicSecretPipe, secretSchema } from '../../domain/secret'
+import { publicSecretPipe, secretPipe, secretSchema } from '../../domain/secret'
 import { defineOperation } from '../../runtime/define-operation'
-import { storageCall } from '../../storage/read'
+import { stored, storageCall } from '../../storage/read'
 import { withExplicitId } from '../../storage/schema'
 
 export const create = defineOperation({
@@ -16,7 +16,7 @@ export const create = defineOperation({
 		const id = Instance.createId()
 		const encoded = context.secrets.encode(id, input.value)
 		const query = context.storage.on(secretSchema).one()
-		return withExplicitId(id, () =>
+		const created = await withExplicitId(id, () =>
 			storageCall(() =>
 				query.create({
 					id,
@@ -27,5 +27,19 @@ export const create = defineOperation({
 				}),
 			),
 		)
+		if (!created.ok) return created
+		const record = stored(secretPipe, created.value)
+		if (!record.ok) return record
+		if (!context.secrets.matches(record.value.value))
+			return { ok: false, error: { type: 'invalid-storage-output' } }
+		return {
+			ok: true,
+			value: {
+				id: record.value.id,
+				title: record.value.title,
+				created: record.value.created,
+				valueUpdated: record.value.valueUpdated,
+			},
+		}
 	},
 })

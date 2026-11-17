@@ -7,9 +7,6 @@ import { attributionPipe } from '../domain/commons'
 import {
 	inputIssues,
 	factoryErrorPipe,
-	setupErrorPipe,
-	migrationErrorPipe,
-	resultPipe,
 	type Result,
 	type FactoryError,
 	type SetupError,
@@ -67,8 +64,7 @@ export class PortfolioMigration {
 					} catch {
 						result = { ok: false, error: { type: 'internal-error' } }
 					}
-					const parsed = v.validate(resultPipe(v.undefined(), migrationErrorPipe), result)
-					return parsed.valid ? parsed.value : { ok: false, error: { type: 'internal-error' } }
+					return result
 				}),
 			)
 			return result.ok ? { ok: true, value: issueClient(this.#owner) } : result
@@ -127,9 +123,8 @@ export class PortfolioSetup {
 					} catch {
 						result = { ok: false, error: { type: 'internal-error' } }
 					}
-					const parsed = v.validate(resultPipe(v.undefined(), setupErrorPipe), result)
-					if (!parsed.valid) failure = { type: 'internal-error' }
-					else if (!parsed.value.ok) failure = parsed.value.error
+					if (!result.ok) failure = result.error
+					else failure = undefined
 					if (failure) throw abort
 					completed = true
 				})

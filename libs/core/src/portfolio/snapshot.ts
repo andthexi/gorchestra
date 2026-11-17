@@ -85,25 +85,38 @@ export async function exportSnapshot(owner: Owner, input: unknown): Promise<Resu
 			const storedSecrets = await owner.repo.on(secretSchema).all().find()
 			const memories = await owner.repo.on(memorySchema).all().find()
 			const memoryRevisions = await owner.repo.on(memoryRevisionSchema).all().find()
+			const validatedProjects = stored(v.array(projectPipe), projects)
+			const validatedAssets = stored(v.array(assetPipe), assets)
+			const validatedSecrets = stored(v.array(secretPipe), storedSecrets)
+			const validatedMemories = stored(v.array(memoryPipe), memories)
+			const validatedRevisions = stored(v.array(memoryRevisionPipe), memoryRevisions)
 			if (
-				projects.some((row) => !stored(projectPipe, row).ok) ||
-				assets.some((row) => !stored(assetPipe, row).ok) ||
-				storedSecrets.some((row) => !stored(secretPipe, row).ok) ||
-				memories.some((row) => !stored(memoryPipe, row).ok) ||
-				memoryRevisions.some((row) => !stored(memoryRevisionPipe, row).ok)
+				!validatedProjects.ok ||
+				!validatedAssets.ok ||
+				!validatedSecrets.ok ||
+				!validatedMemories.ok ||
+				!validatedRevisions.ok
 			)
 				return { ok: false, error: { type: 'invalid-storage-output' } }
-			const secrets = storedSecrets.map((secret) => ({
+			if (validatedSecrets.value.some(({ value }) => !owner.secrets.matches(value)))
+				return { ok: false, error: { type: 'invalid-storage-output' } }
+			const secrets = validatedSecrets.value.map((secret) => ({
 				id: secret.id,
 				title: secret.title,
 				value: owner.secrets.decode(secret.id, secret.value),
 				created: secret.created,
 				valueUpdated: secret.valueUpdated,
 			}))
-			if (storedSecrets.some(({ value }) => !owner.secrets.matches(value)))
-				return { ok: false, error: { type: 'invalid-storage-output' } }
 			const plaintext = Buffer.from(
-				JSON.stringify({ version: 1, migrationId, projects, assets, secrets, memories, memoryRevisions }),
+				JSON.stringify({
+					version: 1,
+					migrationId,
+					projects: validatedProjects.value,
+					assets: validatedAssets.value,
+					secrets,
+					memories: validatedMemories.value,
+					memoryRevisions: validatedRevisions.value,
+				}),
 				'utf8',
 			)
 			const salt = randomBytes(16)
@@ -180,14 +193,33 @@ export async function importSnapshot(owner: Owner, input: unknown): Promise<Resu
 			}))
 			const memories = payload.memories.map((record) => ({ ...record, created: stamp(record.created) }))
 			const revisions = payload.memoryRevisions.map((record) => ({ ...record, created: stamp(record.created) }))
-			for (const row of projects)
-				await withExplicitId(row.id, () => owner.repo.on(projectSchema).one().create(row))
-			for (const row of secrets) await withExplicitId(row.id, () => owner.repo.on(secretSchema).one().create(row))
-			for (const row of assets) await withExplicitId(row.id, () => owner.repo.on(assetSchema).one().create(row))
-			for (const row of memories)
-				await withExplicitId(row.id, () => owner.repo.on(memorySchema).one().create(row))
-			for (const row of revisions)
-				await withExplicitId(row.id, () => owner.repo.on(memoryRevisionSchema).one().create(row))
+			for (const row of projects) {
+				const created = await withExplicitId(row.id, () => owner.repo.on(projectSchema).one().create(row))
+				const validated = stored(projectPipe, created)
+				if (!validated.ok) return validated
+			}
+			for (const row of secrets) {
+				const created = await withExplicitId(row.id, () => owner.repo.on(secretSchema).one().create(row))
+				const validated = stored(secretPipe, created)
+				if (!validated.ok) return validated
+			}
+			for (const row of assets) {
+				const created = await withExplicitId(row.id, () => owner.repo.on(assetSchema).one().create(row))
+				const validated = stored(assetPipe, created)
+				if (!validated.ok) return validated
+			}
+			for (const row of memories) {
+				const created = await withExplicitId(row.id, () => owner.repo.on(memorySchema).one().create(row))
+				const validated = stored(memoryPipe, created)
+				if (!validated.ok) return validated
+			}
+			for (const row of revisions) {
+				const created = await withExplicitId(row.id, () =>
+					owner.repo.on(memoryRevisionSchema).one().create(row),
+				)
+				const validated = stored(memoryRevisionPipe, created)
+				if (!validated.ok) return validated
+			}
 			return { ok: true, value: undefined }
 		} catch {
 			return { ok: false, error: { type: 'internal-error' } }

@@ -114,7 +114,7 @@ describe('secrets', () => {
 			}
 		}, dependencies)
 	})
-	it('returns parsed safe replacement metadata rather than native protected extras', async () => {
+	it('returns explicit safe replacement metadata rather than native protected extras', async () => {
 		const dependencies = createTestDependencies()
 		const adapter = dependencies.storage.adapter
 		const updateMany = adapter.updateMany.bind(adapter)
@@ -129,7 +129,7 @@ describe('secrets', () => {
 						return {
 							...row,
 							title: '  Keep  ',
-							value: 'synthetic-PROTECTED',
+							valueRef: 'synthetic-PROTECTED',
 							created: { ...created.value, ignored: 'synthetic-PROTECTED' },
 							valueUpdated: { ...updated.value, ignored: 'synthetic-PROTECTED' },
 						}
@@ -182,7 +182,9 @@ describe('secrets', () => {
 						await portfolio.secrets.updateValue({ secretId: created.id, value: 'new value' }),
 					).toMatchObject({
 						ok: false,
-						error: { type: fault === 'malformed-output' ? 'invalid-output' : 'storage-operation-failed' },
+						error: {
+							type: fault === 'malformed-output' ? 'invalid-storage-output' : 'storage-operation-failed',
+						},
 					})
 				} finally {
 					adapter.updateMany = updateMany
@@ -232,7 +234,7 @@ describe('secrets', () => {
 						await portfolio.secrets.create({ title: 'Uncommitted', value: 'synthetic-PROTECTED' }),
 					).toEqual({
 						ok: false,
-						error: { type: mode === 'metadata' ? 'invalid-output' : 'storage-operation-failed' },
+						error: { type: mode === 'metadata' ? 'invalid-storage-output' : 'storage-operation-failed' },
 					})
 				} finally {
 					adapter.createMany = createMany
@@ -243,7 +245,7 @@ describe('secrets', () => {
 		},
 	)
 
-	it('strips native metadata extras from public results', async () => {
+	it('validates native Secret write responses and explicitly projects safe metadata', async () => {
 		const dependencies = createTestDependencies()
 		const adapter = dependencies.storage.adapter
 		const original = adapter.createMany.bind(adapter)
@@ -255,7 +257,7 @@ describe('secrets', () => {
 						if (!stamp.valid) throw new Error('Expected valid native stamp')
 						return {
 							...row,
-							value: 'synthetic-PROTECTED',
+							valueRef: 'synthetic-PROTECTED',
 							created: { ...stamp.value, ignored: 'synthetic-PROTECTED' },
 							valueUpdated: { ...stamp.value, ignored: 'synthetic-PROTECTED' },
 						}

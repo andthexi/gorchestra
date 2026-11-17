@@ -44,8 +44,8 @@ export class Owner {
 		const created = await withExplicitId(SECRET_PROTECTION_ID, () =>
 			this.repo.on(secretProtectionSchema).one().create(candidate),
 		)
-		const parsedCreate = stored(secretProtectionPipe, created)
-		if (!parsedCreate.ok || parsedCreate.value.id !== SECRET_PROTECTION_ID)
+		const validatedCreate = stored(secretProtectionPipe, created)
+		if (!validatedCreate.ok || validatedCreate.value.id !== SECRET_PROTECTION_ID)
 			throw new Error('Invalid created Secret protection.')
 		const rows = await this.repo.on(secretProtectionSchema).all().find()
 		if (rows.length !== 1) throw new Error('Invalid Secret protection count.')

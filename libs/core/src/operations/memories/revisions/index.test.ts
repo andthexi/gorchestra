@@ -122,13 +122,13 @@ describe('Memory revisions', () => {
 							expect(inserted).toEqual([committed.revision.id])
 							break
 						case 'first-rollback':
-							expect(firstResult).toEqual({ ok: false, error: { type: 'invalid-output' } })
+							expect(firstResult).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
 							committed = requireSuccess(secondResult)
 							expect(inserted).toHaveLength(2)
 							break
 						case 'later-rollback':
 							committed = requireSuccess(firstResult)
-							expect(secondResult).toEqual({ ok: false, error: { type: 'invalid-output' } })
+							expect(secondResult).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
 							expect(inserted).toHaveLength(2)
 							break
 						default:
@@ -197,7 +197,7 @@ describe('Memory revisions', () => {
 				adapter.session = session
 				adapter.createMany = createMany
 				if (rollback) {
-					expect(result).toEqual({ ok: false, error: { type: 'invalid-output' } })
+					expect(result).toEqual({ ok: false, error: { type: 'invalid-storage-output' } })
 					if (typeof attempted !== 'string') throw new Error('Expected attempted snapshot')
 					expect(await portfolio.memories.revisions.find({ revisionId: attempted })).toEqual({
 						ok: false,
@@ -462,7 +462,7 @@ describe('Memory revisions', () => {
 						error: {
 							type:
 								stage === 'body-output' || stage === 'stamp-output'
-									? 'invalid-output'
+									? 'invalid-storage-output'
 									: 'storage-operation-failed',
 						},
 					})

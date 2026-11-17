@@ -1,6 +1,6 @@
 import { v } from 'valleyed'
 
-import { publicSecretPipe, secretPipe, secretSchema } from '../../domain/secret'
+import { publicSecretPipe, secretPipe, secretSchema, type Secret } from '../../domain/secret'
 import { notFoundPipe } from '../../errors'
 import { defineOperation } from '../../runtime/define-operation'
 import { stored, storageCall } from '../../storage/read'
@@ -22,6 +22,14 @@ export const find = defineOperation({
 		if (!parsed.ok) return parsed
 		if (!context.secrets.matches(parsed.value.value))
 			return { ok: false, error: { type: 'invalid-storage-output' } }
-		return parsed
+		return {
+			ok: true,
+			value: {
+				id: parsed.value.id,
+				title: parsed.value.title,
+				created: parsed.value.created,
+				valueUpdated: parsed.value.valueUpdated,
+			} satisfies Secret,
+		}
 	},
 })

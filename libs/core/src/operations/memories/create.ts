@@ -5,7 +5,7 @@ import { memoryPipe, memorySchema } from '../../domain/memory'
 import { memoryRevisionPipe, memoryRevisionSchema } from '../../domain/memory-revision'
 import { notFoundPipe } from '../../errors'
 import { defineOperation } from '../../runtime/define-operation'
-import { storageCall } from '../../storage/read'
+import { stored, storageCall } from '../../storage/read'
 import { withExplicitId } from '../../storage/schema'
 import { requireMemory } from './require-memory'
 
@@ -39,11 +39,15 @@ export const create = defineOperation({
 			),
 		)
 		if (!memory.ok) return memory
+		const validatedMemory = stored(memoryPipe, memory.value)
+		if (!validatedMemory.ok) return validatedMemory
 		const revisionQuery = context.storage.on(memoryRevisionSchema).one()
 		const revision = await withExplicitId(revisionId, () =>
 			storageCall(() => revisionQuery.create({ ...summary, memoryId, body: input.body, created: context.stamp })),
 		)
 		if (!revision.ok) return revision
-		return { ok: true, value: { memory: memory.value, revision: revision.value } }
+		const validatedRevision = stored(memoryRevisionPipe, revision.value)
+		if (!validatedRevision.ok) return validatedRevision
+		return { ok: true, value: { memory: validatedMemory.value, revision: validatedRevision.value } }
 	},
 })

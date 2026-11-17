@@ -324,7 +324,7 @@ describe('project assets', () => {
 						}),
 					).toEqual({
 						ok: false,
-						error: { type: stage === 'output' ? 'invalid-output' : 'storage-operation-failed' },
+						error: { type: stage === 'output' ? 'invalid-storage-output' : 'storage-operation-failed' },
 					})
 				} finally {
 					adapter.createMany = createMany

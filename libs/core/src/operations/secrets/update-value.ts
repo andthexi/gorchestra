@@ -28,6 +28,18 @@ export const updateValue = defineOperation({
 		const updated = await storageCall(() => query.update({ value: encoded, valueUpdated: context.stamp }))
 		if (!updated.ok) return updated
 		if (updated.value === null) return { ok: false, error: { type: 'invalid-output' } }
-		return { ok: true, value: updated.value }
+		const validatedUpdate = stored(secretPipe, updated.value)
+		if (!validatedUpdate.ok) return validatedUpdate
+		if (!context.secrets.matches(validatedUpdate.value.value))
+			return { ok: false, error: { type: 'invalid-storage-output' } }
+		return {
+			ok: true,
+			value: {
+				id: validatedUpdate.value.id,
+				title: validatedUpdate.value.title,
+				created: validatedUpdate.value.created,
+				valueUpdated: validatedUpdate.value.valueUpdated,
+			},
+		}
 	},
 })

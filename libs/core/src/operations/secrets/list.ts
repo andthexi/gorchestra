@@ -17,6 +17,11 @@ export const list = defineOperation({
 		if (!parsed.ok) return parsed
 		if (parsed.value.some((secret) => !context.secrets.matches(secret.value)))
 			return { ok: false, error: { type: 'invalid-storage-output' } }
-		return { ok: true, value: parsed.value.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) }
+		return {
+			ok: true,
+			value: parsed.value
+				.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+				.map(({ id, title, created, valueUpdated }) => ({ id, title, created, valueUpdated })),
+		}
 	},
 })
