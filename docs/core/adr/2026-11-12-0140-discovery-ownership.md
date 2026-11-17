@@ -1,6 +1,6 @@
 # Derive discovery views from Expedition-owned facts
 
-Accepted; **unimplemented**. Expedition, runtime and downstream work remain paused.
+Accepted architecture. Delivery scope is tracked under [Expedition and proposals](../FUTURE.md#expedition-and-proposals).
 
 Maintaining a separately edited Map or stored Frontier would create competing authoritative representations of the same discovery. Expedition instead owns Questions, Findings, Decisions, context versions and Blueprints; Map assembles the applicable facts and Frontier derives open, unblocked, unclaimed Questions. Context changes create complete immutable bundle versions rather than field patches, whole-Map replacements or audit-diff reconstruction, keeping historical context readable without copying discovery collections.
 

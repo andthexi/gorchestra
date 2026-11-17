@@ -1,6 +1,6 @@
 # Accept one complete work graph after discovery
 
-Accepted; **unimplemented**. Expedition, runtime and downstream work remain paused.
+Accepted architecture. Delivery scope is tracked under [Expedition and proposals](../FUTURE.md#expedition-and-proposals).
 
 Early or rolling accepted plans would require reconciling overlapping scope, dependencies and active work. Require accepted charting and all current Questions resolved, then create one Blueprint and its one accepted revision only at final acceptance, atomically materializing every initial Delivery, Slice and dependency with acceptance, interaction completion and the `planned` phase. This avoids drafting with open Questions, provisional Blueprint records and later initial Slice breakdown, accepting more preparation up front so one coherent reviewed graph closes planning without automatically starting execution.
 

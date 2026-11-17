@@ -89,7 +89,7 @@ Ready, attribution-bound Portfolios expose `export({ passphrase })` and `import(
 
 Import authenticates and schema-validates the Snapshot, then under exclusive storage access requires exact agreement with the destination's recognized final migration ID and atomically replaces all five domain collections, including with empty collections. It retains record identities and relationships without auditing or repairing them, converts schema-owned Audit Stamps to imported provenance with one fresh import time, and protects Secret values under the destination's existing key or plaintext mode. The destination ledger, Secret Protection identity/verifier and protection mode are retained.
 
-Both operations fail rather than wait for storage-wide contention. This MVP processes the complete Snapshot as strings in memory without a size cap or streaming, so large Portfolios can exhaust memory and hold exclusive access for a long time. Bounded-memory transport and size controls are post-MVP work.
+Both operations fail rather than wait for storage-wide contention. This MVP processes the complete Snapshot as strings in memory without a size cap or streaming, so large Portfolios can exhaust memory and hold exclusive access for a long time. Track improvements in [Core future work](../../docs/core/FUTURE.md#bounded-memory-snapshots).
 
 ## Attributed Project operations
 

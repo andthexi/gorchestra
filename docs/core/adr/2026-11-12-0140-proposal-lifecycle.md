@@ -1,6 +1,6 @@
 # Separate stored proposals from human acceptance
 
-Accepted; **unimplemented**. Proposal persistence, submission, review and acceptance belong to later Expedition integration, not the initial AgentInteraction infrastructure delivery. Expedition and downstream work remain paused.
+Accepted architecture. Delivery scope is tracked under [Expedition and proposals](../FUTURE.md#expedition-and-proposals).
 
 An agent can propose work but cannot supply its own authority or substitute content for what a human reviewed. Tools therefore save immutable unaccepted versions in a trusted Consumer-bound AgentInteraction and return immediately; separate human acceptance loads the exact current stored proposal and applies domain changes, instead of holding a transaction across review, accepting a replacement payload or deriving approval from chat. Only the latest eligible version can be accepted, rejection never revives an older version, and accepted history cannot be rewritten by later runtime observations. Rejection preserves the rejected version as ineligible and leaves the same interaction/session open for a new proposal version; it neither completes the interaction nor automatically sends feedback to the harness.
 

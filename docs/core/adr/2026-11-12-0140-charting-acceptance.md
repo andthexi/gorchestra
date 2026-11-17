@@ -1,6 +1,6 @@
 # Accept charting as a reviewed batch
 
-Accepted; **unimplemented**. Expedition, runtime and downstream work remain paused.
+Accepted architecture. Delivery scope is tracked under [Expedition and proposals](../FUTURE.md#expedition-and-proposals).
 
 Incrementally adding initial chat ideas to the authoritative Map would preserve discarded proposals as settled discovery. Store initial charting as an interaction-owned proposal and atomically apply its reviewed context/facts, acceptance and completion only after human acceptance. This delays Core-visible discovery in exchange for one coherent reviewed batch, with later changes made through new charting interactions rather than ad-hoc edits or reopened completed interactions.
 
