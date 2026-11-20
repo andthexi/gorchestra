@@ -1,62 +1,8 @@
 # Core future work
 
-This is the owning register for Core's future plans, deferred decisions and post-MVP improvements. It is not an implementation claim or authorization to create, execute or ship a Change. Current usage lives in the [package README](../../libs/core/README.md); [context](CONTEXT.md) owns domain language, and ADRs retain architectural rationale.
+This register contains deferred work and future plans outside the current Changes. Settled contracts belong in [operation boundaries](BOUNDARIES.md), [Core engineering guidance](ENGINEERING.md), [context](CONTEXT.md) and the relevant ADRs. Changes track implementation; this document is not an implementation-status ledger or authorization to execute work.
 
 ## Planned work
-
-### Foundation boundaries
-
-**Disposition:** Approved delivery scope in [Change #66](https://github.com/andthexi/gorchestra/issues/66); consult its Slices for live progress. Do not infer completion from this plan.
-
-**Why:** Separate domain atomicity, external-boundary validation and Consumer maintenance responsibilities instead of imposing a blanket runtime boundary.
-
-- Remove automatic whole-handler transactions from the shared operation runner, not only for interaction startup. Handlers explicitly call a shared transaction helper around work that must commit together; the helper aborts its transaction on a failed Result or exception without parsing Core-authored Results. This accepted change is unimplemented; preserve required domain atomicity, external-boundary validation, storage admission and safe errors rather than treating wrapper removal as permission for partial atomic updates. Do not infer rollback of previously committed phases from a later failure Result.
-- Validate data entering Core from external boundaries through Valleyed, including Consumer inputs, storage reads and write-returned data, harness/provider responses and imported payloads. Trust typed Results assembled inside Core from validated data rather than revalidating them in the runner or transaction helper. Construct the declared public values and safe errors explicitly; do not rely on final output parsing for transformations, field stripping or Secret protection. Expose public operation Result and error pipes for Consumer-side validation without exposing internal handlers or storage schemas. This accepted boundary-only validation design is unimplemented; behavior tests must verify returned values conform to the public contracts.
-- Export those pipes in a separate public contracts tree mirroring the operation namespaces, usable without creating or opening a Portfolio. Access to validation contracts grants no operation authority and exposes no internal handlers or storage resources.
-- Cover every public Result-returning operation in that contracts surface, including opening, setup, migration, attribution binding, shutdown and Snapshot export/import as well as domain operations. Include each operation's complete error union, not only handler-specific errors.
-- Success pipes for live Portfolio/lifecycle handles validate the expected instances in-process and preserve their identity without cloning, invoking methods or performing I/O. They neither serialize handles nor reconstruct them from JSON, and validation does not certify that a handle remains open or usable later.
-- Deliver the accepted work as two separately reviewed Changes: first the Core foundation refactor (explicit transactions, boundary-only validation, public contracts and Consumer-owned maintenance coordination), then dependent AgentInteraction infrastructure. This sequencing does not authorize Change creation or execution before their respective reviews.
-
-- Remove Core's explicit maintenance locks from opening, ordinary operations, setup, migration, export and import, including the corresponding adapter capability requirement. Do not introduce local substitutes, optional-lock fallbacks or queues.
-- Consumers serialize maintenance, prevent new access and client opening, drain whole in-flight operations across all clients and keep access paused through settlement. This includes pending harness calls and their database continuations and interaction-bound tool calls, not closure of harness sessions. Migration requires reopening compatible clients.
-- Remove ordinary-operation migration-history reads; retain opening/setup/migration history checks and Snapshot compatibility. Local shutdown admission, explicit transaction atomicity, domain concurrency guards and backend-internal transaction locks remain.
-- Preserve safe Secret projection, malformed-boundary rejection, rollback and Revision concurrency behavior. Verify actual responses against public contracts and live-handle identity preservation with ordinary TypeScript and real InMemory behavior tests; run root quality gates sequentially.
-- No schema changes, backward-compatibility layer, Consumer implementation or AgentInteraction implementation belongs in this Change.
-
-**References:** [Transactions](adr/2026-11-12-0140-operation-transaction.md), [external-data validation](adr/2026-11-12-0140-native-stored-reads.md), [lifecycle](adr/2026-11-12-0140-portfolio-lifecycle.md).
-
-### AgentInteraction infrastructure
-
-**Disposition:** Next separate Change, dependent on the foundation refactor. Design discussion remains open; no Change has been created for this scope.
-
-**Why:** Establish the session and interaction infrastructure before integrating Expedition, without delivering proposals prematurely.
-
-- Agent Interactions are Core-created domain records paired with one harness session for their lifetime through a Consumer-supplied dependency. A new purpose requires a new interaction/session; missing or failed sessions must not cause implicit replacement. Keep Core proposal/domain state distinct from harness-owned execution and transcripts; this boundary is accepted, not yet implemented.
-- Supply the harness through public `CoreDependencies.harness` in the initial infrastructure delivery, before Expedition integration. This dependency does not expose generic interaction creation or acceptance to Consumers.
-- Do not persist or require a harness-instance identity or session-namespace identifier. Resolve stored session references through the configured harness dependency; selecting the correct dependency remains the Consumer's responsibility, including after import.
-- Route ongoing Consumer conversation directly to the harness, not through Core. Keep proposal submission and human-authorized domain operations separate from conversational messages.
-- Core owns purpose-specific session instructions and resolves domain context before invoking the harness dependency. The dependency adapts the resolved request to the harness without loading authoritative domain records or deciding domain behavior.
-- Interaction-bound reads return current permitted domain data, with record/version identities where applicable; they do not rewrite the saved startup request. Acceptance still rechecks purpose-specific domain prerequisites rather than trusting startup context or prior reads.
-- Core infers each interaction's Core tools from its persisted purpose at runtime and binds their authority to its target and purpose; the dependency exposes them through the harness. Do not persist tool definitions, schemas or handlers, or accept a separately selected per-interaction tool list. Never let agent arguments select another interaction's authority or expose human-only acceptance as an agent tool.
-- Consumers control harness-native tools and sandbox permissions. Do not introduce harness-specific permission management into Core or treat native-tool access as permission to bypass Core domain operations.
-- Keep the Consumer-supplied harness dependency a generic adapter for session-level operations. The harness manages its internal runs; do not infer a Consumer/Core run controller or separate run-submission API from session creation.
-- Keep harness session lookup by ID read-only. Lookup does not repair an interaction, release its reservation or transition it to terminal error; import and ordinary domain reads do not trigger harness checks.
-- Trust the Consumer-supplied harness integration to prevent duplication; do not add Core-owned deduplication, retention-window tracking or probes to verify that guarantee. Retry APIs and retry-specific semantics are deferred until a concrete need arises; no automatic retry.
-- A user-authorized domain action creates and commits the interaction's identifier and exact resolved creation request before calling the harness to create its session. The saved request excludes tools, which Core infers from the interaction's purpose. After success, atomically persist `started` as an embedded record containing the confirmation timestamp and harness session reference, never a boolean with independently nullable peer fields. It records startup success, not whether the harness is currently executing. Preserve uncertain starts without a retry or repair operation; do not add a background queue.
-- Use separate explicit transactions for interaction startup's database phases, with no transaction or database lock held across the harness call. Do not add shared maintenance-coordination locks to these phases for MVP; Consumers drain whole in-flight operations before maintenance. Preserve atomic target/purpose reservation guards independently of maintenance coordination.
-- When session creation fails after the interaction is committed, return a safe error type and the saved interaction's ID so the Consumer can identify the saved interaction. Never expose raw harness diagnostics or imply that the committed interaction was rolled back.
-- After the starting record commits, permit interaction-bound context reads even before acknowledgment. These calls neither confirm startup nor advance target state. Proposal-related early calls belong to the later Expedition integration, not this infrastructure delivery.
-- Enforce one unfinished interaction per target and purpose across clients. Awaiting-confirmation and startup-confirmed interactions reserve the slot; a second start fails rather than reusing it implicitly. Different targets remain independently eligible; no startup retry is delivered.
-- Initial AgentInteraction scope excludes retry, abandonment, repair operations and repair-driven terminal error transitions. If session creation fails or its outcome is unknown, leave the started marker unset and retain the saved interaction and target/purpose reservation. Do not add timeout-based release, replacement or automatic recovery; repair semantics are deferred.
-- Deliver AgentInteraction infrastructure independently of Expedition. Proposal schemas, collections, versioning, submission, review, acceptance/rejection operations and their tests are deferred to Expedition integration, alongside Expedition schemas, charting, Question research, Blueprint drafting and Delivery execution. Do not add proposal placeholders to this infrastructure delivery.
-- Keep generic interaction creation and lifecycle controls internal to Core, for later target-specific domain operations. The calling Core domain operation supplies the already-resolved target, purpose, instructions and context, not a tool list. Shared interaction infrastructure persists the request, uses Core's purpose-inferred tools for session creation and records `started`; resolve those tools before invoking the harness dependency. Consumers supply the harness dependency, not arbitrary domain definitions or acceptance handlers. Verify session lifecycle and tool-binding infrastructure with test-owned definitions and real storage, without implementing proposal behavior or placeholder Expedition features.
-- Completion rejects further calls to all interaction-bound Core tools, including reads, but does not close the paired harness session or delete its transcript. Enforce this against persisted lifecycle state even when the harness retains an earlier tool binding; separately Consumer-authorized queries remain available. A late startup acknowledgment cannot reopen a completed interaction or reclaim its released reservation.
-- Preserve the accepted [proposal lifecycle](adr/2026-11-12-0140-proposal-lifecycle.md) as later Expedition design, not an acceptance criterion for the initial AgentInteraction infrastructure.
-- MVP Snapshot import preserves AgentInteraction records, saved startup requests and original harness-session associations rather than making them inert; proposal history will join this contract when delivered with Expedition. Restore access according to the imported lifecycle state and ordinary authorization checks, without startup retry; do not call the harness during import. Source and destination may therefore refer to the same session. See [imported-session isolation](#imported-session-isolation-and-rebinding) for the deferred improvement.
-
-**Open decisions:** Exact harness create/find and tool-call interfaces; public read surface (find/list is proposed, not accepted); persisted schema and migration; atomic target/purpose reservation implementation; shutdown behavior and verification. Do not fill these gaps with a retry protocol.
-
-**References:** [Persist before harness contact](adr/2026-11-12-0140-interaction-starts.md), [context](CONTEXT.md#relationships).
 
 ### Expedition and proposals
 
@@ -64,7 +10,7 @@ This is the owning register for Core's future plans, deferred decisions and post
 
 Deliver Expedition context versions, discovery facts and derived Map/Frontier, charting, Question research, complete immutable proposal versions, review and exact-version acceptance, then Blueprint materialization. Proposal submission uses expected-current concurrency checks; acceptance cannot silently substitute a newer version. Initial charting is accepted atomically. Blueprint acceptance requires accepted charting and all current Questions resolved, creates one coherent Delivery/Slice graph and marks planning complete without starting execution.
 
-When proposal support arrives, unaccepted submissions may arrive before startup acknowledgment, but acceptance remains blocked until startup is confirmed. This does not add proposal behavior to the initial interaction delivery.
+Proposal submission and acceptance follow purpose-specific domain gates and interaction closure, not a startup-confirmation field. This does not add proposal behavior to the initial interaction delivery.
 
 **Revisit:** When the interaction prerequisite is available and this delivery is separately reviewed. Exact serialized proposal/dependency fields remain to be specified.
 
@@ -92,21 +38,77 @@ Core owns repository-provider semantics and resolved Asset/Secret context; Consu
 
 ## Deferred decisions
 
+### Interaction reservation concurrency
+
+**Disposition:** Accept the purpose/target check-and-insert race for now. Stronger concurrency coordination is deferred; no storage-level uniqueness constraint, reverse target reference or additional reservation-coordination mechanism is included in the current scope.
+
+**Current limitation:** The universal policy remains one open AgentInteraction per purpose type and target within a Portfolio, enforced by a Core query and rejection of an observed open interaction before insertion. Concurrent creation calls, creation versus repair, or repairs of different failed interactions for the same pair can each observe no open interaction and then commit separate open interactions. Keeping each operation's writes in a transaction does not by itself prevent this race. This is a known enforcement limitation, not a workflow opt-out or automatic permission to repair duplicates.
+
+**Independent guarantees:** Target/interaction creation remains atomic when grouped by a domain operation. Repair's replacement and guarded `repaired` update remain atomic, and two repairs of the same failed interaction must not both commit replacements. Guarded terminal closure, lifecycle admission and purpose-specific domain rules are unchanged. Snapshot import remains shape-only, without relationship auditing or reconciliation.
+
+**Revisit:** When concurrent usage demonstrates a need for strict purpose/target exclusion. Review code-level coordination and backend isolation while keeping the policy out of database uniqueness constraints unless separately approved. Qualify any stronger guarantee with real adapter-backed overlap tests; do not infer it from a serializing test adapter.
+
+**References:** [Creation, run and reservation policy](ENGINEERING.md#record-creation-and-explicit-run), [repair atomicity](ENGINEERING.md#explicit-repair).
+
+### Tool-write and closure coordination
+
+**Disposition:** Deferred; no interaction write-version counter or equivalent shared write guard is included in the current delivery.
+
+**Current limitation:** Core checks interaction lifecycle when admitting a tool call and rejects calls against a closed interaction. That check alone does not prevent an already-admitted state-changing tool from committing after concurrent closure, even when its own writes use a transaction. Domain atomicity, purpose checks and purpose/target reservation rules remain independent requirements.
+
+**Revisit:** When a concrete state-changing tool requires strict exclusion against concurrent closure. The proposed approach is an internal interaction write-version counter conditionally advanced while the interaction is open, in the same transaction as the tool's writes, with closure contending on that same record. This is a candidate, not an approved implementation. Verify the actual adapter-backed overlap behavior before claiming the stronger guarantee; do not add automatic retries or hold a transaction across a harness call.
+
+**References:** [Tool authority and closure](ENGINEERING.md#tools-and-closure), [transaction boundaries](BOUNDARIES.md#transactions).
+
+### Native-tool authority bypass
+
+**Disposition:** Defer the native-tool bypass prevention design until the tools discussion. No additional sandboxing, credential-isolation mechanism or integration checks are authorized by this entry.
+
+**Current limitation:** The purpose-derived allowlist restricts Core tools, not harness-native tools. An agent with native shell access could reach a human-authorized Core entry point through an authenticated CLI or ambient credentials; hiding that operation from the Core tool catalog alone does not prevent this route.
+
+**Revisit:** During tools design, review reachable entry points, credential access, trusted routing and the Core/Consumer enforcement boundary. Select concrete protections and their verification then. Existing Core invocation authority checks and human-only acceptance rules remain unchanged.
+
+**References:** [Core and harness tool boundaries](ENGINEERING.md#public-and-harness-boundaries), [Consumer bridge](adr/2026-11-12-0140-hermes-consumer.md).
+
+### Tool-validation diagnostic hardening
+
+**Disposition:** Defer additional tool-validation error sanitization. Preserve normal validator messages and field paths; do not introduce dynamic-key filtering or a new diagnostic-sanitization layer in the current interaction delivery.
+
+**Current limitation:** Projecting validation errors to paths and messages does not guarantee removal of caller-controlled content. Arbitrary object keys can appear in error paths, and validator-converted exceptions can retain raw exception text. Tool inputs using those features may therefore expose supplied content through diagnostics even when invalid values are omitted.
+
+**Scope boundary:** This deferral does not remove existing safe exception handling, Secret projection or adapter-error containment. It postpones additional hardening for tool-validation diagnostics, not a rewrite of current boundary behavior.
+
+**Revisit:** When a concrete tool accepts arbitrary-key objects or a Consumer requires stronger diagnostic confidentiality. Review safe handling of dynamic paths and validator-converted exceptions without replacing ordinary built-in diagnostics wholesale; verify the Core error boundary with sensitive sentinel content.
+
+**References:** [Tool input and error contracts](ENGINEERING.md#public-and-harness-boundaries), [validation and public responses](BOUNDARIES.md#validation-and-public-responses).
+
+### Centralized storage-return validation
+
+**Disposition:** Defer implementation to the upcoming review and revision of [Change #66](https://github.com/andthexi/gorchestra/issues/66), rather than adding a standalone Snapshot write-response fix to the AgentInteraction delivery. The revised design must ensure storage operations validate returned data before exposing it to callers. This entry does not itself revise the Change, authorize implementation or approve an Equipped change or dependency upgrade; Core's existing external-boundary validation remains required.
+
+**Current limitation:** Handler-level storage validation can be omitted even when TypeScript accepts the returned value. Snapshot import currently awaits replacement deletes and creates but discards their returned data; a malformed, nonthrowing response can therefore reach success. This does not establish that persisted data is wrong, but leaves the external response unvalidated. Source inspection found centralized validation feasible in Equipped's native return path, but existing field pipes parse input into stored output and cannot generally be replayed as output validators: transforms may run again, and defaults or fallbacks may conceal malformed data.
+
+**Revisit:** When revamping Change #66, review the output-validation boundary and delivery scope, including read and write responses and the Snapshot replacement path. A caller discarding a write's returned data must not bypass validation. Carry the malformed-write-response rollback coverage into that revision. Cover selected fields and computed dependencies, recursive preloads, counts and aggregates, and explicit raw/direct-adapter exclusions or contracts. Distinguish storage decoding from validation, avoid raw values in errors, and preserve explicit transaction semantics: rejecting a write response does not itself roll back the write, so Snapshot validation failures must abort inside its replacement transaction. Core still owns domain checks and safe Secret projection; this is not a return to parsing Core-authored Results in the shared runner. Remove local validation only where an equivalent native guarantee is established. Add no import relationship checks, reconciliation or automatic repair.
+
+**References:** [Core validation boundary](BOUNDARIES.md#validation-and-public-responses), [Snapshot implementation](../../libs/core/src/portfolio/snapshot.ts), [Snapshot verification](ENGINEERING.md#verification), [Equipped return shaping](https://github.com/andthexi/equipped/blob/2455c3f35259001f45e839d6f3226274f664a667/src/orm/repo/builders.ts#L97-L122), [input/output parsing](https://github.com/andthexi/equipped/blob/2455c3f35259001f45e839d6f3226274f664a667/src/orm/schema-validations.ts#L9-L50), [preload reads](https://github.com/andthexi/equipped/blob/2455c3f35259001f45e839d6f3226274f664a667/src/orm/repo/internals/preloads.ts#L108-L150).
+
 ### Startup retry
 
 **Disposition:** Deferred until a concrete situation demonstrates a need. The earlier explicit-retry agreement is superseded; no retry API or retry-specific protocol is currently designed or delivered.
 
-**Current plan:** Save the interaction before session creation, record `started` only after success, and retain the unstarted record/reservation on failure or uncertainty. The Consumer integration owns duplicate prevention. This does not grant retry eligibility.
+**Current plan:** Domain creation only saves the interaction. Explicit run checks whether the same-ID session exists for an open interaction; it skips creation when present, otherwise calls create and waits for the adapter's completion acknowledgment. It does not replay instructions or start another turn when the session already exists. This repeatable run is not a recovery API for closed interactions. The Consumer integration owns duplicate prevention; there is no automatic retry.
 
 **Revisit:** A real failed/uncertain startup requiring recovery. Decide semantics then rather than prebuilding replay, request-retention windows or automatic retries.
 
 ### Startup repair and abandonment
 
-**Disposition:** Deferred; semantics unresolved, not a commitment to a particular recovery API.
+**Disposition:** Recovery beyond [explicit startup-failure repair](ENGINEERING.md#explicit-repair) remains deferred, including abandonment and recovery of interactions left open by interrupted calls or failed closure persistence.
 
-**Current plan:** No repair, abandonment, timeout release or repair-driven terminal error transition. Failure/uncertainty retains the interaction and reservation; lookup and import do not mutate lifecycle or create replacement sessions.
+**Current plan:** No automatic reconciliation, abandonment, timeout release or repair-driven terminal error transition. Ordinary interaction reads do not mutate lifecycle, and import preserves the original session identity without creating a replacement session.
 
 **Revisit:** A concrete stuck interaction or cancellation requirement. Safe reservation release and outstanding harness calls must be reasoned through before authorizing a design.
+
+Session-existence lookup belongs to explicit run's [check-before-create flow](ENGINEERING.md#record-creation-and-explicit-run). Richer session inspection for recovery remains a future decision; the existence check does not authorize automatic reconciliation, retry or reservation release.
 
 ### Delivery review recovery
 

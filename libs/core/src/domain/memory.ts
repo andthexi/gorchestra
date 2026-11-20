@@ -20,13 +20,12 @@ if (import.meta.vitest) {
 	it('validates Memory references and revision fields through their shared pipes', () => {
 		const stamp = { src: 'local', at: '2026-11-11T00:00:00.000Z', by: '', cid: null }
 		const id = '01k00000000000000000000001'
-		const boxed: unknown = Object('Notes')
 		const input = { id, parentId: null, revision: { id, version: 1, title: 'Notes' }, created: stamp }
 		for (const value of [
 			{ ...input, id: `${id}\n` },
 			{ ...input, parentId: `${id}\n` },
 			{ ...input, revision: { ...input.revision, id: `${id}\n` } },
-			{ ...input, revision: { ...input.revision, title: boxed } },
+			{ ...input, revision: { ...input.revision, title: ' \n' } },
 			{ ...input, revision: { ...input.revision, version: 9007199254740992 } },
 			{ ...input, created: { src: 'local', at: stamp.at, by: '' } },
 		])

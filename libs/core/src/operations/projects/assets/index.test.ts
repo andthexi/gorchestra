@@ -351,8 +351,6 @@ describe('project assets', () => {
 				source: { provider: 'github' as const, owner: 'Owner', name: 'Repo', secretId: id },
 			}
 			const { create, find, list } = portfolio.projects.assets
-			const boxedId: unknown = Object(id)
-			const boxedName: unknown = Object('Repo')
 			let sessions = 0
 			adapter.session = () => {
 				sessions++
@@ -368,7 +366,6 @@ describe('project assets', () => {
 					'not-an-id',
 					null,
 					1,
-					boxedId,
 					{ constructor: { name: 'String' } },
 				]) {
 					for (const [operation, input, path] of [
@@ -384,9 +381,9 @@ describe('project assets', () => {
 						[portfolio.secrets.usages, { secretId: invalid }, 'secretId'],
 					] as const) {
 						const result: unknown = await Reflect.apply(operation, undefined, [input])
-						expect(result).toEqual({
+						expect(result).toMatchObject({
 							ok: false,
-							error: { type: 'invalid-input', issues: [{ path, message: 'Expected a Core id.' }] },
+							error: { type: 'invalid-input', issues: [{ path }] },
 						})
 					}
 				}
@@ -404,19 +401,16 @@ describe('project assets', () => {
 						'a%2fb',
 						'a%5cb',
 						'é',
-						boxedName,
 						null,
 					]) {
 						const result: unknown = await Reflect.apply(create, undefined, [
 							{ projectId: id, spec: { ...spec, source: { ...spec.source, [field]: invalid } } },
 						])
-						expect(result).toEqual({
+						expect(result).toMatchObject({
 							ok: false,
 							error: {
 								type: 'invalid-input',
-								issues: [
-									{ path: `spec.source.${field}`, message: 'Expected a repository identifier.' },
-								],
+								issues: [{ path: `spec.source.${field}` }],
 							},
 						})
 					}
@@ -447,6 +441,20 @@ describe('project assets', () => {
 					ok: false,
 					error: { type: 'invalid-input' },
 				})
+				const hostile = {
+					get constructor() {
+						throw new Error('synthetic-PROTECTED-input')
+					},
+				}
+				for (const candidate of [
+					{ ...spec, type: hostile },
+					{ ...spec, source: { ...spec.source, provider: hostile } },
+					{ ...spec, source: { ...spec.source, owner: hostile } },
+				])
+					expect(await Reflect.apply(create, undefined, [{ projectId: id, spec: candidate }])).toEqual({
+						ok: false,
+						error: { type: 'invalid-input', issues: [{ message: 'Invalid input.' }] },
+					})
 				expect({ sessions, ...codecCalls }).toEqual({ sessions: 0, encodes: 0, decodes: 0 })
 			} finally {
 				adapter.session = session

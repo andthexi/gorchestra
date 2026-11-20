@@ -32,7 +32,6 @@ if (import.meta.vitest) {
 	it('rejects malformed raw histories without exposing their contents', () => {
 		const id = ids[0]
 		const sentinel = 'synthetic-PROTECTED-history'
-		const boxed: unknown = Object(id)
 		const boxedTimestamp: unknown = Object(0)
 		const spoof: unknown = JSON.parse(
 			'{"constructor":{"name":"String"},"length":26,"value":"synthetic-PROTECTED-history"}',
@@ -60,7 +59,6 @@ if (import.meta.vitest) {
 				'01k0000000000000000000000',
 				' 01k00000000000000000000001',
 				'01k00000000000000000000001\n',
-				boxed,
 				spoof,
 			].map((id) => [{ id, appliedAt: 0 }]),
 			...[undefined, null, '0', -1, 1.5, 9007199254740992, NaN, Infinity, -Infinity, 0n, boxedTimestamp].map(

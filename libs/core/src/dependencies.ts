@@ -68,11 +68,7 @@ const isCallback = (value: unknown) => typeof value === 'function' && !(value in
 const methodPipe = v.custom<(...args: never[]) => unknown>(isCallback, 'Expected a function.')
 const adapterMethods = v.object({
 	supportedFieldTypes: v
-		.array(
-			v
-				.custom<string>((value) => typeof value === 'string')
-				.pipe(v.in(['string', 'number', 'boolean', 'null', 'object', 'array', 'date'])),
-		)
+		.array(v.string().pipe(v.in(['string', 'number', 'boolean', 'null', 'object', 'array', 'date'])))
 		.pipe(v.min(1)),
 	use: methodPipe,
 	session: methodPipe,
@@ -91,11 +87,13 @@ const adapterMethods = v.object({
 	disconnect: v.optional(methodPipe),
 })
 
-const encryptionKeyPipe = v.custom<string>((value) => {
-	if (typeof value !== 'string' || !/^[A-Za-z0-9+/]{43}=$/.test(value)) return false
-	const key = Buffer.from(value, 'base64')
-	return key.length === 32 && key.toString('base64') === value
-}, 'Expected a canonical base64-encoded 32-byte encryption key or null.')
+const encryptionKeyPipe = v.string().pipe(
+	v.custom((value) => {
+		if (!/^[A-Za-z0-9+/]{43}=$/.test(value)) return false
+		const key = Buffer.from(value, 'base64')
+		return key.length === 32 && key.toString('base64') === value
+	}, 'Expected a canonical base64-encoded 32-byte encryption key or null.'),
+)
 
 export function dependenciesPipe() {
 	return v.object({

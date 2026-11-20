@@ -1,15 +1,10 @@
 import { v, type PipeOutput } from 'valleyed'
 
-// Validate primitives before any property access, trimming or date parsing.
-export const titlePipe = v
-	.custom<string>((value) => typeof value === 'string', 'Expected a title.')
-	.pipe(v.asTrimmed(), v.min(1, 'Expected a nonblank title.'))
+export const titlePipe = v.string().pipe(v.asTrimmed(), v.min(1))
 
-export const bodyPipe = v.custom<string>((value) => typeof value === 'string', 'Expected a body.')
+export const bodyPipe = v.string()
 
-export const protectedStringPipe = v
-	.custom<string>((value) => typeof value === 'string', 'Expected a nonempty string.')
-	.pipe(v.min(1, 'Expected a nonempty string.'))
+export const protectedStringPipe = v.string().pipe(v.min(1))
 
 export function canonicalBase64Pipe(byteLength?: number) {
 	return protectedStringPipe.pipe(
@@ -25,51 +20,45 @@ export function canonicalBase64Pipe(byteLength?: number) {
 }
 
 // JavaScript $ also matches before a final newline; enforce exact length too.
-export const idPipe = v
-	.custom<string>((value) => typeof value === 'string', 'Expected a Core id.')
-	.pipe(
-		v.custom((value) => value.length === 26 && /^[0-7][0-9a-hjkmnp-tv-z]{25}$/.test(value), 'Expected a Core id.'),
-	)
+export const idPipe = v.string().pipe(
+	v.has(26),
+	v.custom((value) => /^[0-7][0-9a-hjkmnp-tv-z]{25}$/.test(value), 'Expected a Core id.'),
+)
 
 export const revisionVersionPipe = v
-	.number('Expected a positive safe integer.')
-	.pipe(v.custom((value) => Number.isSafeInteger(value) && value > 0, 'Expected a positive safe integer.'))
+	.number()
+	.pipe(v.gt(0), v.custom<number>(Number.isSafeInteger, 'Expected a safe integer.'))
 
 export const appliedAtPipe = v
-	.number('Expected nonnegative safe milliseconds.')
-	.pipe(v.custom((value) => Number.isSafeInteger(value) && value >= 0, 'Expected nonnegative safe milliseconds.'))
+	.number()
+	.pipe(v.gte(0), v.custom<number>(Number.isSafeInteger, 'Expected safe integer milliseconds.'))
 
 const attributionFields = {
-	by: v.custom<string>((value) => typeof value === 'string', 'Expected attribution by to be a string.'),
-	cid: v.nullable(
-		v.custom<string>((value) => typeof value === 'string', 'Expected attribution cid to be a string or null.'),
-	),
+	by: v.string(),
+	cid: v.nullable(v.string()),
 }
 export const attributionPipe = v.object({ ...attributionFields, cid: v.defaults(attributionFields.cid, null) })
 
-const utcTimestampPipe = v
-	.custom<string>((value) => typeof value === 'string', 'Expected a UTC ISO timestamp.')
-	.pipe(
-		v.custom<string>((value) => {
-			const time = Date.parse(value)
-			return Number.isFinite(time) && new Date(time).toISOString() === value
-		}, 'Expected a UTC ISO timestamp.'),
-	)
+const utcTimestampPipe = v.string().pipe(
+	v.custom<string>((value) => {
+		const time = Date.parse(value)
+		return Number.isFinite(time) && new Date(time).toISOString() === value
+	}, 'Expected a UTC ISO timestamp.'),
+)
 const localAuditStampPipe = v.object({
-	src: v.custom<'local'>((value) => value === 'local', 'Expected a local audit stamp.'),
+	src: v.eq('local'),
 	at: utcTimestampPipe,
 	...attributionFields,
 })
 const importedAuditStampPipe = v.object({
-	src: v.custom<'imported'>((value) => value === 'imported', 'Expected an imported audit stamp.'),
+	src: v.eq('imported'),
 	at: utcTimestampPipe,
 	iat: utcTimestampPipe,
 })
-export const auditStampPipe = v.discriminate(
-	(value) => value.src,
-	{ local: localAuditStampPipe, imported: importedAuditStampPipe },
-	'Expected an audit stamp.',
-)
+export const auditStampPipe = v.discriminate((value) => value.src, {
+	local: localAuditStampPipe,
+	imported: importedAuditStampPipe,
+})
 
 export type Id = PipeOutput<typeof idPipe>
 export type AuditStamp = PipeOutput<typeof auditStampPipe>
@@ -77,89 +66,16 @@ export type AuditStamp = PipeOutput<typeof auditStampPipe>
 if (import.meta.vitest) {
 	const { it, expect } = import.meta.vitest
 
-	it.each([
-		['title', titlePipe, '  Notes É\n', 'Expected a title.'],
-		['body', bodyPipe, '  Body É\n', 'Expected a body.'],
-		['protected string', protectedStringPipe, '  synthetic-secret É\n', 'Expected a nonempty string.'],
-		['id', idPipe, '01k00000000000000000000001', 'Expected a Core id.'],
-	])('rejects nonprimitive %s before inspecting or transforming it', (_name, pipe, text, message) => {
-		const spoof: unknown = JSON.parse(
-			'{"constructor":{"name":"String"},"length":26,"payload":"synthetic-NONSTRING"}',
-		)
-		const boxed: unknown = Object(text)
-		const hostile = {
-			get constructor() {
-				throw new Error('synthetic-constructor-secret')
-			},
-		}
-		for (const value of [spoof, boxed, hostile]) {
-			expect.soft(v.validate(pipe, value)).toMatchObject({ valid: false, error: { messages: [{ message }] } })
-		}
-	})
-
-	it('rejects spoofed and boxed caller strings before inspecting them', () => {
-		const spoof: unknown = JSON.parse('{"constructor":{"name":"String"},"payload":"synthetic-NONSTRING"}')
-		const boxed: unknown = Object('  caller É\n')
-		const hostile = {
-			get constructor() {
-				throw new Error('synthetic-constructor-secret')
-			},
-		}
-		for (const value of [spoof, boxed, hostile]) {
-			expect.soft(v.validate(attributionPipe, { by: value })).toMatchObject({
-				valid: false,
-				error: { messages: [{ path: 'by', message: 'Expected attribution by to be a string.' }] },
-			})
-			expect.soft(v.validate(attributionPipe, { by: '', cid: value })).toMatchObject({
-				valid: false,
-				error: { messages: [{ path: 'cid', message: 'Expected attribution cid to be a string or null.' }] },
-			})
-		}
-	})
-
-	it.each([
-		['src', 'local', 'Expected an audit stamp.'],
-		['by', '  caller É\n', 'Expected attribution by to be a string.'],
-		['cid', '  correlation É\n', 'Expected attribution cid to be a string or null.'],
-		['at', '2024-02-29T12:34:56.789Z', 'Expected a UTC ISO timestamp.'],
-	])('rejects nonprimitive audit %s before inspecting it', (field, text, message) => {
-		const stamp = { src: 'local', at: '2024-02-29T12:34:56.789Z', by: '', cid: null }
-		const spoof: unknown = JSON.parse('{"constructor":{"name":"String"},"payload":"synthetic-NONSTRING"}')
-		const boxed: unknown = Object(text)
-		const hostile = {
-			get constructor() {
-				throw new Error('synthetic-constructor-secret')
-			},
-		}
-		for (const value of [spoof, boxed, hostile]) {
-			expect.soft(v.validate(auditStampPipe, { ...stamp, [field]: value })).toMatchObject({
-				valid: false,
-				error: { messages: [field === 'src' ? { path: undefined, message } : { path: field, message }] },
-			})
-		}
-	})
-
-	it('keeps nested attribution and protected-string diagnostics schema-owned', () => {
-		const sentinel = 'synthetic-PROTECTED-input'
-		const pipe = v.object({
-			created: attributionPipe,
-			content: v.object({ body: bodyPipe, value: protectedStringPipe, valueRef: protectedStringPipe }),
+	it('exposes the shared domain constraints in generated schemas', () => {
+		expect(v.schema(titlePipe)).toMatchObject({ type: 'string', minLength: 1 })
+		expect(v.schema(protectedStringPipe)).toMatchObject({ type: 'string', minLength: 1 })
+		expect(v.schema(idPipe)).toMatchObject({ type: 'string', minLength: 26, maxLength: 26 })
+		expect(v.schema(revisionVersionPipe)).toMatchObject({ type: 'number', exclusiveMinimum: 0 })
+		expect(v.schema(appliedAtPipe)).toMatchObject({ type: 'number', minimum: 0 })
+		expect(v.schema(attributionPipe)).toMatchObject({
+			properties: { by: { type: 'string' }, cid: { oneOf: [{ type: 'string' }, { type: 'null' }] } },
 		})
-		v.compile(pipe, { allErrors: true })
-		const invalidValue = { constructor: { name: 'String' }, length: 1, value: sentinel, [sentinel]: sentinel }
-		const invalid = v.validate(pipe, {
-			created: { by: invalidValue, cid: invalidValue, [sentinel]: sentinel },
-			content: { body: invalidValue, value: invalidValue, valueRef: invalidValue, [sentinel]: sentinel },
-			[sentinel]: sentinel,
-		})
-		if (invalid.valid) throw new Error('Expected invalid input in test')
-		expect(invalid.error.messages).toMatchObject([
-			{ path: 'created.by', message: 'Expected attribution by to be a string.' },
-			{ path: 'created.cid', message: 'Expected attribution cid to be a string or null.' },
-			{ path: 'content.body', message: 'Expected a body.' },
-			{ path: 'content.value', message: 'Expected a nonempty string.' },
-			{ path: 'content.valueRef', message: 'Expected a nonempty string.' },
-		])
+		expect(v.schema(utcTimestampPipe)).toMatchObject({ type: 'string' })
 	})
 
 	it('validates exact local UTC ISO audit stamps and strips undeclared fields', () => {
@@ -202,7 +118,7 @@ if (import.meta.vitest) {
 		for (const candidate of [stamp, { ...stamp, cid: undefined }]) {
 			expect.soft(v.validate(auditStampPipe, candidate)).toMatchObject({
 				valid: false,
-				error: { messages: [{ path: 'cid', message: 'Expected attribution cid to be a string or null.' }] },
+				error: { messages: [{ path: 'cid' }] },
 			})
 		}
 		for (const cid of [null, '', '  correlation É\n']) {

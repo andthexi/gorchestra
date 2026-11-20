@@ -1,6 +1,6 @@
 # Use native Repo with explicit validation
 
-Accepted. Project, Secret, Asset and Memory/Revision handlers use native Repo with shared storage-call classification and schema-derived stored-read validation; protected fields and required parent/ownership records are validated before use. Extending external-boundary validation to replace final operation Result parsing is accepted but **unimplemented**. See [package usage](../../../libs/core/README.md#memory-hierarchy-and-immutable-revision-reads).
+See [operation boundaries](../BOUNDARIES.md) for the owning contract.
 
 Persisted fields are not automatically revalidated by Equipped, and validation must precede any ownership decision or external call that uses them. Supply native Repo directly to internal handlers with explicit shared schema-derived read/error helpers, rather than build a recursive guarded Repo/builder facade or a second flattened persistence representation. Validate storage-returned data on both reads and writes before using it or including it in a response; model modules own the schemas, and stored-record validation derives from those fields without applying create defaults. This keeps one model-owned schema and the native storage API, accepting authoring discipline instead of claiming runtime sandboxing or revocation of escaped builders.
 

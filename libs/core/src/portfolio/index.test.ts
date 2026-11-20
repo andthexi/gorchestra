@@ -89,6 +89,48 @@ describe('attributed Portfolio', () => {
 			expect(requireSuccess(await portfolio.projects.list())).toEqual([])
 		})
 	})
+	it.each(['export-passphrase', 'import-passphrase', 'import-snapshot'] as const)(
+		'contains unexpected validation exceptions before Snapshot storage access: %s',
+		async (mode) => {
+			const dependencies = createTestDependencies()
+			await withReadyPortfolio(async (portfolio) => {
+				const project = requireSuccess(
+					await portfolio.projects.create({ title: 'Preserved', spec: { type: 'source-control' } }),
+				)
+				const session = vi.spyOn(dependencies.storage.adapter, 'session')
+				const hostile = {
+					get constructor() {
+						throw new Error('synthetic-PROTECTED-snapshot-input')
+					},
+				}
+				try {
+					const operation = mode === 'export-passphrase' ? portfolio.export : portfolio.import
+					const field = mode === 'import-snapshot' ? 'snapshot' : 'passphrase'
+					for (const input of [
+						{ snapshot: 'not-decoded', passphrase: 'twelve chars', [field]: hostile },
+						{
+							snapshot: 'not-decoded',
+							passphrase: 'twelve chars',
+							get [field]() {
+								throw new Error('synthetic-PROTECTED-snapshot-input')
+							},
+						},
+					]) {
+						const result: unknown = await Reflect.apply(operation, undefined, [input])
+						expect(result).toEqual({
+							ok: false,
+							error: { type: 'invalid-input', issues: [{ message: 'Invalid input.' }] },
+						})
+					}
+					expect(session).not.toHaveBeenCalled()
+				} finally {
+					session.mockRestore()
+				}
+				expect(requireSuccess(await portfolio.projects.list())).toEqual([project])
+			}, dependencies)
+		},
+	)
+
 	it('copies distinct exact attribution synchronously without storage I/O', async () => {
 		const dependencies = createTestDependencies()
 		const adapter = dependencies.storage.adapter
@@ -169,16 +211,16 @@ describe('attributed Portfolio', () => {
 			}
 			expect(client.as({ by: '' })).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
 			const invalid: unknown = Reflect.apply(client.as.bind(client), undefined, [{ by: 1 }])
-			expect(invalid).toEqual({
+			expect(invalid).toMatchObject({
 				ok: false,
 				error: {
 					type: 'invalid-input',
-					issues: [{ path: 'by', message: 'Expected attribution by to be a string.' }],
+					issues: [{ path: 'by' }],
 				},
 			})
-			expect(await portfolio.projects.create({ title: '  ', spec: { type: 'source-control' } })).toEqual({
+			expect(await portfolio.projects.create({ title: '  ', spec: { type: 'source-control' } })).toMatchObject({
 				ok: false,
-				error: { type: 'invalid-input', issues: [{ path: 'title', message: 'Expected a nonblank title.' }] },
+				error: { type: 'invalid-input', issues: [{ path: 'title' }] },
 			})
 			expect(await portfolio.projects.list()).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
 			const id = '01k00000000000000000000001'
@@ -208,9 +250,9 @@ describe('attributed Portfolio', () => {
 				}),
 			])
 				expect(result).toEqual({ ok: false, error: { type: 'storage-operation-failed' } })
-			expect(await list({ projectId: 'invalid' })).toEqual({
+			expect(await list({ projectId: 'invalid' })).toMatchObject({
 				ok: false,
-				error: { type: 'invalid-input', issues: [{ path: 'projectId', message: 'Expected a Core id.' }] },
+				error: { type: 'invalid-input', issues: [{ path: 'projectId' }] },
 			})
 		} finally {
 			adapter.session = session

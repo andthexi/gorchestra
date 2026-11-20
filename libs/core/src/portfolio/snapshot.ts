@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto'
 
-import { v, type PipeOutput } from 'valleyed'
+import { v, PipeError, type PipeOutput } from 'valleyed'
 
 import { assetPipe, assetSchema } from '../domain/asset'
 import { auditStampPipe, canonicalBase64Pipe, idPipe, protectedStringPipe } from '../domain/commons'
@@ -15,7 +15,7 @@ import { stored } from '../storage/read'
 import { withExplicitId } from '../storage/schema'
 
 const CONTEXT = Buffer.from('gorchestra:portfolio-snapshot:v1', 'utf8')
-const passphrasePipe = protectedStringPipe.pipe(v.min(12, 'Expected a passphrase of at least 12 characters.'))
+const passphrasePipe = protectedStringPipe.pipe(v.min(12))
 const inputPipe = v.object({ passphrase: passphrasePipe })
 const importInputPipe = v.object({ snapshot: protectedStringPipe, passphrase: passphrasePipe })
 const envelopePipe = v.fromJson(
@@ -72,8 +72,13 @@ async function invoke<T>(owner: Owner, work: () => Promise<Result<T, SnapshotErr
 }
 
 export async function exportSnapshot(owner: Owner, input: unknown): Promise<Result<string, SnapshotError>> {
-	const parsed = v.validate(inputPipe, input)
-	if (!parsed.valid) return { ok: false, error: { type: 'invalid-input', issues: inputIssues(parsed.error) } }
+	let parsed: PipeOutput<typeof inputPipe> | PipeError
+	try {
+		parsed = v.compile(inputPipe)(input)
+	} catch {
+		return { ok: false, error: { type: 'invalid-input', issues: [{ message: 'Invalid input.' }] } }
+	}
+	if (parsed instanceof PipeError) return { ok: false, error: { type: 'invalid-input', issues: inputIssues(parsed) } }
 	return invoke(owner, async () => {
 		try {
 			const ready = await owner.validateReady()
@@ -108,7 +113,7 @@ export async function exportSnapshot(owner: Owner, input: unknown): Promise<Resu
 			)
 			const salt = randomBytes(16)
 			const nonce = randomBytes(12)
-			const cipher = createCipheriv('aes-256-gcm', key(parsed.value.passphrase, salt), nonce)
+			const cipher = createCipheriv('aes-256-gcm', key(parsed.passphrase, salt), nonce)
 			cipher.setAAD(CONTEXT)
 			const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()])
 			return {
@@ -128,17 +133,22 @@ export async function exportSnapshot(owner: Owner, input: unknown): Promise<Resu
 }
 
 export async function importSnapshot(owner: Owner, input: unknown): Promise<Result<void, SnapshotError>> {
-	const parsedInput = v.validate(importInputPipe, input)
-	if (!parsedInput.valid)
-		return { ok: false, error: { type: 'invalid-input', issues: inputIssues(parsedInput.error) } }
+	let parsedInput: PipeOutput<typeof importInputPipe> | PipeError
+	try {
+		parsedInput = v.compile(importInputPipe)(input)
+	} catch {
+		return { ok: false, error: { type: 'invalid-input', issues: [{ message: 'Invalid input.' }] } }
+	}
+	if (parsedInput instanceof PipeError)
+		return { ok: false, error: { type: 'invalid-input', issues: inputIssues(parsedInput) } }
 	let payload: PipeOutput<typeof payloadPipe>
 	try {
-		const parsedEnvelope = v.validate(envelopePipe, parsedInput.value.snapshot)
+		const parsedEnvelope = v.validate(envelopePipe, parsedInput.snapshot)
 		if (!parsedEnvelope.valid) return { ok: false, error: { type: 'snapshot-invalid' } }
 		const envelope = parsedEnvelope.value
 		const decipher = createDecipheriv(
 			'aes-256-gcm',
-			key(parsedInput.value.passphrase, Buffer.from(envelope.salt, 'base64')),
+			key(parsedInput.passphrase, Buffer.from(envelope.salt, 'base64')),
 			Buffer.from(envelope.nonce, 'base64'),
 		)
 		decipher.setAAD(CONTEXT)

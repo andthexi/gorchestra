@@ -10,14 +10,10 @@ const encryptedPayloadPipe = v.object({
 	tag: canonicalBase64Pipe(16),
 })
 
-const secretProtectionSpecPipe = v.discriminate(
-	(value) => value.mode,
-	{
-		plaintext: v.object({ mode: v.eq('plaintext') }),
-		encrypted: v.object({ mode: v.eq('encrypted'), verifier: encryptedPayloadPipe }),
-	},
-	'Expected Secret protection.',
-)
+const secretProtectionSpecPipe = v.discriminate((value) => value.mode, {
+	plaintext: v.object({ mode: v.eq('plaintext') }),
+	encrypted: v.object({ mode: v.eq('encrypted'), verifier: encryptedPayloadPipe }),
+})
 
 export const secretProtectionSchema = Schema.from('secret_protection')
 	.pk('id', idPipe, requireExplicitId)

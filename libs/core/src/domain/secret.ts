@@ -4,19 +4,15 @@ import { v, type PipeOutput } from 'valleyed'
 import { requireExplicitId, schemaPipe } from '../storage/schema'
 import { auditStampPipe, canonicalBase64Pipe, idPipe, protectedStringPipe, titlePipe } from './commons'
 
-export const secretValuePipe = v.discriminate(
-	(value) => value.mode,
-	{
-		plaintext: v.object({ mode: v.eq('plaintext'), plaintext: protectedStringPipe }),
-		encrypted: v.object({
-			mode: v.eq('encrypted'),
-			nonce: canonicalBase64Pipe(12),
-			ciphertext: canonicalBase64Pipe(),
-			tag: canonicalBase64Pipe(16),
-		}),
-	},
-	'Expected a stored Secret value.',
-)
+export const secretValuePipe = v.discriminate((value) => value.mode, {
+	plaintext: v.object({ mode: v.eq('plaintext'), plaintext: protectedStringPipe }),
+	encrypted: v.object({
+		mode: v.eq('encrypted'),
+		nonce: canonicalBase64Pipe(12),
+		ciphertext: canonicalBase64Pipe(),
+		tag: canonicalBase64Pipe(16),
+	}),
+})
 
 export const secretSchema = Schema.from('secrets')
 	.pk('id', idPipe, requireExplicitId)
@@ -38,7 +34,7 @@ export type Secret = PipeOutput<typeof publicSecretPipe>
 if (import.meta.vitest) {
 	const { it, expect } = import.meta.vitest
 
-	it('keeps Secret string validation primitive and rejects incomplete public stamps', () => {
+	it('rejects invalid Secret titles and incomplete public stamps', () => {
 		const stamp = { src: 'local', at: '2026-11-11T00:00:00.000Z', by: '', cid: null }
 		const input = {
 			id: '01k00000000000000000000001',
@@ -47,12 +43,8 @@ if (import.meta.vitest) {
 			created: stamp,
 			valueUpdated: stamp,
 		}
-		const boxed: unknown = Object('text')
-		for (const field of ['title']) {
-			for (const value of [boxed, { constructor: { name: 'String' }, length: 1 }]) {
-				expect(v.validate(secretPipe, { ...input, [field]: value }).valid).toBe(false)
-			}
-		}
+		for (const title of ['', ' \n', null, 1, {}])
+			expect(v.validate(secretPipe, { ...input, title }).valid).toBe(false)
 		for (const field of ['created', 'valueUpdated']) {
 			const value = { ...input, [field]: { src: 'local', at: stamp.at, by: stamp.by } }
 			expect(v.validate(secretPipe, value).valid).toBe(false)

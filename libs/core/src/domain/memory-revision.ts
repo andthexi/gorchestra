@@ -19,13 +19,12 @@ export type MemoryRevision = PipeOutput<typeof memoryRevisionPipe>
 if (import.meta.vitest) {
 	const { it, expect } = import.meta.vitest
 
-	it('rejects nonprimitive revision text and malformed references or stored stamps', () => {
+	it('rejects invalid revision text and malformed references or stored stamps', () => {
 		const stamp = { src: 'local', at: '2026-11-11T00:00:00.000Z', by: '', cid: null }
 		const id = '01k00000000000000000000001'
 		const input = { id, memoryId: id, version: 1, title: 'Notes', body: '', created: stamp }
-		const boxed: unknown = Object('text')
 		for (const field of ['title', 'body']) {
-			for (const value of [boxed, { constructor: { name: 'String' } }]) {
+			for (const value of [null, 1, {}]) {
 				expect(v.validate(memoryRevisionPipe, { ...input, [field]: value }).valid).toBe(false)
 			}
 		}

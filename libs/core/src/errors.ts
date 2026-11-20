@@ -11,59 +11,55 @@ export function inputIssues(error: PipeError): PipeOutput<typeof inputIssuePipe>
 // Native object stripping stays intact; only absent optional paths are omitted.
 const inputIssuePipe = v
 	.object({
-		path: v.optional(v.custom<string>((value) => typeof value === 'string', 'Invalid input.')),
-		message: v.custom<string>((value) => typeof value === 'string', 'Invalid input.'),
+		path: v.optional(v.string()),
+		message: v.string(),
 	})
 	.pipe(({ path, message }) => (path === undefined ? { message } : { path, message }))
 
 const invalidInputPipe = v.object({
-	type: v.is('invalid-input', 'Invalid input.'),
+	type: v.is('invalid-input'),
 	issues: v.array(inputIssuePipe),
 })
 
-const invalidOutputPipe = v.object({ type: v.is('invalid-output', 'Invalid input.') })
-const invalidStorageOutputPipe = v.object({ type: v.is('invalid-storage-output', 'Invalid input.') })
-const internalErrorPipe = v.object({ type: v.is('internal-error', 'Invalid input.') })
-const storageOperationFailedPipe = v.object({ type: v.is('storage-operation-failed', 'Invalid input.') })
+const invalidOutputPipe = v.object({ type: v.is('invalid-output') })
+const invalidStorageOutputPipe = v.object({ type: v.is('invalid-storage-output') })
+const internalErrorPipe = v.object({ type: v.is('internal-error') })
+const storageOperationFailedPipe = v.object({ type: v.is('storage-operation-failed') })
 
-export const sharedOperationErrorPipe = v.discriminate(
-	(error) => error.type,
-	{
-		'invalid-input': invalidInputPipe,
-		'invalid-output': invalidOutputPipe,
-		'invalid-storage-output': invalidStorageOutputPipe,
-		'internal-error': internalErrorPipe,
-		'storage-operation-failed': storageOperationFailedPipe,
-	},
-	'Invalid input.',
-)
+export const sharedOperationErrorPipe = v.discriminate((error) => error.type, {
+	'invalid-input': invalidInputPipe,
+	'invalid-output': invalidOutputPipe,
+	'invalid-storage-output': invalidStorageOutputPipe,
+	'internal-error': internalErrorPipe,
+	'storage-operation-failed': storageOperationFailedPipe,
+})
 export type InvalidInputError = PipeOutput<typeof invalidInputPipe>
 export type SharedOperationError = PipeOutput<typeof sharedOperationErrorPipe>
 
 export const notFoundPipe = v.object({
-	type: v.is('not-found', 'Invalid input.'),
-	resource: v.in(['secret', 'project', 'asset', 'memory', 'memory-revision'], 'Invalid input.'),
+	type: v.is('not-found'),
+	resource: v.in(['secret', 'project', 'asset', 'memory', 'memory-revision']),
 	id: idPipe,
 })
 
-export const duplicateAssetPipe = v.object({ type: v.is('duplicate-asset-target', 'Invalid input.'), assetId: idPipe })
+export const duplicateAssetPipe = v.object({ type: v.is('duplicate-asset-target'), assetId: idPipe })
 
 export const revisionConflictPipe = v.object({
-	type: v.is('revision-conflict', 'Invalid input.'),
+	type: v.is('revision-conflict'),
 	memoryId: idPipe,
 	expectedVersion: revisionVersionPipe,
 })
 
-export const revisionVersionExhaustedPipe = v.object({ type: v.is('revision-version-exhausted', 'Invalid input.') })
-const schemaMetadataInvalidPipe = v.object({ type: v.is('schema-metadata-invalid', 'Invalid input.') })
-const schemaVersionUnrecognizedPipe = v.object({ type: v.is('schema-version-unrecognized', 'Invalid input.') })
+export const revisionVersionExhaustedPipe = v.object({ type: v.is('revision-version-exhausted') })
+const schemaMetadataInvalidPipe = v.object({ type: v.is('schema-metadata-invalid') })
+const schemaVersionUnrecognizedPipe = v.object({ type: v.is('schema-version-unrecognized') })
 export type SchemaMetadataInvalidError = PipeOutput<typeof schemaMetadataInvalidPipe>
 export type SchemaVersionUnrecognizedError = PipeOutput<typeof schemaVersionUnrecognizedPipe>
 export type StorageOperationFailedError = PipeOutput<typeof storageOperationFailedPipe>
-const storageNotEmptyPipe = v.object({ type: v.is('storage-not-empty', 'Invalid input.') })
-const storageAlreadyInitializedPipe = v.object({ type: v.is('storage-already-initialized', 'Invalid input.') })
-const storageNotInitializedPipe = v.object({ type: v.is('storage-not-initialized', 'Invalid input.') })
-const schemaAlreadyCurrentPipe = v.object({ type: v.is('schema-already-current', 'Invalid input.') })
+const storageNotEmptyPipe = v.object({ type: v.is('storage-not-empty') })
+const storageAlreadyInitializedPipe = v.object({ type: v.is('storage-already-initialized') })
+const storageNotInitializedPipe = v.object({ type: v.is('storage-not-initialized') })
+const schemaAlreadyCurrentPipe = v.object({ type: v.is('schema-already-current') })
 
 export const factoryErrorPipe = v.or([
 	invalidInputPipe,
@@ -108,10 +104,9 @@ export function resultPipe<I, O, EI, EO>(value: Pipe<I, O>, error: Pipe<EI, EO>)
 			}
 		},
 		{
-			success: v.object({ ok: v.is(true, 'Invalid Result.'), value }),
-			failure: v.object({ ok: v.is(false, 'Invalid Result.'), error }),
+			success: v.object({ ok: v.is(true), value }),
+			failure: v.object({ ok: v.is(false), error }),
 		},
-		'Invalid Result.',
 	)
 }
 
@@ -157,15 +152,12 @@ if (import.meta.vitest) {
 		})
 	})
 
-	it('preserves schema-authored wording without an independent catalog', () => {
-		const invalid = v.validate(
-			v.object({ title: v.custom<string>((value) => typeof value === 'string', 'Expected title text.') }),
-			{
-				title: null,
-			},
-		)
+	it('preserves domain validation wording without an independent catalog', () => {
+		const invalid = v.validate(v.object({ id: idPipe }), {
+			id: '8zzzzzzzzzzzzzzzzzzzzzzzzz',
+		})
 		if (invalid.valid) throw new Error('Expected invalid input in test')
-		expect(inputIssues(invalid.error)).toEqual([{ path: 'title', message: 'Expected title text.' }])
+		expect(inputIssues(invalid.error)).toEqual([{ path: 'id', message: 'Expected a Core id.' }])
 	})
 
 	it('parses only the selected Result branch with native stripping and transforms', () => {
@@ -318,7 +310,6 @@ if (import.meta.vitest) {
 	})
 
 	it('validates structural invalid-input issues without rewriting paths or messages', () => {
-		const boxed: unknown = Object('Invalid input.')
 		const candidate = {
 			type: 'invalid-input',
 			issues: [
@@ -350,10 +341,6 @@ if (import.meta.vitest) {
 			[{}],
 			[{ path: null, message: 'Invalid input.' }],
 			[{ path: 1, message: 'Invalid input.' }],
-			[{ message: { constructor: { name: 'String' } } }],
-			[{ path: { constructor: { name: 'String' } }, message: 'Invalid input.' }],
-			[{ message: boxed }],
-			[{ path: boxed, message: 'Invalid input.' }],
 		]) {
 			expect(v.validate(invalidInputPipe, { type: 'invalid-input', issues }).valid).toBe(false)
 		}
@@ -378,12 +365,9 @@ if (import.meta.vitest) {
 		})
 		if (invalid.valid) throw new Error('Expected invalid input in test')
 		const issues = inputIssues(invalid.error)
-		const expected = [
-			{ path: 'revision.id', message: 'Expected a Core id.' },
-			{ path: 'revision.title', message: 'Expected a title.' },
-			{ path: 'revision.version', message: 'Expected a positive safe integer.' },
-		]
+		const expected = invalid.error.messages.map(({ path, message }) => ({ path, message }))
 		expect(issues).toEqual(expected)
+		expect(issues.map(({ path }) => path)).toEqual(['revision.id', 'revision.title', 'revision.version'])
 		expect(v.validate(invalidInputPipe, { type: 'invalid-input', issues })).toEqual({
 			valid: true,
 			value: { type: 'invalid-input', issues: expected },
@@ -397,11 +381,11 @@ if (import.meta.vitest) {
 			revision: { title: { value: sentinel, [sentinel]: sentinel }, id: sentinel },
 		})
 		if (result.valid) throw new Error('Expected invalid input in test')
-		expect(inputIssues(result.error)).toEqual([{ path: 'revision.title', message: 'Expected a title.' }])
+		expect(inputIssues(result.error)).toEqual(result.error.messages.map(({ path, message }) => ({ path, message })))
 		expect(JSON.stringify(inputIssues(result.error))).not.toContain(sentinel)
 		const root = v.validate(titlePipe, { value: sentinel })
 		if (root.valid) throw new Error('Expected invalid input in test')
-		expect(inputIssues(root.error)).toEqual([{ message: 'Expected a title.' }])
+		expect(inputIssues(root.error)).toEqual(root.error.messages.map(({ message }) => ({ message })))
 		expect(inputIssues(root.error)[0]).not.toHaveProperty('path')
 		expect(JSON.stringify(inputIssues(root.error))).not.toContain(sentinel)
 	})

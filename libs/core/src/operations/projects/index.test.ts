@@ -147,9 +147,9 @@ describe('projects', () => {
 				' 01k00000000000000000000001',
 				'8zzzzzzzzzzzzzzzzzzzzzzzzz',
 			])
-				expect(await portfolio.projects.find({ projectId })).toEqual({
+				expect(await portfolio.projects.find({ projectId })).toMatchObject({
 					ok: false,
-					error: { type: 'invalid-input', issues: [{ path: 'projectId', message: 'Expected a Core id.' }] },
+					error: { type: 'invalid-input', issues: [{ path: 'projectId' }] },
 				})
 			expect(await portfolio.projects.create({ title: ' \n', spec: { type: 'source-control' } })).toMatchObject({
 				ok: false,

@@ -5,7 +5,7 @@
 - `AGENTS.md` files are concise navigation maps, not stores of project behavior, implementation contracts or plans. Link to the owning documents and tell readers when to read them.
 - `CONTEXT.md` owns domain language and relationships.
 - Package READMEs own implemented usage and status; engineering guides own implementation and verification conventions.
-- Each context's `FUTURE.md` owns deferred work and future plans, including accepted but unimplemented work. Distinguish planned work, deferred decisions and post-MVP improvements. Record scope, rationale/current limitation, revisit trigger and durable references; do not invent deadlines or imply implementation approval.
+- Each context's `FUTURE.md` owns deferred work and future plans outside the current Change's scope. Settled decisions go directly into long-term owning documents; Changes track implementation and ship code and docs together, without accepted-but-unimplemented status labels. Distinguish planned work, deferred decisions and post-MVP improvements. Record scope, rationale/current limitation, revisit trigger and durable references; do not invent deadlines or imply implementation approval.
 - ADRs retain architectural decisions and rationale. Replace duplicated backlog detail with links to `FUTURE.md`; accepted architecture need not be deleted because implementation is later.
 - When work ships, remove or update its FUTURE entry and move implemented behavior into its owning documentation. Do not preserve completed-work diaries there.
 
@@ -15,7 +15,7 @@
 - Package READMEs document implemented usage; source owns exact schemas, signatures and runtime contracts. Keep future plans and deferred work in the owning context's `FUTURE.md`; detailed delivery acceptance criteria belong in approved Changes, not a duplicate contract catalog. ADR directories contain individual decisions, not a second README/index.
 - Offer ADRs sparingly, only when **all three** are true: the decision is hard to reverse, surprising without context, and the result of a real tradeoff with genuine alternatives. If any is missing, skip the ADR. This rule applies to `docs/core/` too; acceptance or deferral alone is insufficient. Keep plain model/API facts, task sequencing, backlog exclusions, research and future review checkpoints out of ADRs.
 - Prefer a short title and 1–3 sentences covering context, decision and why. Add status, considered options or consequences only when they genuinely add value; do not require boilerplate sections or exhaustive source/decision bookkeeping.
-- Keep decision disposition separate from implementation status. `docs/core/` documents the current `libs/core` design. Package documentation owns current implementation status; documentation for removed implementations is not retained here. Use Consumer for the application boundary, not as a reference to an existing application or a migration from one.
+- Describe settled contracts directly. Do not maintain implementation-status ledgers in long-term docs or FUTURE; the Change owns implementation progress. Documentation for removed implementations is not retained here. Use Consumer for the application boundary, not as a reference to an existing application or a migration from one.
 - ADR filenames use sortable date+time prefixes: `YYYY-MM-DD-HHMM-slug.md`.
 - Update relevant context docs or ADRs when a change alters durable domain language, decisions, responsibilities, or relationships.
 - Prefer linking to canonical source or context over duplicating detailed rules in multiple docs.

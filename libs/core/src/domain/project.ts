@@ -10,10 +10,7 @@ export const projectSchema = Schema.from('projects')
 	.field(
 		'spec',
 		v.object({
-			type: v.custom<'source-control'>(
-				(value) => value === 'source-control',
-				'Expected a source-control project.',
-			),
+			type: v.eq('source-control'),
 		}),
 	)
 	.field('created', auditStampPipe)
